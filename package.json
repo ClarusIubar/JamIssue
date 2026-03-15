@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "build": "powershell -ExecutionPolicy Bypass -File scripts/build-frontend.ps1",
+    "build": "node scripts/build-frontend.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
