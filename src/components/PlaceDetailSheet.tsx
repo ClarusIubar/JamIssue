@@ -7,19 +7,40 @@ interface PlaceDetailSheetProps {
   reviews: Review[];
   isOpen: boolean;
   canWrite: boolean;
+  canToggleLike: boolean;
   isStampCollected: boolean;
   isStampBusy: boolean;
   reviewError: string | null;
   reviewSubmitting: boolean;
+  reviewLikeUpdatingId: string | null;
   commentSubmittingReviewId: string | null;
   onClose: () => void;
   onRequestLogin: () => void;
   onCollectStamp: (place: Place) => Promise<void>;
   onCreateReview: (payload: { placeId: string; body: string; mood: ReviewMood; file: File | null }) => Promise<void>;
+  onToggleReviewLike: (reviewId: string) => Promise<void>;
   onCreateComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
 }
 
-export function PlaceDetailSheet({ place, reviews, isOpen, canWrite, isStampCollected, isStampBusy, reviewError, reviewSubmitting, commentSubmittingReviewId, onClose, onRequestLogin, onCollectStamp, onCreateReview, onCreateComment }: PlaceDetailSheetProps) {
+export function PlaceDetailSheet({
+  place,
+  reviews,
+  isOpen,
+  canWrite,
+  canToggleLike,
+  isStampCollected,
+  isStampBusy,
+  reviewError,
+  reviewSubmitting,
+  reviewLikeUpdatingId,
+  commentSubmittingReviewId,
+  onClose,
+  onRequestLogin,
+  onCollectStamp,
+  onCreateReview,
+  onToggleReviewLike,
+  onCreateComment,
+}: PlaceDetailSheetProps) {
   if (!place || !isOpen) {
     return null;
   }
@@ -35,7 +56,7 @@ export function PlaceDetailSheet({ place, reviews, isOpen, canWrite, isStampColl
             <p>{place.summary}</p>
           </div>
           <button type="button" className="text-button" onClick={onClose}>
-            닫기
+            ??
           </button>
         </div>
         <div className="detail-meta-card">
@@ -43,23 +64,45 @@ export function PlaceDetailSheet({ place, reviews, isOpen, canWrite, isStampColl
             <strong>{place.district}</strong>
             <p>{place.visitTime}</p>
           </div>
-          <button type="button" className={isStampCollected ? 'secondary-button is-complete' : 'primary-button'} onClick={() => void onCollectStamp(place)} disabled={isStampCollected || isStampBusy}>
-            {isStampBusy ? '위치 확인 중...' : isStampCollected ? '스탬프 완료' : '현장 스탬프 받기'}
+          <button
+            type="button"
+            className={isStampCollected ? 'secondary-button is-complete' : 'primary-button'}
+            onClick={() => void onCollectStamp(place)}
+            disabled={isStampCollected || isStampBusy}
+          >
+            {isStampBusy ? '?? ?? ?...' : isStampCollected ? '??? ??' : '?? ??? ??'}
           </button>
         </div>
         <div className="route-hint-box">
-          <strong>동선 힌트</strong>
+          <strong>?? ??</strong>
           <p>{place.routeHint}</p>
         </div>
-        <ReviewComposer key={place.id} placeName={place.name} loggedIn={canWrite} submitting={reviewSubmitting} errorMessage={reviewError} onSubmit={({ body, mood, file }) => onCreateReview({ placeId: place.id, body, mood, file })} onRequestLogin={onRequestLogin} />
+        <ReviewComposer
+          key={place.id}
+          placeName={place.name}
+          loggedIn={canWrite}
+          submitting={reviewSubmitting}
+          errorMessage={reviewError}
+          onSubmit={({ body, mood, file }) => onCreateReview({ placeId: place.id, body, mood, file })}
+          onRequestLogin={onRequestLogin}
+        />
         <div className="section-title-row section-title-row--tight">
           <div>
             <p className="eyebrow">LIVE FEED</p>
-            <h3>이 장소 후기와 댓글</h3>
+            <h3>? ?? ??? ??</h3>
           </div>
-          <span className="counter-pill">{reviews.length}개 후기</span>
+          <span className="counter-pill">{reviews.length}? ??</span>
         </div>
-        <ReviewList reviews={reviews} canWriteComment={canWrite} submittingReviewId={commentSubmittingReviewId} onSubmitComment={onCreateComment} onRequestLogin={onRequestLogin} />
+        <ReviewList
+          reviews={reviews}
+          canWriteComment={canWrite}
+          canToggleLike={canToggleLike}
+          likingReviewId={reviewLikeUpdatingId}
+          submittingReviewId={commentSubmittingReviewId}
+          onToggleLike={onToggleReviewLike}
+          onSubmitComment={onCreateComment}
+          onRequestLogin={onRequestLogin}
+        />
       </section>
     </div>
   );

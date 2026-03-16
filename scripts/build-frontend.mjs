@@ -1,4 +1,4 @@
-import { build } from "esbuild";
+﻿import { build } from "esbuild";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,7 +17,9 @@ const MAP_KEY_WARNING = "PUBLIC_NAVER_MAP_CLIENT_ID \uAC12\uC774 \uBE44\uC5B4 \u
 
 async function readPublicEnv() {
   const envFiles = [path.join(rootDir, ".env.example"), path.join(rootDir, ".env")];
-  const values = {};
+  const values = {
+    ...process.env,
+  };
 
   for (const envFile of envFiles) {
     try {
@@ -40,6 +42,8 @@ async function readPublicEnv() {
     } catch {
     }
   }
+
+  Object.assign(values, process.env);
 
   const mapKey =
     (values.PUBLIC_NAVER_MAP_CLIENT_ID &&
@@ -167,3 +171,4 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+

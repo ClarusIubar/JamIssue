@@ -1,60 +1,270 @@
-from pathlib import Path
+﻿from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import sessionmaker
 
 from app.config import Settings
 from app.db import Base
-from app.models import CommentCreate, ReviewCreate
-from app.repository import create_comment, create_review, get_my_page, import_public_bundle, toggle_stamp
+from app.db_models import Feed, FeedLike, User, UserComment, UserIdentity, UserRoute, UserStamp
+from app.models import CommentCreate, ReviewCreate, UserRouteCreate
+from app.repository import (
+    create_comment,
+    create_review,
+    delete_account,
+    delete_comment,
+    delete_review,
+    get_my_page,
+    import_public_bundle,
+    link_social_identity,
+    list_reviews,
+    toggle_review_like,
+    toggle_stamp,
+    upsert_social_user,
+)
+from app.user_routes import create_user_route
 
 
 def build_session(tmp_path: Path):
     database_url = f"sqlite:///{tmp_path / 'test.db'}"
     engine = create_engine(database_url, future=True, connect_args={"check_same_thread": False})
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, _connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
     return session_factory()
 
 
-def test_review_comment_and_my_page_flow(tmp_path: Path):
-    session = build_session(tmp_path)
+def load_seed_data(session):
     settings = Settings(database_url='sqlite:///ignored.db', public_data_path=str(Path(__file__).resolve().parents[1] / 'data/public_bundle.json'))
     import_public_bundle(session, settings)
 
+
+def test_review_comment_and_my_page_flow(tmp_path: Path):
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
     review = create_review(
         session,
-        ReviewCreate(placeId='hanbat-forest', body='\uAF43\uAE38\uC774 \uC9C4\uC9DC \uC608\uC058\uC5C8\uC5B4\uC694.', mood='\uC124\uB818', imageUrl='/uploads/demo.jpg'),
-        'naver:user-1',
-        '\uBBFC\uC11C',
+        ReviewCreate(placeId='hanbat-forest', body='꽃길이 진짜 예뻤어요.', mood='설렘', imageUrl='/uploads/demo.jpg'),
+        'user-1',
+        '민서',
     )
     comments = create_comment(
         session,
         review.id,
-        CommentCreate(body='\uC800\uB3C4 \uAC00\uBCF4\uACE0 \uC2F6\uC5B4\uC694.', parentId=None),
-        'naver:user-2',
-        '\uAC00\uC740',
+        CommentCreate(body='저도 가보고 싶어요.', parentId=None),
+        'user-2',
+        '가은',
     )
-    my_page = get_my_page(session, 'naver:user-1', False)
+    my_page = get_my_page(session, 'user-1', False)
 
     assert review.image_url == '/uploads/demo.jpg'
-    assert comments[0].body == '\uC800\uB3C4 \uAC00\uBCF4\uACE0 \uC2F6\uC5B4\uC694.'
+    assert comments[0].body == '저도 가보고 싶어요.'
     assert my_page.stats.review_count == 1
-    assert my_page.reviews[0].user_id == 'naver:user-1'
+    assert my_page.reviews[0].user_id == 'user-1'
 
 
 def test_stamp_requires_real_distance(tmp_path: Path):
     session = build_session(tmp_path)
-    settings = Settings(database_url='sqlite:///ignored.db', public_data_path=str(Path(__file__).resolve().parents[1] / 'data/public_bundle.json'))
-    import_public_bundle(session, settings)
+    load_seed_data(session)
 
     blocked = False
     try:
-        toggle_stamp(session, 'naver:user-1', 'hanbat-forest', 37.0, 127.0, 120)
+        toggle_stamp(session, 'user-1', 'hanbat-forest', 37.0, 127.0, 120)
     except PermissionError:
         blocked = True
 
-    state = toggle_stamp(session, 'naver:user-1', 'hanbat-forest', 36.3671, 127.3886, 120)
+    state = toggle_stamp(session, 'user-1', 'hanbat-forest', 36.3671, 127.3886, 120)
 
     assert blocked is True
     assert 'hanbat-forest' in state.collected_place_ids
+
+
+
+def test_review_like_flow(tmp_path: Path):
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', body='산책 동선이 가볍고 좋았어요.', mood='설렘', imageUrl=None),
+        'user-1',
+        '민서',
+    )
+
+    like_state = toggle_review_like(session, review.id, 'user-2', '가은')
+    reviews = list_reviews(session, place_id='hanbat-forest', current_user_id='user-2')
+
+    assert like_state.like_count == 1
+    assert like_state.liked_by_me is True
+    assert reviews[0].like_count == 1
+    assert reviews[0].liked_by_me is True
+
+    blocked = False
+    try:
+        toggle_review_like(session, review.id, 'user-1', '민서')
+    except ValueError:
+        blocked = True
+
+    assert blocked is True
+
+
+
+def test_social_identity_does_not_merge_accounts_by_email(tmp_path: Path):
+    session = build_session(tmp_path)
+
+    naver_user = upsert_social_user(
+        session,
+        provider='naver',
+        provider_user_id='naver-123',
+        nickname='민서',
+        email='same@example.com',
+        profile_image='https://example.com/naver.png',
+    )
+    kakao_user = upsert_social_user(
+        session,
+        provider='kakao',
+        provider_user_id='kakao-456',
+        nickname='민서',
+        email='same@example.com',
+        profile_image='https://example.com/kakao.png',
+    )
+
+    assert naver_user.user_id != kakao_user.user_id
+
+
+
+def test_social_identity_links_two_providers_only_when_explicitly_requested(tmp_path: Path):
+    session = build_session(tmp_path)
+
+    naver_user = upsert_social_user(
+        session,
+        provider='naver',
+        provider_user_id='naver-123',
+        nickname='민서',
+        email='same@example.com',
+        profile_image='https://example.com/naver.png',
+    )
+
+    linked_user = link_social_identity(
+        session,
+        user_id=naver_user.user_id,
+        provider='kakao',
+        provider_user_id='kakao-456',
+        email='same@example.com',
+        profile_image='https://example.com/kakao.png',
+    )
+
+    identities = session.scalars(select(UserIdentity).where(UserIdentity.user_id == naver_user.user_id)).all()
+
+    assert linked_user.user_id == naver_user.user_id
+    assert len(identities) == 2
+    assert {identity.provider for identity in identities} == {'naver', 'kakao'}
+
+
+
+def test_delete_comment_keeps_reply_tree(tmp_path: Path):
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', body='현장 메모를 남겨요.', mood='설렘', imageUrl=None),
+        'user-owner',
+        '소희',
+    )
+    create_comment(session, review.id, CommentCreate(body='부모 댓글', parentId=None), 'user-parent', '민서')
+    parent = session.scalars(select(UserComment).where(UserComment.body == '부모 댓글')).one()
+    tree = create_comment(session, review.id, CommentCreate(body='대댓글', parentId=str(parent.comment_id)), 'user-child', '가은')
+    updated_tree = delete_comment(session, review.id, str(parent.comment_id), 'user-parent')
+
+    assert tree[0].replies[0].body == '대댓글'
+    assert updated_tree[0].is_deleted is True
+    assert updated_tree[0].body == '삭제된 댓글입니다.'
+    assert updated_tree[0].replies[0].body == '대댓글'
+
+
+
+def test_delete_review_removes_comments_and_likes(tmp_path: Path):
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', body='지울 후기예요.', mood='설렘', imageUrl=None),
+        'user-owner',
+        '소희',
+    )
+    create_comment(session, review.id, CommentCreate(body='댓글 하나', parentId=None), 'user-commenter', '민서')
+    toggle_review_like(session, review.id, 'user-liker', '가은')
+
+    delete_review(session, review.id, 'user-owner')
+
+    assert session.scalar(select(func.count()).select_from(Feed).where(Feed.feed_id == int(review.id))) == 0
+    assert session.scalar(select(func.count()).select_from(UserComment)) == 0
+    assert session.scalar(select(func.count()).select_from(FeedLike)) == 0
+
+
+
+def test_delete_account_cascades_user_content_and_detaches_replies(tmp_path: Path):
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    social_user = upsert_social_user(
+        session,
+        provider='naver',
+        provider_user_id='naver-withdraw',
+        nickname='탈퇴회원',
+        email='withdraw@example.com',
+    )
+
+    own_review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', body='탈퇴 전 후기', mood='설렘', imageUrl=None),
+        social_user.user_id,
+        '탈퇴회원',
+    )
+    another_review = create_review(
+        session,
+        ReviewCreate(placeId='expo-bridge', body='남의 후기', mood='친구랑', imageUrl=None),
+        'user-other',
+        '다른회원',
+    )
+    create_comment(session, another_review.id, CommentCreate(body='부모 댓글', parentId=None), social_user.user_id, '탈퇴회원')
+    parent_comment = session.scalars(select(UserComment).where(UserComment.body == '부모 댓글')).one()
+    create_comment(session, another_review.id, CommentCreate(body='남는 대댓글', parentId=str(parent_comment.comment_id)), 'user-reply', '응답회원')
+
+    toggle_stamp(session, social_user.user_id, 'hanbat-forest', 36.3671, 127.3886, 120)
+    toggle_stamp(session, social_user.user_id, 'expo-bridge', 36.3765, 127.3868, 120)
+    create_user_route(
+        session,
+        UserRouteCreate(
+            title='탈퇴 전 경로',
+            description='실제로 찍은 스탬프를 묶은 경로예요.',
+            mood='데이트',
+            placeIds=['hanbat-forest', 'expo-bridge'],
+            isPublic=True,
+        ),
+        social_user.user_id,
+        '탈퇴회원',
+    )
+    toggle_review_like(session, another_review.id, social_user.user_id, '탈퇴회원')
+
+    delete_account(session, social_user.user_id)
+
+    remaining_reply = session.scalars(select(UserComment).where(UserComment.body == '남는 대댓글')).one()
+
+    assert session.get(User, social_user.user_id) is None
+    assert session.scalar(select(func.count()).select_from(UserIdentity).where(UserIdentity.user_id == social_user.user_id)) == 0
+    assert session.scalar(select(func.count()).select_from(Feed).where(Feed.user_id == social_user.user_id)) == 0
+    assert session.scalar(select(func.count()).select_from(UserStamp).where(UserStamp.user_id == social_user.user_id)) == 0
+    assert session.scalar(select(func.count()).select_from(UserRoute).where(UserRoute.user_id == social_user.user_id)) == 0
+    assert session.scalar(select(func.count()).select_from(FeedLike).where(FeedLike.user_id == social_user.user_id)) == 0
+    assert remaining_reply.parent_id is None
+    assert session.scalar(select(func.count()).select_from(UserComment).where(UserComment.user_id == social_user.user_id)) == 0
+    assert session.scalar(select(func.count()).select_from(Feed).where(Feed.feed_id == int(own_review.id))) == 0

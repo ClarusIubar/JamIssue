@@ -1,17 +1,30 @@
-"""데이터 조회와 저장, 변환 로직을 담당합니다."""
+"""JamIssue 도메인 조회와 변경 로직입니다."""
 
-import json
+from __future__ import annotations
+
 from collections import defaultdict
 from datetime import UTC, datetime
 from math import asin, cos, radians, sin, sqrt
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from uuid import uuid4
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from .config import Settings
-from .db_models import Course, CoursePlace, Feed, MapPlace, User, UserComment, UserStamp
+from .db_models import (
+    Course,
+    CoursePlace,
+    Feed,
+    FeedLike,
+    MapPlace,
+    User,
+    UserComment,
+    UserIdentity,
+    UserRoute,
+    UserRouteLike,
+    UserRoutePlace,
+    UserStamp,
+)
 from .models import (
     AdminPlaceOut,
     AdminSummaryResponse,
@@ -26,29 +39,40 @@ from .models import (
     PlaceOut,
     PublicImportResponse,
     ReviewCreate,
+    ReviewLikeResponse,
     ReviewOut,
     SessionUser,
     StampState,
 )
 from .naver_oauth import NaverProfile
+from .public_data import import_public_bundle as sync_public_bundle
+from .public_data import load_public_bundle as load_public_bundle_payload
 
 LEGACY_PROVIDERS = ("demo", "seed")
 BADGE_BY_MOOD = {
-    "\uC124\uB818": "\uCCAB \uBC29\uBB38",
-    "\uCE5C\uAD6C\uB791": "\uCE5C\uAD6C \uCD94\uCC9C",
-    "\uD63C\uC790\uC11C": "\uB85C\uCEEC \uD0D0\uBC29",
-    "\uC57C\uACBD\uD53D": "\uC57C\uACBD \uC131\uACF5",
+    "설렘": "첫 방문",
+    "친구랑": "친구 추천",
+    "혼자서": "로컬 탐방",
+    "야경픽": "야경 성공",
 }
 
 
-def format_datetime(value: datetime) -> str:
-    """화면에 쓰기 쉬운 후기 시간 문자열로 변환합니다."""
+def utcnow_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
-    return value.strftime("%m\uC6D4 %d\uC77C %H:%M")
+
+def generate_user_id() -> str:
+    return f"user-{uuid4().hex[:20]}"
+
+
+def format_datetime(value: datetime) -> str:
+    """화면에 맞는 방문 시각 문자열로 바꿉니다."""
+
+    return value.strftime("%m월 %d일 %H:%M")
 
 
 def to_place_out(place: MapPlace) -> PlaceOut:
-    """장소 ORM 객체를 API 응답 모델로 변환합니다."""
+    """장소 ORM 객체를 API 응답 모델로 바꿉니다."""
 
     return PlaceOut(
         id=place.slug,
@@ -77,8 +101,8 @@ def build_comment_tree(comments: list[UserComment]) -> list[CommentOut]:
     roots: list[CommentOut] = []
 
     for comment in ordered_comments:
-        author_name = comment.user.nickname if comment.user else "\uC54C \uC218 \uC5C6\uB294 \uC0AC\uC6A9\uC790"
-        body = "\uC0AD\uC81C\uB41C \uB313\uAE00\uC785\uB2C8\uB2E4." if comment.is_deleted else comment.body
+        author_name = comment.user.nickname if comment.user else "알 수 없는 사용자"
+        body = "삭제된 댓글입니다." if comment.is_deleted else comment.body
         nodes[comment.comment_id] = CommentOut(
             id=str(comment.comment_id),
             userId=comment.user_id,
@@ -100,10 +124,12 @@ def build_comment_tree(comments: list[UserComment]) -> list[CommentOut]:
     return roots
 
 
-def to_review_out(feed: Feed) -> ReviewOut:
-    """후기 ORM 객체를 응답 모델로 변환합니다."""
+def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
+    """후기 ORM 객체를 화면 응답 모델로 바꿉니다."""
 
     comments = list(feed.comments or [])
+    likes = list(feed.likes or [])
+    liked_by_me = any(like.user_id == current_user_id for like in likes) if current_user_id else False
     return ReviewOut(
         id=str(feed.feed_id),
         userId=feed.user_id,
@@ -116,12 +142,14 @@ def to_review_out(feed: Feed) -> ReviewOut:
         visitedAt=format_datetime(feed.created_at),
         imageUrl=feed.image_url,
         commentCount=len(comments),
+        likeCount=len(likes),
+        likedByMe=liked_by_me,
         comments=build_comment_tree(comments),
     )
 
 
 def to_course_out(course: Course) -> CourseOut:
-    """코스 ORM 객체를 응답 모델로 변환합니다."""
+    """코스 ORM 객체를 응답 모델로 바꿉니다."""
 
     ordered_places = sorted(course.course_places, key=lambda item: item.stop_order)
     return CourseOut(
@@ -135,21 +163,26 @@ def to_course_out(course: Course) -> CourseOut:
     )
 
 
-def to_session_user(user: User, is_admin: bool, profile_image: str | None = None) -> SessionUser:
-    """사용자 ORM 객체를 세션 응답 모델로 변환합니다."""
+def to_session_user(
+    user: User,
+    is_admin: bool,
+    profile_image: str | None = None,
+    provider: str | None = None,
+) -> SessionUser:
+    """사용자 ORM 객체를 세션 응답 모델로 바꿉니다."""
 
     return SessionUser(
         id=user.user_id,
         nickname=user.nickname,
         email=user.email,
-        provider=user.provider,
+        provider=provider or user.provider,
         profileImage=profile_image,
         isAdmin=is_admin,
     )
 
 
 def to_admin_place_out(place: MapPlace, review_count: int) -> AdminPlaceOut:
-    """관리 화면용 장소 요약 객체를 만듭니다."""
+    """관리자 화면용 장소 요약 객체를 만듭니다."""
 
     return AdminPlaceOut(
         id=place.slug,
@@ -162,31 +195,13 @@ def to_admin_place_out(place: MapPlace, review_count: int) -> AdminPlaceOut:
     )
 
 
-def get_or_create_user(
-    db: Session,
-    user_id: str,
+def _sync_user_profile(
+    user: User,
     nickname: str | None = None,
     *,
     email: str | None = None,
-    provider: str = "demo",
-) -> User:
-    """주어진 사용자 ID로 사용자를 찾거나 새로 만듭니다."""
-
-    user = db.get(User, user_id)
-    if not user:
-        user = User(
-            user_id=user_id,
-            nickname=nickname or user_id,
-            email=email,
-            provider=provider,
-            created_at=datetime.now(UTC).replace(tzinfo=None),
-            updated_at=datetime.now(UTC).replace(tzinfo=None),
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return user
-
+    provider: str | None = None,
+) -> bool:
     dirty = False
     if nickname and user.nickname != nickname:
         user.nickname = nickname
@@ -197,25 +212,188 @@ def get_or_create_user(
     if provider and user.provider != provider:
         user.provider = provider
         dirty = True
-
     if dirty:
-        user.updated_at = datetime.now(UTC).replace(tzinfo=None)
+        user.updated_at = utcnow_naive()
+    return dirty
+
+
+def get_or_create_user(
+    db: Session,
+    user_id: str,
+    nickname: str | None = None,
+    *,
+    email: str | None = None,
+    provider: str = "demo",
+) -> User:
+    """내부 user_id 기준으로 사용자를 찾거나 새로 만듭니다."""
+
+    user = db.get(User, user_id)
+    if not user:
+        user = User(
+            user_id=user_id,
+            nickname=nickname or user_id,
+            email=email,
+            provider=provider,
+            created_at=utcnow_naive(),
+            updated_at=utcnow_naive(),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+
+    if _sync_user_profile(user, nickname, email=email, provider=provider):
         db.commit()
         db.refresh(user)
 
     return user
 
 
+def upsert_social_user(
+    db: Session,
+    *,
+    provider: str,
+    provider_user_id: str,
+    nickname: str,
+    email: str | None = None,
+    profile_image: str | None = None,
+) -> User:
+    """외부 로그인 식별자를 내부 고유 user_id 계정에 연결합니다."""
+
+    identity = db.scalars(
+        select(UserIdentity)
+        .options(joinedload(UserIdentity.user))
+        .where(UserIdentity.provider == provider, UserIdentity.provider_user_id == provider_user_id)
+    ).first()
+    now = utcnow_naive()
+
+    if identity:
+        dirty = _sync_user_profile(identity.user, nickname, email=email, provider=provider)
+        if identity.email != email:
+            identity.email = email
+            dirty = True
+        if identity.profile_image != profile_image:
+            identity.profile_image = profile_image
+            dirty = True
+        if dirty:
+            identity.updated_at = now
+            db.commit()
+            db.refresh(identity.user)
+        return identity.user
+
+    user = User(
+        user_id=generate_user_id(),
+        nickname=nickname,
+        email=email,
+        provider=provider,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(user)
+    db.flush()
+
+    db.add(
+        UserIdentity(
+            user_id=user.user_id,
+            provider=provider,
+            provider_user_id=provider_user_id,
+            email=email,
+            profile_image=profile_image,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def link_social_identity(
+    db: Session,
+    *,
+    user_id: str,
+    provider: str,
+    provider_user_id: str,
+    email: str | None = None,
+    profile_image: str | None = None,
+) -> User:
+    """이미 로그인한 내부 계정에 외부 로그인 수단을 명시적으로 연결합니다."""
+
+    user = db.get(User, user_id)
+    if not user:
+        raise ValueError("연결할 내부 계정을 찾을 수 없어요.")
+
+    now = utcnow_naive()
+    existing_identity = db.scalars(
+        select(UserIdentity).where(UserIdentity.provider == provider, UserIdentity.provider_user_id == provider_user_id)
+    ).first()
+    if existing_identity:
+        if existing_identity.user_id != user_id:
+            raise ValueError("이미 다른 계정에 연결된 로그인 수단이에요.")
+
+        dirty = False
+        if existing_identity.email != email:
+            existing_identity.email = email
+            dirty = True
+        if existing_identity.profile_image != profile_image:
+            existing_identity.profile_image = profile_image
+            dirty = True
+        if dirty:
+            existing_identity.updated_at = now
+            db.commit()
+            db.refresh(user)
+        return user
+
+    provider_slot = db.scalars(
+        select(UserIdentity).where(UserIdentity.user_id == user_id, UserIdentity.provider == provider)
+    ).first()
+    if provider_slot:
+        raise ValueError("이미 이 제공자 계정이 연결되어 있어요.")
+
+    if email and not user.email:
+        user.email = email
+        user.updated_at = now
+
+    db.add(
+        UserIdentity(
+            user_id=user.user_id,
+            provider=provider,
+            provider_user_id=provider_user_id,
+            email=email,
+            profile_image=profile_image,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def upsert_naver_user(db: Session, profile: NaverProfile) -> User:
-    """네이버 프로필을 기준으로 사용자를 갱신하거나 생성합니다."""
+    """네이버 프로필을 기준으로 내부 계정과 소셜 identity를 갱신합니다."""
 
     nickname = profile.nickname or profile.name or "이름 없음"
-    return get_or_create_user(
+    return upsert_social_user(
         db,
-        user_id=f"naver:{profile.id}",
+        provider="naver",
+        provider_user_id=profile.id,
         nickname=nickname,
         email=profile.email,
+        profile_image=profile.profile_image,
+    )
+
+
+def link_naver_identity(db: Session, user_id: str, profile: NaverProfile) -> User:
+    """네이버 identity를 현재 로그인한 내부 계정에 명시적으로 연결합니다."""
+
+    return link_social_identity(
+        db,
+        user_id=user_id,
         provider="naver",
+        provider_user_id=profile.id,
+        email=profile.email,
+        profile_image=profile.profile_image,
     )
 
 
@@ -263,7 +441,7 @@ def ensure_stamp_can_be_collected(
 
 
 def list_places(db: Session, category: CategoryFilter = "all") -> list[PlaceOut]:
-    """공개된 장소 목록을 카테고리 기준으로 반환합니다."""
+    """공개할 장소 목록을 카테고리 기준으로 반환합니다."""
 
     stmt = select(MapPlace).where(MapPlace.is_active.is_(True)).order_by(MapPlace.name.asc())
     if category != "all":
@@ -281,14 +459,20 @@ def get_place(db: Session, place_id: str) -> PlaceOut:
     return to_place_out(place)
 
 
-def list_reviews(db: Session, place_id: str | None = None, user_id: str | None = None) -> list[ReviewOut]:
-    """장소나 사용자 기준으로 후기 목록을 반환합니다."""
+def list_reviews(
+    db: Session,
+    place_id: str | None = None,
+    user_id: str | None = None,
+    current_user_id: str | None = None,
+) -> list[ReviewOut]:
+    """장소별 또는 사용자별 후기 목록을 반환합니다."""
 
     stmt = (
         select(Feed)
         .options(
             joinedload(Feed.user),
             joinedload(Feed.place),
+            joinedload(Feed.likes),
             joinedload(Feed.comments).joinedload(UserComment.user),
         )
         .order_by(Feed.created_at.desc(), Feed.feed_id.desc())
@@ -299,11 +483,11 @@ def list_reviews(db: Session, place_id: str | None = None, user_id: str | None =
         stmt = stmt.where(Feed.user_id == user_id)
 
     feeds = db.scalars(stmt).unique().all()
-    return [to_review_out(feed) for feed in feeds]
+    return [to_review_out(feed, current_user_id=current_user_id) for feed in feeds]
 
 
 def get_review_comments(db: Session, review_id: str) -> list[CommentOut]:
-    """하나의 후기에 달린 댓글 트리를 반환합니다."""
+    """하나의 후기 아래 달린 댓글 트리를 반환합니다."""
 
     review_key = parse_review_id(review_id)
     comments = db.scalars(
@@ -320,14 +504,14 @@ def create_review(db: Session, payload: ReviewCreate, user_id: str, nickname: st
 
     body = payload.body.strip()
     if not body:
-        raise ValueError("후기는 한 줄 이상 입력해 주세요.")
+        raise ValueError("후기 본문을 한 줄 이상 입력해 주세요.")
 
     place = db.scalars(select(MapPlace).where(MapPlace.slug == payload.place_id, MapPlace.is_active.is_(True))).first()
     if not place:
         raise ValueError("장소를 찾을 수 없어요.")
 
     user = get_or_create_user(db, user_id, nickname)
-    now = datetime.now(UTC).replace(tzinfo=None)
+    now = utcnow_naive()
     feed = Feed(
         position_id=place.position_id,
         user_id=user.user_id,
@@ -346,15 +530,48 @@ def create_review(db: Session, payload: ReviewCreate, user_id: str, nickname: st
         .options(
             joinedload(Feed.user),
             joinedload(Feed.place),
+            joinedload(Feed.likes),
             joinedload(Feed.comments).joinedload(UserComment.user),
         )
         .where(Feed.feed_id == feed.feed_id)
     ).unique().one()
-    return to_review_out(stored_feed)
+    return to_review_out(stored_feed, current_user_id=user.user_id)
+
+
+def toggle_review_like(db: Session, review_id: str, user_id: str, nickname: str) -> ReviewLikeResponse:
+    """후기 좋아요를 토글합니다."""
+
+    review_key = parse_review_id(review_id)
+    feed = db.scalars(
+        select(Feed)
+        .options(joinedload(Feed.user), joinedload(Feed.likes))
+        .where(Feed.feed_id == review_key)
+    ).unique().first()
+    if not feed:
+        raise ValueError("후기를 찾지 못했어요.")
+
+    if feed.user_id == user_id:
+        raise ValueError("내 후기에는 좋아요를 누를 수 없어요.")
+
+    user = get_or_create_user(db, user_id, nickname)
+    existing_like = db.scalars(
+        select(FeedLike).where(FeedLike.feed_id == feed.feed_id, FeedLike.user_id == user.user_id)
+    ).first()
+
+    if existing_like:
+        db.delete(existing_like)
+        liked_by_me = False
+    else:
+        db.add(FeedLike(feed_id=feed.feed_id, user_id=user.user_id, created_at=utcnow_naive()))
+        liked_by_me = True
+
+    db.commit()
+    like_count = db.scalar(select(func.count()).select_from(FeedLike).where(FeedLike.feed_id == feed.feed_id)) or 0
+    return ReviewLikeResponse(reviewId=str(feed.feed_id), likeCount=int(like_count), likedByMe=liked_by_me)
 
 
 def create_comment(db: Session, review_id: str, payload: CommentCreate, user_id: str, nickname: str) -> list[CommentOut]:
-    """댓글 또는 답글을 저장한 뒤 최신 트리를 반환합니다."""
+    """댓글 또는 답글을 저장한 뒤 최신 댓글 트리를 반환합니다."""
 
     body = payload.body.strip()
     if not body:
@@ -363,17 +580,17 @@ def create_comment(db: Session, review_id: str, payload: CommentCreate, user_id:
     review_key = parse_review_id(review_id)
     feed = db.get(Feed, review_key)
     if not feed:
-        raise ValueError("장소를 찾을 수 없어요.")
+        raise ValueError("후기를 찾을 수 없어요.")
 
     parent_id: int | None = None
     if payload.parent_id:
-        parent_id = int(payload.parent_id)
+        parent_id = parse_comment_id(payload.parent_id)
         parent = db.get(UserComment, parent_id)
         if not parent or parent.feed_id != review_key:
             raise ValueError("같은 후기 안에 있는 댓글에만 답글을 달 수 있어요.")
 
     user = get_or_create_user(db, user_id, nickname)
-    now = datetime.now(UTC).replace(tzinfo=None)
+    now = utcnow_naive()
     comment = UserComment(
         feed_id=review_key,
         user_id=user.user_id,
@@ -386,6 +603,92 @@ def create_comment(db: Session, review_id: str, payload: CommentCreate, user_id:
     db.add(comment)
     db.commit()
     return get_review_comments(db, review_id)
+
+
+def delete_comment(
+    db: Session,
+    review_id: str,
+    comment_id: str,
+    user_id: str,
+    *,
+    is_admin: bool = False,
+) -> list[CommentOut]:
+    """댓글은 soft delete 처리하고 대댓글은 그대로 유지합니다."""
+
+    review_key = parse_review_id(review_id)
+    comment_key = parse_comment_id(comment_id)
+    comment = db.scalars(
+        select(UserComment)
+        .where(UserComment.comment_id == comment_key, UserComment.feed_id == review_key)
+    ).first()
+    if not comment:
+        raise ValueError("댓글을 찾지 못했어요.")
+    if comment.user_id != user_id and not is_admin:
+        raise PermissionError("내 댓글만 삭제할 수 있어요.")
+
+    if not comment.is_deleted:
+        comment.is_deleted = True
+        comment.body = ""
+        comment.updated_at = utcnow_naive()
+        db.commit()
+
+    return get_review_comments(db, review_id)
+
+
+def delete_review(db: Session, review_id: str, user_id: str, *, is_admin: bool = False) -> None:
+    """후기를 삭제하면 해당 피드 아래 댓글과 좋아요도 함께 정리합니다."""
+
+    review_key = parse_review_id(review_id)
+    feed = db.scalars(
+        select(Feed)
+        .options(joinedload(Feed.comments), joinedload(Feed.likes))
+        .where(Feed.feed_id == review_key)
+    ).unique().first()
+    if not feed:
+        raise ValueError("후기를 찾지 못했어요.")
+    if feed.user_id != user_id and not is_admin:
+        raise PermissionError("내 후기만 삭제할 수 있어요.")
+
+    db.delete(feed)
+    db.commit()
+
+
+def delete_account(db: Session, user_id: str) -> None:
+    """회원 탈퇴 시 user_id 기준으로 후기, 댓글, 스탬프, 경로를 모두 정리합니다."""
+
+    user = db.get(User, user_id)
+    if not user:
+        raise ValueError("사용자 정보를 찾지 못했어요.")
+
+    owned_feed_ids = db.scalars(select(Feed.feed_id).where(Feed.user_id == user_id)).all()
+    owned_route_ids = db.scalars(select(UserRoute.route_id).where(UserRoute.user_id == user_id)).all()
+    owned_comment_ids = db.scalars(select(UserComment.comment_id).where(UserComment.user_id == user_id)).all()
+
+    if owned_comment_ids:
+        db.execute(
+            update(UserComment)
+            .where(UserComment.parent_id.in_(owned_comment_ids))
+            .values(parent_id=None, updated_at=utcnow_naive())
+        )
+
+    db.execute(delete(FeedLike).where(FeedLike.user_id == user_id))
+    db.execute(delete(UserRouteLike).where(UserRouteLike.user_id == user_id))
+    db.execute(delete(UserStamp).where(UserStamp.user_id == user_id))
+    db.execute(delete(UserIdentity).where(UserIdentity.user_id == user_id))
+
+    if owned_route_ids:
+        db.execute(delete(UserRouteLike).where(UserRouteLike.route_id.in_(owned_route_ids)))
+        db.execute(delete(UserRoutePlace).where(UserRoutePlace.route_id.in_(owned_route_ids)))
+        db.execute(delete(UserRoute).where(UserRoute.route_id.in_(owned_route_ids)))
+
+    if owned_feed_ids:
+        db.execute(delete(FeedLike).where(FeedLike.feed_id.in_(owned_feed_ids)))
+        db.execute(delete(UserComment).where(UserComment.feed_id.in_(owned_feed_ids)))
+        db.execute(delete(Feed).where(Feed.feed_id.in_(owned_feed_ids)))
+
+    db.execute(delete(UserComment).where(UserComment.user_id == user_id))
+    db.execute(delete(User).where(User.user_id == user_id))
+    db.commit()
 
 
 def list_courses(db: Session, mood: CourseMood | None = None) -> list[CourseOut]:
@@ -425,8 +728,9 @@ def toggle_stamp(
     longitude: float,
     radius_meters: int,
 ) -> StampState:
-    """현장 반경 검증 후 스탬프를 적립합니다."""
+    """현장 반경 검증 뒤 스탬프를 적립합니다."""
 
+    get_or_create_user(db, user_id, user_id)
     place = db.scalars(select(MapPlace).where(MapPlace.slug == place_id, MapPlace.is_active.is_(True))).first()
     if not place:
         raise ValueError("장소를 찾을 수 없어요.")
@@ -438,7 +742,7 @@ def toggle_stamp(
         return get_stamps(db, user_id)
 
     ensure_stamp_can_be_collected(place, latitude, longitude, radius_meters)
-    db.add(UserStamp(user_id=user_id, position_id=place.position_id, created_at=datetime.now(UTC).replace(tzinfo=None)))
+    db.add(UserStamp(user_id=user_id, position_id=place.position_id, created_at=utcnow_naive()))
     db.commit()
     return get_stamps(db, user_id)
 
@@ -450,7 +754,7 @@ def get_my_page(db: Session, user_id: str, is_admin: bool) -> MyPageResponse:
     if not user:
         raise ValueError("사용자 정보를 찾을 수 없어요.")
 
-    review_items = list_reviews(db, user_id=user_id)
+    review_items = list_reviews(db, user_id=user_id, current_user_id=user_id)
     stamp_rows = db.scalars(
         select(UserStamp)
         .options(joinedload(UserStamp.place))
@@ -458,22 +762,24 @@ def get_my_page(db: Session, user_id: str, is_admin: bool) -> MyPageResponse:
         .order_by(UserStamp.created_at.desc(), UserStamp.stamp_id.desc())
     ).unique().all()
     collected_places = [to_place_out(stamp.place) for stamp in stamp_rows if stamp.place and stamp.place.is_active]
+    route_count = db.scalar(select(func.count()).select_from(UserRoute).where(UserRoute.user_id == user_id)) or 0
 
     return MyPageResponse(
         user=to_session_user(user, is_admin),
-        stats=MyStatsOut(reviewCount=len(review_items), stampCount=len(collected_places)),
+        stats=MyStatsOut(reviewCount=len(review_items), stampCount=len(collected_places), routeCount=int(route_count)),
         reviews=review_items,
         collectedPlaces=collected_places,
+        routes=[],
     )
 
 
 def get_bootstrap(db: Session, user_id: str | None) -> BootstrapResponse:
-    """앱 첫 진입에 필요한 장소, 코스, 후기, 스탬프를 묶습니다."""
+    """첫 진입에 필요한 장소, 코스, 후기, 스탬프를 묶어 보냅니다."""
 
     places = list_places(db)
     return BootstrapResponse(
         places=places,
-        reviews=list_reviews(db),
+        reviews=list_reviews(db, current_user_id=user_id),
         courses=list_courses(db),
         stamps=get_stamps(db, user_id),
         hasRealData=bool(places),
@@ -481,7 +787,7 @@ def get_bootstrap(db: Session, user_id: str | None) -> BootstrapResponse:
 
 
 def get_admin_summary(db: Session, settings: Settings) -> AdminSummaryResponse:
-    """관리 화면에 필요한 운영 지표를 집계합니다."""
+    """관리자 화면에 필요한 운영 지표를 집계합니다."""
 
     user_count = db.scalar(select(func.count()).select_from(User)) or 0
     place_count = db.scalar(select(func.count()).select_from(MapPlace)) or 0
@@ -515,7 +821,7 @@ def update_place_visibility(db: Session, place_id: str, is_active: bool) -> Admi
         raise ValueError("장소를 찾을 수 없어요.")
 
     place.is_active = is_active
-    place.updated_at = datetime.now(UTC).replace(tzinfo=None)
+    place.updated_at = utcnow_naive()
     db.commit()
 
     review_count = db.scalar(select(func.count()).select_from(Feed).where(Feed.position_id == place.position_id)) or 0
@@ -530,108 +836,51 @@ def cleanup_legacy_demo_content(db: Session) -> None:
         return
 
     feed_ids = db.scalars(select(Feed.feed_id).where(Feed.user_id.in_(legacy_user_ids))).all()
+    comment_ids = db.scalars(select(UserComment.comment_id).where(UserComment.user_id.in_(legacy_user_ids))).all()
+
+    if comment_ids:
+        db.execute(update(UserComment).where(UserComment.parent_id.in_(comment_ids)).values(parent_id=None, updated_at=utcnow_naive()))
+        db.execute(delete(UserComment).where(UserComment.user_id.in_(legacy_user_ids)))
+
     if feed_ids:
+        db.execute(delete(FeedLike).where(FeedLike.feed_id.in_(feed_ids)))
         db.execute(delete(UserComment).where(UserComment.feed_id.in_(feed_ids)))
         db.execute(delete(Feed).where(Feed.feed_id.in_(feed_ids)))
 
     db.execute(delete(UserStamp).where(UserStamp.user_id.in_(legacy_user_ids)))
+    db.execute(delete(UserIdentity).where(UserIdentity.user_id.in_(legacy_user_ids)))
+    db.execute(delete(UserRouteLike).where(UserRouteLike.user_id.in_(legacy_user_ids)))
+    db.execute(delete(UserRoute).where(UserRoute.user_id.in_(legacy_user_ids)))
     db.execute(delete(User).where(User.user_id.in_(legacy_user_ids)))
     db.commit()
 
 
 def load_public_bundle(settings: Settings) -> dict:
-    """공공 데이터 번들을 URL 또는 로컬 JSON에서 읽습니다."""
+    """전용 public_data 모듈을 통해 공공데이터 번들을 읽습니다."""
 
-    if settings.public_data_source_url:
-        request = Request(settings.public_data_source_url, headers={"Accept": "application/json"})
-        try:
-            with urlopen(request, timeout=10) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
-            pass
-
-    if settings.public_data_file_path.exists():
-        return json.loads(settings.public_data_file_path.read_text(encoding="utf-8"))
-
-    return {"places": [], "courses": []}
+    return load_public_bundle_payload(settings).model_dump(by_alias=True, exclude_none=True)
 
 
 def import_public_bundle(db: Session, settings: Settings) -> PublicImportResponse:
-    """공공 데이터 번들을 현재 데이터베이스에 반영합니다."""
+    """공공데이터 동기화를 전용 모듈에 위임합니다."""
 
-    payload = load_public_bundle(settings)
-    imported_places = 0
-    imported_courses = 0
-
-    for item in payload.get("places", []):
-        place = db.scalars(select(MapPlace).where(MapPlace.slug == item["slug"])).first()
-        if not place:
-            place = MapPlace(slug=item["slug"])
-            db.add(place)
-            imported_places += 1
-
-        place.name = item["name"]
-        place.district = item["district"]
-        place.category = item["category"]
-        place.latitude = item["latitude"]
-        place.longitude = item["longitude"]
-        place.summary = item["summary"]
-        place.description = item["description"]
-        place.vibe_tags = item.get("vibe_tags") or []
-        place.visit_time = item["visit_time"]
-        place.route_hint = item["route_hint"]
-        place.stamp_reward = item["stamp_reward"]
-        place.hero_label = item["hero_label"]
-        place.jam_color = item["jam_color"]
-        place.accent_color = item["accent_color"]
-        place.is_active = item.get("is_active", True)
-        now = datetime.now(UTC).replace(tzinfo=None)
-        if not getattr(place, "created_at", None):
-            place.created_at = now
-        place.updated_at = now
-
-    db.flush()
-    place_by_slug = {place.slug: place for place in db.scalars(select(MapPlace)).all()}
-
-    for item in payload.get("courses", []):
-        course = db.scalars(select(Course).where(Course.slug == item["slug"])).first()
-        if not course:
-            course = Course(
-                slug=item["slug"],
-                title=item["title"],
-                mood=item["mood"],
-                duration=item["duration"],
-                note=item["note"],
-                color=item["color"],
-                display_order=item.get("display_order", 0),
-            )
-            db.add(course)
-            imported_courses += 1
-        else:
-            course.title = item["title"]
-            course.mood = item["mood"]
-            course.duration = item["duration"]
-            course.note = item["note"]
-            course.color = item["color"]
-            course.display_order = item.get("display_order", 0)
-
-        db.flush()
-
-        db.execute(delete(CoursePlace).where(CoursePlace.course_id == course.course_id))
-        for index, slug in enumerate(item.get("place_slugs", []), start=1):
-            place = place_by_slug.get(slug)
-            if not place:
-                continue
-            db.add(CoursePlace(course_id=course.course_id, position_id=place.position_id, stop_order=index))
-
-    db.commit()
-    return PublicImportResponse(importedPlaces=imported_places, importedCourses=imported_courses)
+    return sync_public_bundle(db, settings)
 
 
 def parse_review_id(review_id: str) -> int:
-    """문자열 후기 ID를 정수 키로 변환합니다."""
+    """문자열 리뷰 ID를 정수 키로 바꿉니다."""
 
     try:
         return int(review_id)
     except ValueError as error:
         raise ValueError("후기 ID 형식이 올바르지 않아요.") from error
+
+
+def parse_comment_id(comment_id: str) -> int:
+    """문자열 댓글 ID를 정수 키로 바꿉니다."""
+
+    try:
+        return int(comment_id)
+    except ValueError as error:
+        raise ValueError("댓글 ID 형식이 올바르지 않아요.") from error
+

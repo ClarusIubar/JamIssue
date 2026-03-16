@@ -6,16 +6,22 @@ import type {
   BootstrapResponse,
   Comment,
   CommentCreateRequest,
+  CommunityRouteSort,
   MyPageResponse,
   PlaceVisibilityRequest,
   ProviderKey,
   PublicImportResponse,
   Review,
   ReviewCreateRequest,
+  ReviewLikeResponse,
   StampState,
   StampToggleRequest,
   UploadResponse,
+  UserRoute,
+  UserRouteCreateRequest,
+  UserRouteLikeResponse,
 } from '../types';
+import type { PublicEventBannerResponse } from '../publicEventTypes';
 
 class ApiError extends Error {
   status: number;
@@ -84,6 +90,27 @@ export function getBootstrap() {
   return fetchJson<BootstrapResponse>('/api/bootstrap');
 }
 
+export function getCommunityRoutes(sort: CommunityRouteSort = 'popular') {
+  return fetchJson<UserRoute[]>(`/api/community-routes?sort=${sort}`);
+}
+
+export function createUserRoute(payload: UserRouteCreateRequest) {
+  return fetchJson<UserRoute>('/api/community-routes', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function toggleCommunityRouteLike(routeId: string) {
+  return fetchJson<UserRouteLikeResponse>(`/api/community-routes/${routeId}/like`, {
+    method: 'POST',
+  });
+}
+
+export function getMyRoutes() {
+  return fetchJson<UserRoute[]>('/api/my/routes');
+}
+
 export function getReviews(params?: { placeId?: string; userId?: string }) {
   const search = new URLSearchParams();
   if (params?.placeId) {
@@ -100,6 +127,12 @@ export function createReview(payload: ReviewCreateRequest) {
   return fetchJson<Review>('/api/reviews', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+export function toggleReviewLike(reviewId: string) {
+  return fetchJson<ReviewLikeResponse>(`/api/reviews/${reviewId}/like`, {
+    method: 'POST',
   });
 }
 
@@ -149,4 +182,8 @@ export function importPublicData() {
   return fetchJson<PublicImportResponse>('/api/admin/import/public-data', {
     method: 'POST',
   });
+}
+
+export function getPublicEventBanner() {
+  return fetchJson<PublicEventBannerResponse>('/api/banner/events');
 }

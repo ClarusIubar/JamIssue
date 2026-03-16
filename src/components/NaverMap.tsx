@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getClientConfig } from '../config';
-import type { Place } from '../types';
+import type { ApiStatus, Place } from '../types';
 
 declare global {
   interface Window {
@@ -43,7 +43,7 @@ function loadNaverMaps(clientId: string) {
   return naverScriptPromise;
 }
 
-function markerContent(place: Place, isActive: boolean) {
+function placeMarkerContent(place: Place, isActive: boolean) {
   const ring = isActive ? '#5f4660' : 'rgba(64, 40, 51, 0.12)';
   const scale = isActive ? 'scale(1.08)' : 'scale(1)';
 
@@ -57,16 +57,39 @@ function markerContent(place: Place, isActive: boolean) {
   `;
 }
 
+function currentLocationMarkerContent() {
+  return `
+    <div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:rgba(255,255,255,0.92);box-shadow:0 6px 18px rgba(95,70,96,0.18);border:1px solid rgba(95,70,96,0.12);">
+      <div style="width:12px;height:12px;border-radius:999px;background:#4f8cff;box-shadow:0 0 0 6px rgba(79,140,255,0.18);"></div>
+    </div>
+  `;
+}
+
 interface NaverMapProps {
   places: Place[];
   selectedPlaceId: string | null;
   onSelectPlace: (placeId: string) => void;
+  currentPosition: { latitude: number; longitude: number } | null;
+  currentLocationStatus: ApiStatus;
+  currentLocationMessage: string | null;
+  focusCurrentLocationKey: number;
+  onLocateCurrentPosition: () => void;
 }
 
-export function NaverMap({ places, selectedPlaceId, onSelectPlace }: NaverMapProps) {
+export function NaverMap({
+  places,
+  selectedPlaceId,
+  onSelectPlace,
+  currentPosition,
+  currentLocationStatus,
+  currentLocationMessage,
+  focusCurrentLocationKey,
+  onLocateCurrentPosition,
+}: NaverMapProps) {
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const placeMarkersRef = useRef<any[]>([]);
+  const currentMarkerRef = useRef<any | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const clientId = getClientConfig().naverMapClientId;
@@ -74,7 +97,7 @@ export function NaverMap({ places, selectedPlaceId, onSelectPlace }: NaverMapPro
   useEffect(() => {
     if (!clientId) {
       setStatus('error');
-      setErrorMessage('.env에 NAVER_MAP_CLIENT_ID 값을 넣어 주세요.');
+      setErrorMessage('.env의 NAVER_MAP_CLIENT_ID 값을 넣어 주세요.');
       return;
     }
 
@@ -127,8 +150,8 @@ export function NaverMap({ places, selectedPlaceId, onSelectPlace }: NaverMapPro
     }
 
     const maps = window.naver.maps;
-    markersRef.current.forEach((marker) => marker.setMap(null));
-    markersRef.current = [];
+    placeMarkersRef.current.forEach((marker) => marker.setMap(null));
+    placeMarkersRef.current = [];
 
     places.forEach((place) => {
       const marker = new maps.Marker({
@@ -136,14 +159,48 @@ export function NaverMap({ places, selectedPlaceId, onSelectPlace }: NaverMapPro
         position: new maps.LatLng(place.latitude, place.longitude),
         title: place.name,
         icon: {
-          content: markerContent(place, place.id === selectedPlaceId),
+          content: placeMarkerContent(place, place.id === selectedPlaceId),
           anchor: new maps.Point(45, 54),
         },
       });
       maps.Event.addListener(marker, 'click', () => onSelectPlace(place.id));
-      markersRef.current.push(marker);
+      placeMarkersRef.current.push(marker);
     });
   }, [onSelectPlace, places, selectedPlaceId, status]);
+
+  useEffect(() => {
+    if (status !== 'ready' || !window.naver?.maps || !mapRef.current) {
+      return;
+    }
+
+    const maps = window.naver.maps;
+
+    if (!currentPosition) {
+      if (currentMarkerRef.current) {
+        currentMarkerRef.current.setMap(null);
+        currentMarkerRef.current = null;
+      }
+      return;
+    }
+
+    const position = new maps.LatLng(currentPosition.latitude, currentPosition.longitude);
+    if (!currentMarkerRef.current) {
+      currentMarkerRef.current = new maps.Marker({
+        map: mapRef.current,
+        position,
+        title: '현재 위치',
+        zIndex: 200,
+        icon: {
+          content: currentLocationMarkerContent(),
+          anchor: new maps.Point(14, 14),
+        },
+      });
+      return;
+    }
+
+    currentMarkerRef.current.setPosition(position);
+    currentMarkerRef.current.setMap(mapRef.current);
+  }, [currentPosition, status]);
 
   useEffect(() => {
     if (status !== 'ready' || !window.naver?.maps || !mapRef.current || !selectedPlaceId) {
@@ -157,6 +214,14 @@ export function NaverMap({ places, selectedPlaceId, onSelectPlace }: NaverMapPro
 
     mapRef.current.panTo(new window.naver.maps.LatLng(selectedPlace.latitude, selectedPlace.longitude));
   }, [places, selectedPlaceId, status]);
+
+  useEffect(() => {
+    if (status !== 'ready' || !window.naver?.maps || !mapRef.current || !currentPosition || focusCurrentLocationKey === 0) {
+      return;
+    }
+
+    mapRef.current.panTo(new window.naver.maps.LatLng(currentPosition.latitude, currentPosition.longitude));
+  }, [currentPosition, focusCurrentLocationKey, status]);
 
   if (!clientId || status === 'error') {
     return (
@@ -172,11 +237,22 @@ export function NaverMap({ places, selectedPlaceId, onSelectPlace }: NaverMapPro
       {status === 'loading' && (
         <div className="map-status-card map-status-card--overlay">
           <strong>대전 지도를 준비하고 있어요.</strong>
-          <p>키가 맞으면 실제 네이버 지도가 여기에 열려요.</p>
+          <p>키가 맞으면 실제 네이버 지도가 여기서 열려요.</p>
         </div>
       )}
+      <div className="map-floating-controls">
+        <button
+          type="button"
+          className="map-locate-button"
+          onClick={onLocateCurrentPosition}
+          disabled={currentLocationStatus === 'loading'}
+        >
+          {currentLocationStatus === 'loading' ? '위치 확인 중' : currentPosition ? '내 위치 보기' : '내 위치 켜기'}
+        </button>
+      </div>
       <div ref={mapElementRef} style={{ width: '100%', height: '360px' }} />
-      <div className="map-caption">대전 범위만 가볍게 보여줘요.</div>
+      {currentLocationMessage && <div className="map-location-pill">{currentLocationMessage}</div>}
+      <div className="map-caption">대전 범위만 가볍게 보이도록 정리했어요.</div>
     </div>
   );
 }

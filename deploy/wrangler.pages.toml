@@ -1,0 +1,3 @@
+﻿name = "jamissue-web"
+pages_build_output_dir = "../infra/nginx/site"
+compatibility_date = "2026-03-16"

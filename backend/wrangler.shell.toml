@@ -1,0 +1,23 @@
+name = "jamissue-api"
+main = "worker_shell.py"
+compatibility_date = "2026-03-16"
+compatibility_flags = ["python_workers"]
+workers_dev = true
+
+[observability.logs]
+enabled = true
+
+[vars]
+APP_ENV = "worker"
+APP_SESSION_HTTPS = "true"
+APP_STAMP_UNLOCK_RADIUS_METERS = "120"
+APP_STORAGE_BACKEND = "supabase"
+APP_FRONTEND_URL = "https://jamissue.growgardens.app"
+APP_CORS_ORIGINS = "https://jamissue.growgardens.app"
+APP_NAVER_LOGIN_CALLBACK_URL = "https://api.jamissue.growgardens.app/api/auth/naver/callback"
+APP_SUPABASE_STORAGE_BUCKET = "review-images"
+# APP_SUPABASE_URL = "https://your-project-ref.supabase.co"
+
+[[routes]]
+pattern = "api.jamissue.growgardens.app"
+custom_domain = true

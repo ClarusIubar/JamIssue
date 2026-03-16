@@ -1,4 +1,4 @@
-﻿PLACE_SEEDS = [
+PLACE_SEEDS = [
     {
         "slug": "hanbat-forest",
         "name": "한밭수목원 잼가든",

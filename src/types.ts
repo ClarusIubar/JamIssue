@@ -3,7 +3,8 @@ export type Tab = 'explore' | 'course' | 'stamp' | 'my';
 export type ReviewMood = '설렘' | '친구랑' | '혼자서' | '야경픽';
 export type CourseMood = '전체' | '데이트' | '사진' | '힐링' | '비 오는 날';
 export type ApiStatus = 'idle' | 'loading' | 'ready' | 'error';
-export type ProviderKey = 'naver' | 'google' | 'kakao' | 'apple';
+export type ProviderKey = 'naver' | 'kakao';
+export type CommunityRouteSort = 'popular' | 'latest';
 
 export interface SessionUser {
   id: string;
@@ -68,7 +69,15 @@ export interface Review {
   visitedAt: string;
   imageUrl: string | null;
   commentCount: number;
+  likeCount: number;
+  likedByMe: boolean;
   comments: Comment[];
+}
+
+export interface ReviewLikeResponse {
+  reviewId: string;
+  likeCount: number;
+  likedByMe: boolean;
 }
 
 export interface Course {
@@ -79,6 +88,26 @@ export interface Course {
   note: string;
   color: string;
   placeIds: string[];
+}
+
+export interface UserRoute {
+  id: string;
+  authorId: string;
+  author: string;
+  title: string;
+  description: string;
+  mood: string;
+  likeCount: number;
+  likedByMe: boolean;
+  createdAt: string;
+  placeIds: string[];
+  placeNames: string[];
+}
+
+export interface UserRouteLikeResponse {
+  routeId: string;
+  likeCount: number;
+  likedByMe: boolean;
 }
 
 export interface StampState {
@@ -105,6 +134,14 @@ export interface CommentCreateRequest {
   parentId?: string | null;
 }
 
+export interface UserRouteCreateRequest {
+  title: string;
+  description: string;
+  mood: string;
+  placeIds: string[];
+  isPublic?: boolean;
+}
+
 export interface StampToggleRequest {
   placeId: string;
   latitude: number;
@@ -114,6 +151,7 @@ export interface StampToggleRequest {
 export interface MyStats {
   reviewCount: number;
   stampCount: number;
+  routeCount: number;
 }
 
 export interface MyPageResponse {
@@ -121,6 +159,7 @@ export interface MyPageResponse {
   stats: MyStats;
   reviews: Review[];
   collectedPlaces: Place[];
+  routes: UserRoute[];
 }
 
 export interface AdminPlace {
@@ -157,3 +196,33 @@ export interface PublicImportResponse {
   importedPlaces: number;
   importedCourses: number;
 }
+
+export interface RoadmapBannerSummaryItem {
+  label: string;
+  value: string;
+  tone: 'pink' | 'blue' | 'mint';
+}
+
+export interface RoadmapBannerMilestone {
+  id: string;
+  dateLabel: string;
+  statusLabel: string;
+  title: string;
+  body: string;
+  deliverable: string;
+  tags: string[];
+  accentColor: string;
+  badgeTone: 'pink' | 'blue' | 'mint' | 'peach';
+}
+
+export interface RoadmapBannerSchema {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  helper: string;
+  summaryItems: RoadmapBannerSummaryItem[];
+  milestones: RoadmapBannerMilestone[];
+  closingNote: string;
+}
+
+

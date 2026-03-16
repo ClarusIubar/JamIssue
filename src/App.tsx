@@ -2,19 +2,26 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   createComment,
   createReview,
+  createUserRoute,
   getAdminSummary,
   getAuthSession,
   getBootstrap,
+  getCommunityRoutes,
   getMySummary,
+  getMyRoutes,
   getProviderLoginUrl,
   importPublicData,
   logout,
+  toggleCommunityRouteLike,
+  toggleReviewLike,
   toggleStamp,
   updatePlaceVisibility,
   uploadReviewImage,
 } from './api/client';
 import { AdminPanel } from './components/AdminPanel';
 import { BottomNav } from './components/BottomNav';
+import { CommunityRouteSection } from './components/CommunityRouteSection';
+import { MyRouteBuilder } from './components/MyRouteBuilder';
 import { NaverMap } from './components/NaverMap';
 import { PlaceDetailSheet } from './components/PlaceDetailSheet';
 import { ProviderButtons } from './components/ProviderButtons';
@@ -24,6 +31,7 @@ import type {
   AuthProvider,
   BootstrapResponse,
   Category,
+  CommunityRouteSort,
   CourseMood,
   MyPageResponse,
   Place,
@@ -32,6 +40,7 @@ import type {
   ReviewMood,
   SessionUser,
   Tab,
+  UserRoute,
 } from './types';
 
 const categoryItems: { key: Category; label: string }[] = [
@@ -45,12 +54,14 @@ const categoryItems: { key: Category; label: string }[] = [
 const moodItems: CourseMood[] = ['전체', '데이트', '사진', '힐링', '비 오는 날'];
 const emptyProviders: AuthProvider[] = [
   { key: 'naver', label: '네이버', isEnabled: false, loginUrl: null },
-  { key: 'google', label: '구글', isEnabled: false, loginUrl: null },
   { key: 'kakao', label: '카카오', isEnabled: false, loginUrl: null },
-  { key: 'apple', label: 'Apple', isEnabled: false, loginUrl: null },
 ];
 const validTabs: Tab[] = ['explore', 'course', 'stamp', 'my'];
 const STAMP_UNLOCK_RADIUS_METERS = 120;
+const DAEJEON_CENTER = { latitude: 36.3504, longitude: 127.3845 };
+const DAEJEON_VALID_RADIUS_METERS = 45_000;
+const MAX_ACCEPTABLE_LOCATION_ACCURACY_METERS = 5_000;
+const EARLY_SUCCESS_LOCATION_ACCURACY_METERS = 150;
 
 function getInitialTab(): Tab {
   if (typeof window === 'undefined') {
@@ -80,6 +91,9 @@ function getInitialNotice() {
   const reason = params.get('reason');
   if (auth === 'naver-success') {
     return '네이버 로그인이 연결됐어요.';
+  }
+  if (auth === 'naver-linked') {
+    return '네이버 계정을 현재 계정에 연결했어요.';
   }
   if (auth === 'naver-error') {
     return reason ? `네이버 로그인에 실패했어요. (${reason})` : '네이버 로그인에 실패했어요.';
@@ -155,29 +169,107 @@ function formatErrorMessage(error: unknown) {
   return '요청을 처리하지 못했어요.';
 }
 
+interface CurrentDeviceLocation {
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number;
+}
+
+function validateCurrentDevicePosition(position: GeolocationPosition): CurrentDeviceLocation {
+  const nextPosition = {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    accuracyMeters: Math.round(position.coords.accuracy ?? 0),
+  };
+
+  const distanceFromDaejeon = calculateDistanceMeters(
+    DAEJEON_CENTER.latitude,
+    DAEJEON_CENTER.longitude,
+    nextPosition.latitude,
+    nextPosition.longitude,
+  );
+
+  if (distanceFromDaejeon > DAEJEON_VALID_RADIUS_METERS) {
+    throw new Error('현재 위치가 대전 밖으로 잡혔어요. 서울처럼 다른 지역으로 보이면 Windows 위치 서비스와 Wi-Fi를 켠 뒤 다시 확인해 주세요.');
+  }
+
+  if (nextPosition.accuracyMeters > MAX_ACCEPTABLE_LOCATION_ACCURACY_METERS) {
+    throw new Error(`현재 위치 정확도가 약 ${formatDistanceMeters(nextPosition.accuracyMeters)}로 너무 넓어요. Wi-Fi 또는 위치 서비스를 켠 뒤 다시 확인해 주세요.`);
+  }
+
+  return nextPosition;
+}
+
 function getCurrentDevicePosition() {
-  return new Promise<GeolocationPosition>((resolve, reject) => {
+  return new Promise<CurrentDeviceLocation>((resolve, reject) => {
     if (typeof window === 'undefined' || !('geolocation' in navigator)) {
-      reject(new Error('이 기기에서는 위치 확인을 사용할 수 없어요.'));
+      reject(new Error('이 기기에서는 현재 위치 확인을 사용할 수 없어요.'));
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => resolve(position),
+    let bestPosition: GeolocationPosition | null = null;
+    let finished = false;
+    let timeoutId = 0;
+
+    const cleanup = (watchId: number) => {
+      navigator.geolocation.clearWatch(watchId);
+      window.clearTimeout(timeoutId);
+      finished = true;
+    };
+
+    const finishWithError = (watchId: number, error: Error) => {
+      if (finished) {
+        return;
+      }
+      cleanup(watchId);
+      reject(error);
+    };
+
+    const finishWithBestPosition = (watchId: number) => {
+      if (finished) {
+        return;
+      }
+
+      if (!bestPosition) {
+        cleanup(watchId);
+        reject(new Error('현재 위치를 확인하지 못했어요.'));
+        return;
+      }
+
+      try {
+        const nextPosition = validateCurrentDevicePosition(bestPosition);
+        cleanup(watchId);
+        resolve(nextPosition);
+      } catch (error) {
+        cleanup(watchId);
+        reject(error instanceof Error ? error : new Error('현재 위치를 확인하지 못했어요.'));
+      }
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
+          bestPosition = position;
+        }
+
+        if (position.coords.accuracy <= EARLY_SUCCESS_LOCATION_ACCURACY_METERS) {
+          finishWithBestPosition(watchId);
+        }
+      },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
-          reject(new Error('위치 권한이 꺼져 있어요. 브라우저 설정에서 위치 권한을 켜 주세요.'));
+          finishWithError(watchId, new Error('위치 권한이 꺼져 있어요. 브라우저 설정에서 위치 권한을 켜 주세요.'));
           return;
         }
         if (error.code === error.POSITION_UNAVAILABLE) {
-          reject(new Error('현재 위치를 찾지 못했어요. GPS 신호가 잘 잡히는 곳에서 다시 시도해 주세요.'));
+          finishWithError(watchId, new Error('현재 위치를 찾지 못했어요. GPS 신호가 잘 잡히는 곳에서 다시 시도해 주세요.'));
           return;
         }
         if (error.code === error.TIMEOUT) {
-          reject(new Error('위치 확인 시간이 초과됐어요. 다시 시도해 주세요.'));
+          finishWithError(watchId, new Error('위치 확인 시간이 초과됐어요. 다시 시도해 주세요.'));
           return;
         }
-        reject(new Error('현재 위치를 확인하지 못했어요.'));
+        finishWithError(watchId, new Error('현재 위치를 확인하지 못했어요.'));
       },
       {
         enableHighAccuracy: true,
@@ -185,6 +277,10 @@ function getCurrentDevicePosition() {
         maximumAge: 0,
       },
     );
+
+    timeoutId = window.setTimeout(() => {
+      finishWithBestPosition(watchId);
+    }, 8000);
   });
 }
 
@@ -200,6 +296,11 @@ function App() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [courses, setCourses] = useState<BootstrapResponse['courses']>([]);
   const [allReviews, setAllReviews] = useState<Review[]>([]);
+  const [communityRoutes, setCommunityRoutes] = useState<UserRoute[]>([]);
+  const [communityRouteSort, setCommunityRouteSort] = useState<CommunityRouteSort>('popular');
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeSubmitting, setRouteSubmitting] = useState(false);
+  const [routeLikeUpdatingId, setRouteLikeUpdatingId] = useState<string | null>(null);
   const [collectedStampIds, setCollectedStampIds] = useState<string[]>([]);
   const [myPage, setMyPage] = useState<MyPageResponse | null>(null);
   const [adminSummary, setAdminSummary] = useState<AdminSummaryResponse | null>(null);
@@ -208,6 +309,7 @@ function App() {
   const [hasRealData, setHasRealData] = useState(true);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewLikeUpdatingId, setReviewLikeUpdatingId] = useState<string | null>(null);
   const [commentSubmittingReviewId, setCommentSubmittingReviewId] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [stampUpdatingId, setStampUpdatingId] = useState<string | null>(null);
@@ -216,10 +318,24 @@ function App() {
   const [stampLocationStatus, setStampLocationStatus] = useState<ApiStatus>('idle');
   const [stampLocationMessage, setStampLocationMessage] = useState<string | null>(null);
   const [currentPosition, setCurrentPosition] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mapCurrentPosition, setMapCurrentPosition] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mapLocationStatus, setMapLocationStatus] = useState<ApiStatus>('idle');
+  const [mapLocationMessage, setMapLocationMessage] = useState<string | null>(null);
+  const [mapLocationFocusKey, setMapLocationFocusKey] = useState(0);
 
   useEffect(() => {
     void loadApp(true);
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'explore') {
+      return;
+    }
+
+    if (mapLocationStatus === 'idle') {
+      void refreshMapLocation(false);
+    }
+  }, [activeTab, mapLocationStatus]);
 
   useEffect(() => {
     if (activeTab !== 'stamp') {
@@ -229,7 +345,7 @@ function App() {
     if (!sessionUser) {
       setCurrentPosition(null);
       setStampLocationStatus('idle');
-      setStampLocationMessage('로그인 후 현장 스탬프가 열려요.');
+      setStampLocationMessage('로그인하면 현장 스탬프가 열려요.');
       return;
     }
 
@@ -237,6 +353,14 @@ function App() {
       void refreshStampLocation(false);
     }
   }, [activeTab, sessionUser, stampLocationStatus]);
+
+  useEffect(() => {
+    if (bootstrapStatus !== 'ready') {
+      return;
+    }
+
+    void refreshCommunityRoutes(communityRouteSort);
+  }, [bootstrapStatus, communityRouteSort, sessionUser?.id]);
 
   useEffect(() => {
     if (!notice) {
@@ -294,6 +418,21 @@ function App() {
     }
   }, [filteredPlaces, selectedPlaceId]);
 
+  async function refreshCommunityRoutes(sort: CommunityRouteSort) {
+    try {
+      const routes = await getCommunityRoutes(sort);
+      setCommunityRoutes(routes);
+    } catch (error) {
+      setNotice(formatErrorMessage(error));
+    }
+  }
+
+  function openPlaceFromRoute(placeId: string) {
+    setSelectedPlaceId(placeId);
+    setActiveTab('explore');
+    setDetailPlaceId(placeId);
+  }
+
   async function loadPersonalPanels(user: SessionUser | null) {
     if (!user) {
       setMyPage(null);
@@ -301,12 +440,20 @@ function App() {
       return;
     }
 
-    const [mySummary, nextAdminSummary] = await Promise.all([
+    const [mySummary, myRoutes, nextAdminSummary] = await Promise.all([
       getMySummary(),
+      getMyRoutes(),
       user.isAdmin ? getAdminSummary() : Promise.resolve(null),
     ]);
 
-    setMyPage(mySummary);
+    setMyPage({
+      ...mySummary,
+      stats: {
+        ...mySummary.stats,
+        routeCount: myRoutes.length,
+      },
+      routes: myRoutes,
+    });
     setAdminSummary(nextAdminSummary);
   }
 
@@ -333,7 +480,7 @@ function App() {
       setBootstrapStatus('ready');
 
       if (authState === 'naver-success' && !auth.user) {
-        setNotice('로그인 연결이 끝나지 않았어요. 다시 시도해 주세요.');
+        setNotice('로그인 연결은 됐지만 계정 정보를 가져오지 못했어요. 다시 시도해 주세요.');
       }
     } catch (error) {
       setBootstrapError(formatErrorMessage(error));
@@ -363,13 +510,13 @@ function App() {
   async function handleCreateReview(payload: { placeId: string; body: string; mood: ReviewMood; file: File | null }) {
     if (!sessionUser) {
       setActiveTab('my');
-      setReviewError('후기와 스탬프는 로그인 뒤에 계정 기준으로 저장돼요.');
+      setReviewError('후기와 스탬프는 로그인 후에 계정 기준으로 저장돼요.');
       return;
     }
 
     const nextBody = payload.body.trim();
     if (!nextBody) {
-      setReviewError('후기를 한 줄 이상 적어 주세요.');
+      setReviewError('후기를 조금 더 적어 주세요.');
       return;
     }
 
@@ -390,7 +537,7 @@ function App() {
         imageUrl,
       });
 
-      setNotice('후기를 저장했어요. 장소 커뮤니티에 바로 반영됐어요.');
+      setNotice('후기를 남겼어요. 장소 커뮤니티에 바로 반영됐어요.');
       await loadApp(false);
     } catch (error) {
       setReviewError(formatErrorMessage(error));
@@ -402,7 +549,7 @@ function App() {
   async function handleCreateComment(reviewId: string, body: string, parentId?: string) {
     if (!sessionUser) {
       setActiveTab('my');
-      setNotice('댓글은 로그인 뒤에 남길 수 있어요.');
+      setNotice('댓글은 로그인 후에 남길 수 있어요.');
       return;
     }
 
@@ -417,11 +564,109 @@ function App() {
     }
   }
 
+  async function handleToggleReviewLike(reviewId: string) {
+    if (!sessionUser) {
+      setActiveTab('my');
+      setNotice('좋아요는 로그인 후에 남길 수 있어요.');
+      return;
+    }
+
+    setReviewLikeUpdatingId(reviewId);
+    try {
+      const nextState = await toggleReviewLike(reviewId);
+      setAllReviews((current) =>
+        current.map((review) =>
+          review.id === reviewId
+            ? { ...review, likeCount: nextState.likeCount, likedByMe: nextState.likedByMe }
+            : review,
+        ),
+      );
+      setMyPage((current) =>
+        current
+          ? {
+              ...current,
+              reviews: current.reviews.map((review) =>
+                review.id === reviewId
+                  ? { ...review, likeCount: nextState.likeCount, likedByMe: nextState.likedByMe }
+                  : review,
+              ),
+            }
+          : current,
+      );
+    } catch (error) {
+      setNotice(formatErrorMessage(error));
+    } finally {
+      setReviewLikeUpdatingId(null);
+    }
+  }
+  async function handleCreateUserRoute(payload: { title: string; description: string; mood: string; placeIds: string[] }) {
+    if (!sessionUser) {
+      setActiveTab('my');
+      setRouteError('로그인 후에만 내 스탬프 경로를 공개할 수 있어요.');
+      return;
+    }
+
+    setRouteSubmitting(true);
+    setRouteError(null);
+    try {
+      await createUserRoute({
+        title: payload.title,
+        description: payload.description,
+        mood: payload.mood,
+        placeIds: payload.placeIds,
+        isPublic: true,
+      });
+      setNotice('내 경로를 공개했어요. 이제 다른 사용자가 좋아요로 올려줄 수 있어요.');
+      await loadApp(false);
+    } catch (error) {
+      setRouteError(formatErrorMessage(error));
+    } finally {
+      setRouteSubmitting(false);
+    }
+  }
+
+  async function handleToggleCommunityRouteLike(routeId: string) {
+    if (!sessionUser) {
+      setActiveTab('my');
+      setNotice('좋아요는 로그인 후에 남길 수 있어요.');
+      return;
+    }
+
+    setRouteLikeUpdatingId(routeId);
+    try {
+      await toggleCommunityRouteLike(routeId);
+      await refreshCommunityRoutes(communityRouteSort);
+      await loadPersonalPanels(sessionUser);
+    } catch (error) {
+      setNotice(formatErrorMessage(error));
+    } finally {
+      setRouteLikeUpdatingId(null);
+    }
+  }
+
+  async function refreshMapLocation(shouldFocusMap: boolean) {
+    setMapLocationStatus('loading');
+    setMapLocationMessage('현재 위치를 확인하고 있어요.');
+
+    try {
+      const nextPosition = await getCurrentDevicePosition();
+      setMapCurrentPosition({ latitude: nextPosition.latitude, longitude: nextPosition.longitude });
+      setMapLocationStatus('ready');
+      setMapLocationMessage(`현재 위치를 지도 위에 표시했어요. 정확도 약 ${formatDistanceMeters(nextPosition.accuracyMeters)}예요.`);
+      if (shouldFocusMap) {
+        setMapLocationFocusKey((current) => current + 1);
+      }
+    } catch (error) {
+      setMapCurrentPosition(null);
+      setMapLocationStatus('error');
+      setMapLocationMessage(formatErrorMessage(error));
+    }
+  }
   async function refreshStampLocation(showNotice: boolean) {
     if (!sessionUser) {
       setCurrentPosition(null);
       setStampLocationStatus('idle');
-      setStampLocationMessage('로그인 후 현장 스탬프가 열려요.');
+      setStampLocationMessage('로그인하면 현장 스탬프가 열려요.');
       if (showNotice) {
         setActiveTab('my');
       }
@@ -432,20 +677,18 @@ function App() {
     setStampLocationMessage('현재 위치를 확인하고 있어요.');
 
     try {
-      const position = await getCurrentDevicePosition();
-      const nextPosition = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
-      setCurrentPosition(nextPosition);
+      const nextPosition = await getCurrentDevicePosition();
+      setCurrentPosition({ latitude: nextPosition.latitude, longitude: nextPosition.longitude });
+      setMapCurrentPosition({ latitude: nextPosition.latitude, longitude: nextPosition.longitude });
       setStampLocationStatus('ready');
-      setStampLocationMessage(`반경 ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 스탬프 버튼이 열려요.`);
+      setStampLocationMessage(`현재 위치를 확인했어요. 정확도 약 ${formatDistanceMeters(nextPosition.accuracyMeters)}예요. 반경 ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 스탬프 버튼이 열려요.`);
       if (showNotice) {
-        setStampLocationMessage(`반경 ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 스탬프 버튼이 열려요.`);
+        setStampLocationMessage(`현재 위치를 확인했어요. 정확도 약 ${formatDistanceMeters(nextPosition.accuracyMeters)}예요. 반경 ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 스탬프 버튼이 열려요.`);
       }
     } catch (error) {
       const message = formatErrorMessage(error);
       setCurrentPosition(null);
+      setMapCurrentPosition(null);
       setStampLocationStatus('error');
       setStampLocationMessage(message);
     }
@@ -458,17 +701,13 @@ function App() {
     }
 
     if (collectedStampIds.includes(place.id)) {
-      setStampLocationMessage(`${place.name} 스탬프는 이미 적립되어 있어요.`);
+      setStampLocationMessage(`${place.name} 스탬프는 이미 적립됐어요.`);
       return;
     }
 
     setStampUpdatingId(place.id);
     try {
-      const position = await getCurrentDevicePosition();
-      const nextPosition = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
+      const nextPosition = await getCurrentDevicePosition();
       const distanceMeters = calculateDistanceMeters(
         nextPosition.latitude,
         nextPosition.longitude,
@@ -476,7 +715,8 @@ function App() {
         place.longitude,
       );
 
-      setCurrentPosition(nextPosition);
+      setCurrentPosition({ latitude: nextPosition.latitude, longitude: nextPosition.longitude });
+      setMapCurrentPosition({ latitude: nextPosition.latitude, longitude: nextPosition.longitude });
       setStampLocationStatus('ready');
 
       if (distanceMeters > STAMP_UNLOCK_RADIUS_METERS) {
@@ -490,10 +730,12 @@ function App() {
         longitude: nextPosition.longitude,
       });
       setCollectedStampIds(response.collectedPlaceIds);
-      setStampLocationMessage(`${place.name} 현장 반경이 확인돼서 지금 적립할 수 있었어요.`);
+      setStampLocationMessage(`${place.name} 현장 반경을 확인해서 지금 스탬프를 남겼어요.`);
       await loadPersonalPanels(sessionUser);
     } catch (error) {
       const message = formatErrorMessage(error);
+      setCurrentPosition(null);
+      setMapCurrentPosition(null);
       setStampLocationStatus('error');
       setStampLocationMessage(message);
     } finally {
@@ -562,12 +804,12 @@ function App() {
           </div>
           <div className="hero-badge-grid">
             <div className="hero-badge hero-badge--primary">
-              <span>{sessionUser ? `${sessionUser.nickname}님과 함께` : '오늘의 픽'}</span>
+              <span>{sessionUser ? sessionUser.nickname + '님과 함께' : '오늘의 추천'}</span>
               <strong>{selectedPlace?.heroLabel ?? '대전 한입 코스'}</strong>
             </div>
             <div className="hero-badge">
               <span>{selectedPlace ? selectedPlace.district : '대전 전역'}</span>
-              <strong>{selectedPlace ? selectedPlace.name : '터치로 고르는 동선'}</strong>
+              <strong>{selectedPlace ? selectedPlace.name : '지도로 고르는 동선'}</strong>
             </div>
           </div>
         </header>
@@ -579,8 +821,8 @@ function App() {
 
           {!hasRealData && bootstrapStatus === 'ready' && (
             <section className="card-block empty-state">
-              <strong>아직 공개된 장소 데이터가 없어요.</strong>
-              <p>관리자 계정으로 공공 데이터 가져오기를 누르면 지도와 코스가 채워져요.</p>
+              <strong>아직 공개할 장소 데이터가 없어요.</strong>
+              <p>관리자 계정으로 공공 데이터를 가져오면 지도와 코스가 채워져요.</p>
             </section>
           )}
 
@@ -590,7 +832,7 @@ function App() {
                 <div className="section-title-row">
                   <div>
                     <p className="eyebrow">CATEGORY</p>
-                    <h3>취향으로 빠르게 고르기</h3>
+                    <h3>취향별로 빠르게 고르기</h3>
                   </div>
                   <span className="counter-pill">{filteredPlaces.length} spots</span>
                 </div>
@@ -607,11 +849,20 @@ function App() {
                 <div className="section-title-row section-title-row--tight">
                   <div>
                     <p className="eyebrow">DAEJEON MAP</p>
-                    <h3>대전만 단순하게 보기</h3>
+                    <h3>대전만 가볍게 보기</h3>
                   </div>
-                  <span className="counter-pill">대전 한정</span>
+                  <span className="counter-pill">대전 전용</span>
                 </div>
-                <NaverMap places={filteredPlaces} selectedPlaceId={selectedPlace.id} onSelectPlace={setSelectedPlaceId} />
+                <NaverMap
+                  places={filteredPlaces}
+                  selectedPlaceId={selectedPlace.id}
+                  onSelectPlace={setSelectedPlaceId}
+                  currentPosition={mapCurrentPosition}
+                  currentLocationStatus={mapLocationStatus}
+                  currentLocationMessage={mapLocationMessage}
+                  focusCurrentLocationKey={mapLocationFocusKey}
+                  onLocateCurrentPosition={() => void refreshMapLocation(true)}
+                />
               </section>
 
               <section className="card-block preview-card">
@@ -680,6 +931,25 @@ function App() {
                   ))}
                 </div>
               </section>
+              <CommunityRouteSection
+                routes={communityRoutes}
+                sort={communityRouteSort}
+                sessionUser={sessionUser}
+                likingRouteId={routeLikeUpdatingId}
+                onChangeSort={setCommunityRouteSort}
+                onToggleLike={handleToggleCommunityRouteLike}
+                onOpenPlace={openPlaceFromRoute}
+              />
+              <section className="card-block compact-list-card official-course-card">
+                <div className="section-title-row section-title-row--tight">
+                  <div>
+                    <p className="eyebrow">OFFICIAL CURATION</p>
+                    <h3>운영자가 먼저 제안한 기본 코스</h3>
+                  </div>
+                  <span className="counter-pill">{visibleCourses.length}개</span>
+                </div>
+                <p className="empty-copy">초기 탐색을 돕는 기본 코스예요. 점점 유저 경로가 이 영역을 밀어올리게 됩니다.</p>
+              </section>
               {visibleCourses.map((course) => (
                 <section key={course.id} className="card-block course-card">
                   <div className="section-title-row section-title-row--tight course-card__header">
@@ -702,9 +972,7 @@ function App() {
                           type="button"
                           className="soft-tag soft-tag--button course-card__place"
                           onClick={() => {
-                            setSelectedPlaceId(place.id);
-                            setActiveTab('explore');
-                            setDetailPlaceId(place.id);
+                            openPlaceFromRoute(place.id);
                           }}
                         >
                           {place.name}
@@ -740,12 +1008,12 @@ function App() {
               <section className="card-block stamp-location-card">
                 <strong>
                   {!sessionUser
-                    ? '로그인 후 현장 스탬프가 열려요.'
+                    ? '로그인하면 현장 스탬프가 열려요.'
                     : stampLocationStatus === 'ready'
                       ? '근처 도착 여부를 확인했어요.'
                       : stampLocationStatus === 'loading'
                         ? '현재 위치를 확인하고 있어요.'
-                        : '현장 반경을 먼저 확인해 주세요.'}
+                        : '현장 반경과 거리를 확인해 주세요.'}
                 </strong>
                 <p>{stampLocationMessage ?? `반경 ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 스탬프 버튼이 열려요.`}</p>
               </section>
@@ -771,7 +1039,7 @@ function App() {
                           ? '위치 확인 필요'
                           : isNearby
                             ? '현장 스탬프 찍기'
-                            : '근처 도착 시 활성화';
+                            : '근처 도착 후 활성화';
                 const distanceCopy = isCollected
                   ? '이미 적립한 스탬프예요.'
                   : typeof distanceMeters !== "number"
@@ -813,7 +1081,7 @@ function App() {
                 <div>
                   <p className="eyebrow">MY PAGE</p>
                   <h2>{sessionUser ? `${sessionUser.nickname}님의 여행 기록` : '로그인하고 기록 이어보기'}</h2>
-                  <p>{sessionUser ? '후기와 스탬프를 계정 기준으로 저장하고, 운영 화면도 이 탭에서 함께 볼 수 있어요.' : '네이버 로그인을 연결하면 후기와 스탬프가 계정 기준으로 이어져요.'}</p>
+                  <p>{sessionUser ? '후기와 스탬프를 계정 기준으로 저장하고, 내가 남긴 기록을 한눈에 볼 수 있어요.' : '로그인을 연결하면 후기와 스탬프가 계정 기준으로 이어져요.'}</p>
                 </div>
                 {sessionUser && (
                   <button type="button" className="secondary-button" onClick={() => void handleLogout()} disabled={isLoggingOut}>
@@ -827,7 +1095,7 @@ function App() {
                   <div className="section-title-row section-title-row--tight">
                     <div>
                       <p className="eyebrow">LOGIN</p>
-                      <h3>네이버로 여행 기록 이어보기</h3>
+                      <h3>로그인으로 여행 기록 이어보기</h3>
                     </div>
                   </div>
                   <p className="empty-copy">후기, 스탬프, 마이페이지 기록을 계정 기준으로 묶어 둘 수 있어요.</p>
@@ -840,8 +1108,18 @@ function App() {
                   <section className="card-block account-summary-grid">
                     <article><strong>{myPage.stats.stampCount}</strong><span>모은 스탬프</span></article>
                     <article><strong>{myPage.stats.reviewCount}</strong><span>내 후기</span></article>
+                    <article><strong>{myPage.routes.length}</strong><span>내 경로</span></article>
                     <article><strong>{sessionUser.provider}</strong><span>연결 계정</span></article>
                   </section>
+
+                  <MyRouteBuilder
+                    collectedPlaces={myPage.collectedPlaces}
+                    routes={myPage.routes}
+                    submitting={routeSubmitting}
+                    errorMessage={routeError}
+                    onSubmit={handleCreateUserRoute}
+                    onOpenPlace={openPlaceFromRoute}
+                  />
 
                   <section className="card-block compact-list-card">
                     <div className="section-title-row section-title-row--tight">
@@ -879,9 +1157,7 @@ function App() {
                           type="button"
                           className="text-button"
                           onClick={() => {
-                            setSelectedPlaceId(place.id);
-                            setActiveTab('explore');
-                            setDetailPlaceId(place.id);
+                            openPlaceFromRoute(place.id);
                           }}
                         >
                           열기
@@ -914,15 +1190,18 @@ function App() {
         reviews={detailReviews}
         isOpen={Boolean(detailPlace)}
         canWrite={Boolean(sessionUser)}
+        canToggleLike={Boolean(sessionUser)}
         isStampCollected={detailPlace ? collectedStampIds.includes(detailPlace.id) : false}
         isStampBusy={detailPlace ? stampUpdatingId === detailPlace.id : false}
         reviewError={reviewError}
         reviewSubmitting={reviewSubmitting}
+        reviewLikeUpdatingId={reviewLikeUpdatingId}
         commentSubmittingReviewId={commentSubmittingReviewId}
         onClose={() => setDetailPlaceId(null)}
         onRequestLogin={() => setActiveTab('my')}
         onCollectStamp={handleCollectStamp}
         onCreateReview={handleCreateReview}
+        onToggleReviewLike={handleToggleReviewLike}
         onCreateComment={handleCreateComment}
       />
     </div>
@@ -930,3 +1209,29 @@ function App() {
 }
 
 export default App;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

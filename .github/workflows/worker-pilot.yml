@@ -1,0 +1,23 @@
+﻿name: worker-pilot
+
+on:
+  push:
+    branches:
+      - codex/deploy-stack
+  workflow_dispatch:
+
+jobs:
+  validate-worker-pilot:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: uv sync --group dev
+      - run: uv run python -m py_compile worker_entry.py
+      - run: uv run python -c "import worker_entry; print('worker-entry-ok')"

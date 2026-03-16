@@ -8,6 +8,8 @@ out/
 .env.local
 backend/.env
 backend/.venv/
+**/__pycache__/
+*.pyc
 backend/__pycache__/
 backend/app/__pycache__/
 backend/tests/__pycache__/
@@ -23,3 +25,11 @@ frontend-build.err.log
 next.out.log
 next.err.log
 backend/pythonw_test.py
+
+deploy/.env.cloudflare
+
+backend/.wrangler/
+.wrangler/
+
+backend/.dev.vars
+

@@ -6,7 +6,7 @@ from app.models import SessionUser
 def test_issue_and_read_access_token_round_trip():
     settings = Settings(jwt_secret='unit-test-secret', jwt_access_token_minutes=10)
     user = SessionUser(
-        id='naver:tester',
+        id='user-tester',
         nickname='테스터',
         email='tester@example.com',
         provider='naver',

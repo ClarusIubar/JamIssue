@@ -4,17 +4,29 @@ import type { Review } from '../types';
 interface ReviewListProps {
   reviews: Review[];
   canWriteComment: boolean;
+  canToggleLike: boolean;
+  likingReviewId: string | null;
   submittingReviewId: string | null;
+  onToggleLike: (reviewId: string) => Promise<void>;
   onSubmitComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
   onRequestLogin: () => void;
 }
 
-export function ReviewList({ reviews, canWriteComment, submittingReviewId, onSubmitComment, onRequestLogin }: ReviewListProps) {
+export function ReviewList({
+  reviews,
+  canWriteComment,
+  canToggleLike,
+  likingReviewId,
+  submittingReviewId,
+  onToggleLike,
+  onSubmitComment,
+  onRequestLogin,
+}: ReviewListProps) {
   if (reviews.length === 0) {
     return (
       <article className="review-card review-card--empty">
-        <strong>아직 현장 후기가 없어요.</strong>
-        <p>첫 방문 기록을 남기면 이 장소의 분위기가 더 또렷해져요.</p>
+        <strong>?? ?? ??? ???.</strong>
+        <p>? ?? ??? ??? ? ?? ???? ? ?????.</p>
       </article>
     );
   }
@@ -33,8 +45,26 @@ export function ReviewList({ reviews, canWriteComment, submittingReviewId, onSub
             <span className="mood-pill">{review.mood}</span>
           </div>
           <p className="review-card__body">{review.body}</p>
-          {review.imageUrl && <img className="review-card__image" src={review.imageUrl} alt={`${review.placeName} 후기 사진`} />}
-          <CommentThread reviewId={review.id} comments={review.comments} canWrite={canWriteComment} submitting={submittingReviewId === review.id} onSubmit={onSubmitComment} onRequestLogin={onRequestLogin} />
+          {review.imageUrl && <img className="review-card__image" src={review.imageUrl} alt={`${review.placeName} ?? ??`} />}
+          <div className="review-card__actions">
+            <button
+              type="button"
+              className={review.likedByMe ? 'text-button review-action-button is-active' : 'text-button review-action-button'}
+              onClick={() => (canToggleLike ? onToggleLike(review.id) : onRequestLogin())}
+              disabled={likingReviewId === review.id}
+            >
+              {likingReviewId === review.id ? '?? ?' : `??? ${review.likeCount}`}
+            </button>
+            <span className="review-action-copy">?? {review.commentCount}</span>
+          </div>
+          <CommentThread
+            reviewId={review.id}
+            comments={review.comments}
+            canWrite={canWriteComment}
+            submitting={submittingReviewId === review.id}
+            onSubmit={onSubmitComment}
+            onRequestLogin={onRequestLogin}
+          />
         </article>
       ))}
     </div>

@@ -1,4 +1,5 @@
 export interface ClientConfig {
+  // Despite the legacy name PUBLIC_APP_BASE_URL, this value is used as the API base URL.
   apiBaseUrl: string;
   naverMapClientId: string;
 }
