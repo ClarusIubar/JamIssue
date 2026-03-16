@@ -120,6 +120,15 @@ APP_ADMIN_USER_IDS=
 - Cloudflare Worker secrets / variables 입력
 - 네이버 개발자센터 서비스 URL / Callback URL 등록
 
+현재 실제 배포 상태의 중요한 사실:
+
+- 프론트 Pages는 올라갈 수 있는 상태다.
+- API는 `backend/wrangler.toml` 기준 FastAPI Worker 진입점까지 코드가 준비돼 있다.
+- 다만 이 저장소에서 바로 `pywrangler deploy`를 돌리면 현재 Python Worker 빌드 단계에서 추가 정리가 한 번 더 필요하다.
+
+즉, **지금은 키만 넣으면 완전히 끝나는 상태는 아니다.**
+키 입력은 필수지만, API Worker 배포 체인도 한 번 더 마무리해야 한다.
+
 즉, **Cloudflare에 키만 넣는다고 끝나는 상태는 아닙니다.**
 최소한 아래 4가지는 같이 해야 실제 동작이 납니다.
 
@@ -151,12 +160,30 @@ Supabase SQL Editor에는 아래 순서로 넣으면 됩니다.
 
 ## Cloudflare 입력값 요약
 
+SQL을 이미 Supabase에 넣었다면, 지금부터는 아래 값만 준비하면 된다.
+
+입력 위치는 딱 두 곳이다.
+
+- Cloudflare Pages
+  - `Workers & Pages` → `jamissue-web` → `Settings` → `Environment variables`
+- Cloudflare Worker
+  - `Workers & Pages` → `jamissue-api` → `Settings` → `Variables and Secrets`
+
 프론트 Pages 공개값:
 
 ```bash
 PUBLIC_APP_BASE_URL=https://api.jamissue.growgardens.app
 PUBLIC_NAVER_MAP_CLIENT_ID=YOUR_NAVER_MAP_CLIENT_ID
 ```
+
+각 값의 뜻:
+
+- `PUBLIC_APP_BASE_URL`
+  - 이름은 애매하지만, 현재 프론트 코드에서는 **프론트 주소가 아니라 API 주소**로 쓴다.
+  - 따라서 `https://jamissue.growgardens.app`가 아니라 `https://api.jamissue.growgardens.app`를 넣어야 한다.
+- `PUBLIC_NAVER_MAP_CLIENT_ID`
+  - 네이버 Cloud Maps에서 발급받은 `Dynamic Map`용 Client ID
+  - 로그인 키가 아니라 지도 키다.
 
 Worker Variables:
 
@@ -170,6 +197,26 @@ APP_SUPABASE_STORAGE_BUCKET=review-images
 APP_STAMP_UNLOCK_RADIUS_METERS=120
 ```
 
+각 값의 뜻:
+
+- `APP_FRONTEND_URL`
+  - 로그인 성공 후 사용자를 다시 보내 줄 프론트 주소
+- `APP_CORS_ORIGINS`
+  - 브라우저에서 API 호출을 허용할 origin
+- `APP_NAVER_LOGIN_CALLBACK_URL`
+  - 네이버 로그인 완료 후 네이버가 호출할 **백엔드** 주소
+- `APP_STORAGE_BACKEND`
+  - 업로드 저장소를 Supabase Storage로 쓰겠다는 스위치
+- `APP_SUPABASE_URL`
+  - Supabase 프로젝트 URL
+  - 형식: `https://<project-ref>.supabase.co`
+- `APP_SUPABASE_STORAGE_BUCKET`
+  - 후기 이미지를 저장할 버킷 이름
+  - 현재 코드 기준 기본값은 `review-images`
+- `APP_STAMP_UNLOCK_RADIUS_METERS`
+  - 스탬프 활성 반경
+  - 현재 구현 기준 `120`
+
 Worker Secrets:
 
 ```bash
@@ -180,6 +227,43 @@ APP_SUPABASE_SERVICE_ROLE_KEY=...
 APP_NAVER_LOGIN_CLIENT_ID=...
 APP_NAVER_LOGIN_CLIENT_SECRET=...
 ```
+
+각 값의 뜻:
+
+- `APP_SESSION_SECRET`
+  - 세션 쿠키 서명용 비밀값
+  - 직접 랜덤 문자열을 생성해서 넣는다.
+- `APP_JWT_SECRET`
+  - JWT 서명용 비밀값
+  - 이것도 직접 랜덤 문자열을 생성해서 넣는다.
+- `APP_DATABASE_URL`
+  - Supabase Postgres 접속 문자열
+  - **transaction pooler URL** 사용 권장
+  - 예시:
+    - `postgres://postgres.<project-ref>:PASSWORD@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres`
+- `APP_SUPABASE_SERVICE_ROLE_KEY`
+  - Supabase `service_role` 키
+  - Storage 업로드와 서버 권한 작업에 필요
+- `APP_NAVER_LOGIN_CLIENT_ID`
+  - 네이버 로그인 앱의 Client ID
+- `APP_NAVER_LOGIN_CLIENT_SECRET`
+  - 네이버 로그인 앱의 Client Secret
+
+랜덤 secret 생성 예시:
+
+```powershell
+-join ((1..64) | ForEach-Object { 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[(Get-Random -Min 0 -Max 62)] })
+```
+
+지금 당장 넣지 않아도 되는 값:
+
+- `APP_KAKAO_LOGIN_CLIENT_ID`
+- `APP_KAKAO_LOGIN_CLIENT_SECRET`
+- `APP_KAKAO_LOGIN_CALLBACK_URL`
+
+이유:
+- 현재 카카오는 타입과 설정 자리만 있고, 실제 OAuth 라우팅은 아직 미구현이다.
+- 지금 넣어도 런타임 기능이 열리지는 않는다.
 
 네이버 개발자센터:
 
