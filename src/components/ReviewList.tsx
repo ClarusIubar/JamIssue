@@ -1,4 +1,4 @@
-import { CommentThread } from './CommentThread';
+﻿import { CommentThread } from './CommentThread';
 import type { Review } from '../types';
 
 interface ReviewListProps {
@@ -25,8 +25,8 @@ export function ReviewList({
   if (reviews.length === 0) {
     return (
       <article className="review-card review-card--empty">
-        <strong>?? ?? ??? ???.</strong>
-        <p>? ?? ??? ??? ? ?? ???? ? ?????.</p>
+        <strong>아직 남겨진 후기가 없어요.</strong>
+        <p>첫 후기 한 줄이 다음 사람의 대전 코스를 바꿔 줄 수 있어요.</p>
       </article>
     );
   }
@@ -45,7 +45,7 @@ export function ReviewList({
             <span className="mood-pill">{review.mood}</span>
           </div>
           <p className="review-card__body">{review.body}</p>
-          {review.imageUrl && <img className="review-card__image" src={review.imageUrl} alt={`${review.placeName} ?? ??`} />}
+          {review.imageUrl && <img className="review-card__image" src={review.imageUrl} alt={`${review.placeName} 후기 사진`} />}
           <div className="review-card__actions">
             <button
               type="button"
@@ -53,9 +53,9 @@ export function ReviewList({
               onClick={() => (canToggleLike ? onToggleLike(review.id) : onRequestLogin())}
               disabled={likingReviewId === review.id}
             >
-              {likingReviewId === review.id ? '?? ?' : `??? ${review.likeCount}`}
+              {likingReviewId === review.id ? '반영 중' : `좋아요 ${review.likeCount}`}
             </button>
-            <span className="review-action-copy">?? {review.commentCount}</span>
+            <span className="review-action-copy">댓글 {review.commentCount}</span>
           </div>
           <CommentThread
             reviewId={review.id}

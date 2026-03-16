@@ -1,31 +1,59 @@
-const PROVIDERS = [
-  { key: "naver", label: "네이버" },
-  { key: "kakao", label: "카카오" },
+﻿const PROVIDERS = [
+  { key: 'naver', label: '네이버' },
+  { key: 'kakao', label: '카카오' },
 ];
+
+const BADGE_BY_MOOD = {
+  설렘: '첫 방문',
+  친구랑: '친구 추천',
+  혼자서: '로컬 탐방',
+  야경픽: '야경 성공',
+};
+
+const SESSION_COOKIE_NAME = 'jamissue_worker_session';
+const OAUTH_STATE_COOKIE_NAME = 'jamissue_worker_oauth_state';
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+const OAUTH_STATE_MAX_AGE_SECONDS = 60 * 10;
+const NAVER_AUTHORIZE_URL = 'https://nid.naver.com/oauth2.0/authorize';
+const NAVER_TOKEN_URL = 'https://nid.naver.com/oauth2.0/token';
+const NAVER_PROFILE_URL = 'https://openapi.naver.com/v1/nid/me';
+const textEncoder = new TextEncoder();
 
 function jsonResponse(status, payload, env, request, extraHeaders = {}) {
   const headers = new Headers({
-    "content-type": "application/json; charset=utf-8",
-    "cache-control": "no-store",
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
     ...extraHeaders,
   });
   applyCorsHeaders(headers, env, request);
   return new Response(JSON.stringify(payload, null, 2), { status, headers });
 }
 
+function redirectResponse(location, env, request, cookies = []) {
+  const headers = new Headers({
+    location,
+    'cache-control': 'no-store',
+  });
+  applyCorsHeaders(headers, env, request);
+  for (const cookie of cookies) {
+    headers.append('set-cookie', cookie);
+  }
+  return new Response(null, { status: 302, headers });
+}
+
 function applyCorsHeaders(headers, env, request) {
-  const origin = request.headers.get("Origin");
-  const allowedOrigins = (env.APP_CORS_ORIGINS ?? "")
-    .split(",")
+  const origin = request.headers.get('Origin');
+  const allowedOrigins = (env.APP_CORS_ORIGINS ?? '')
+    .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
-  const fallbackOrigin = env.APP_FRONTEND_URL ?? "*";
+  const fallbackOrigin = env.APP_FRONTEND_URL ?? '*';
   const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : fallbackOrigin;
-  headers.set("Access-Control-Allow-Origin", allowOrigin);
-  headers.set("Access-Control-Allow-Credentials", "true");
-  headers.set("Access-Control-Allow-Headers", "content-type, authorization");
-  headers.set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-  headers.set("Vary", "Origin");
+  headers.set('Access-Control-Allow-Origin', allowOrigin);
+  headers.set('Access-Control-Allow-Credentials', 'true');
+  headers.set('Access-Control-Allow-Headers', 'content-type, authorization');
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+  headers.set('Vary', 'Origin');
 }
 
 function handlePreflight(env, request) {
@@ -35,25 +63,36 @@ function handlePreflight(env, request) {
 }
 
 function getSupabaseKey(env) {
-  return env.APP_SUPABASE_SERVICE_ROLE_KEY || env.APP_SUPABASE_ANON_KEY || "";
+  return env.APP_SUPABASE_SERVICE_ROLE_KEY || env.APP_SUPABASE_ANON_KEY || '';
 }
 
-async function supabaseRequest(env, path) {
+async function supabaseRequest(env, path, init = {}) {
   if (!env.APP_SUPABASE_URL) {
-    throw new Error("APP_SUPABASE_URL is empty.");
+    throw new Error('APP_SUPABASE_URL is empty.');
   }
 
   const apiKey = getSupabaseKey(env);
   if (!apiKey) {
-    throw new Error("Supabase API key is missing.");
+    throw new Error('Supabase API key is missing.');
+  }
+
+  const headers = new Headers(init.headers || undefined);
+  headers.set('apikey', apiKey);
+  headers.set('Authorization', `Bearer ${apiKey}`);
+  headers.set('Accept', 'application/json');
+
+  const method = init.method ?? 'GET';
+  if (init.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (method !== 'GET' && method !== 'HEAD' && !headers.has('Prefer')) {
+    headers.set('Prefer', 'return=representation');
   }
 
   const response = await fetch(`${env.APP_SUPABASE_URL}/rest/v1/${path}`, {
-    headers: {
-      apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-    },
+    method,
+    headers,
+    body: init.body,
   });
 
   if (!response.ok) {
@@ -61,54 +100,340 @@ async function supabaseRequest(env, path) {
     throw new Error(`Supabase request failed (${response.status}): ${detail}`);
   }
 
-  return response.json();
+  const text = await response.text();
+  if (!text) {
+    return null;
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+  return contentType.includes('application/json') ? JSON.parse(text) : text;
+}
+
+function encodeFilterValue(value) {
+  return encodeURIComponent(String(value));
 }
 
 function formatDateTime(value) {
   if (!value) {
-    return "";
+    return '';
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
     hour12: false,
-    timeZone: "Asia/Seoul",
+    timeZone: 'Asia/Seoul',
   }).format(date);
 }
 
 function formatDate(value) {
   if (!value) {
-    return "";
+    return '';
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "2-digit",
-    day: "2-digit",
-    timeZone: "Asia/Seoul",
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'Asia/Seoul',
   }).format(date);
 }
 
-function buildAuthProviders() {
-  return PROVIDERS.map((provider) => ({
-    key: provider.key,
-    label: provider.label,
-    isEnabled: false,
-    loginUrl: null,
-  }));
+function nowSeconds() {
+  return Math.floor(Date.now() / 1000);
+}
+
+function base64UrlEncode(bytes) {
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlDecode(value) {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64 + '='.repeat((4 - (base64.length % 4 || 4)) % 4);
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+async function importHmacKey(secret) {
+  return crypto.subtle.importKey('raw', textEncoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+}
+
+async function signPayload(secret, payload) {
+  const body = base64UrlEncode(textEncoder.encode(JSON.stringify(payload)));
+  const key = await importHmacKey(secret);
+  const signature = await crypto.subtle.sign('HMAC', key, textEncoder.encode(body));
+  return `${body}.${base64UrlEncode(new Uint8Array(signature))}`;
+}
+
+async function verifyPayload(secret, token) {
+  if (!token || !secret) {
+    return null;
+  }
+
+  const [body, signature] = token.split('.');
+  if (!body || !signature) {
+    return null;
+  }
+
+  try {
+    const key = await importHmacKey(secret);
+    const isValid = await crypto.subtle.verify('HMAC', key, base64UrlDecode(signature), textEncoder.encode(body));
+    if (!isValid) {
+      return null;
+    }
+    return JSON.parse(new TextDecoder().decode(base64UrlDecode(body)));
+  } catch {
+    return null;
+  }
+}
+
+function getSigningSecret(env) {
+  return env.APP_SESSION_SECRET || env.APP_JWT_SECRET || '';
+}
+
+function getSecureCookieFlag(request, env) {
+  if (env.APP_SESSION_HTTPS === 'false') {
+    return false;
+  }
+  return new URL(request.url).protocol === 'https:';
+}
+
+function serializeCookie(name, value, options) {
+  const parts = [`${name}=${value}`];
+  parts.push(`Path=${options.path ?? '/'}`);
+  if (options.maxAge !== undefined) {
+    parts.push(`Max-Age=${options.maxAge}`);
+  }
+  if (options.httpOnly !== false) {
+    parts.push('HttpOnly');
+  }
+  if (options.secure) {
+    parts.push('Secure');
+  }
+  parts.push(`SameSite=${options.sameSite ?? 'Lax'}`);
+  return parts.join('; ');
+}
+
+function clearCookie(name, secure) {
+  return serializeCookie(name, '', {
+    maxAge: 0,
+    httpOnly: true,
+    secure,
+    sameSite: 'Lax',
+    path: '/',
+  });
+}
+
+function parseCookies(request) {
+  const cookieHeader = request.headers.get('Cookie') ?? '';
+  const cookies = new Map();
+  for (const chunk of cookieHeader.split(';')) {
+    const [rawName, ...valueParts] = chunk.trim().split('=');
+    if (!rawName) {
+      continue;
+    }
+    cookies.set(rawName, valueParts.join('='));
+  }
+  return cookies;
+}
+
+function isAdminUser(env, userId) {
+  const adminIds = (env.APP_ADMIN_USER_IDS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return adminIds.includes(userId);
+}
+
+function buildSessionUser(userId, nickname, email, provider, profileImage, env) {
+  return {
+    id: userId,
+    nickname,
+    email: email ?? null,
+    provider,
+    profileImage: profileImage ?? null,
+    isAdmin: isAdminUser(env, userId),
+  };
+}
+
+async function readSessionUser(request, env) {
+  const sessionToken = parseCookies(request).get(SESSION_COOKIE_NAME);
+  const payload = await verifyPayload(getSigningSecret(env), sessionToken);
+  if (!payload?.user || (payload.exp && payload.exp < nowSeconds())) {
+    return null;
+  }
+  return payload.user;
+}
+
+function buildRedirectUrl(baseUrl, params = {}) {
+  const url = new URL(baseUrl);
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
+}
+
+function naverConfigured(env) {
+  return Boolean(env.APP_NAVER_LOGIN_CLIENT_ID && env.APP_NAVER_LOGIN_CLIENT_SECRET && env.APP_NAVER_LOGIN_CALLBACK_URL);
+}
+
+function buildAuthProviders(env) {
+  return PROVIDERS.map((provider) => {
+    if (provider.key === 'naver') {
+      const enabled = naverConfigured(env);
+      return {
+        key: provider.key,
+        label: provider.label,
+        isEnabled: enabled,
+        loginUrl: enabled ? '/api/auth/naver/login' : null,
+      };
+    }
+
+    return {
+      key: provider.key,
+      label: provider.label,
+      isEnabled: false,
+      loginUrl: null,
+    };
+  });
+}
+
+function createAuthResponse(sessionUser, env) {
+  return {
+    isAuthenticated: Boolean(sessionUser),
+    user: sessionUser,
+    providers: buildAuthProviders(env),
+  };
+}
+
+function buildNaverLoginUrl(env, state) {
+  const query = new URLSearchParams({
+    response_type: 'code',
+    client_id: env.APP_NAVER_LOGIN_CLIENT_ID,
+    redirect_uri: env.APP_NAVER_LOGIN_CALLBACK_URL,
+    state,
+  });
+  return `${NAVER_AUTHORIZE_URL}?${query.toString()}`;
+}
+
+async function exchangeNaverCode(env, code, state) {
+  const query = new URLSearchParams({
+    grant_type: 'authorization_code',
+    client_id: env.APP_NAVER_LOGIN_CLIENT_ID,
+    client_secret: env.APP_NAVER_LOGIN_CLIENT_SECRET,
+    code,
+    state,
+  });
+  const response = await fetch(`${NAVER_TOKEN_URL}?${query.toString()}`, {
+    headers: { Accept: 'application/json' },
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.error || !payload.access_token) {
+    throw new Error(payload.error_description || payload.message || '네이버 토큰 교환에 실패했어요.');
+  }
+  return payload;
+}
+
+async function fetchNaverProfile(accessToken) {
+  const response = await fetch(NAVER_PROFILE_URL, {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.resultcode !== '00' || !payload.response) {
+    throw new Error(payload.message || '네이버 사용자 정보를 가져오지 못했어요.');
+  }
+  return payload.response;
+}
+
+async function findIdentity(env, provider, providerUserId) {
+  const rows = await supabaseRequest(
+    env,
+    `user_identity?select=identity_id,user_id,email,profile_image&provider=eq.${encodeFilterValue(provider)}&provider_user_id=eq.${encodeFilterValue(providerUserId)}&limit=1`,
+  );
+  return rows?.[0] ?? null;
+}
+
+async function readUserRow(env, userId) {
+  const rows = await supabaseRequest(env, `user?select=user_id,nickname,email,provider&user_id=eq.${encodeFilterValue(userId)}&limit=1`);
+  return rows?.[0] ?? null;
+}
+
+async function upsertNaverUser(env, profile) {
+  const nickname = profile.nickname || profile.name || '이름 없음';
+  const nowIso = new Date().toISOString();
+  const existingIdentity = await findIdentity(env, 'naver', profile.id);
+
+  if (existingIdentity) {
+    await supabaseRequest(env, `user?user_id=eq.${encodeFilterValue(existingIdentity.user_id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        nickname,
+        email: profile.email ?? null,
+        provider: 'naver',
+        updated_at: nowIso,
+      }),
+    });
+    await supabaseRequest(env, `user_identity?identity_id=eq.${existingIdentity.identity_id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        email: profile.email ?? null,
+        profile_image: profile.profile_image ?? null,
+        updated_at: nowIso,
+      }),
+    });
+
+    const user = await readUserRow(env, existingIdentity.user_id);
+    return buildSessionUser(existingIdentity.user_id, user?.nickname ?? nickname, user?.email ?? profile.email, 'naver', profile.profile_image, env);
+  }
+
+  const userId = crypto.randomUUID();
+  await supabaseRequest(env, 'user', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_id: userId,
+      nickname,
+      email: profile.email ?? null,
+      provider: 'naver',
+      created_at: nowIso,
+      updated_at: nowIso,
+    }),
+  });
+  await supabaseRequest(env, 'user_identity', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_id: userId,
+      provider: 'naver',
+      provider_user_id: profile.id,
+      email: profile.email ?? null,
+      profile_image: profile.profile_image ?? null,
+      created_at: nowIso,
+      updated_at: nowIso,
+    }),
+  });
+
+  return buildSessionUser(userId, nickname, profile.email, 'naver', profile.profile_image, env);
 }
 
 function mapPlace(row) {
   return {
-    id: String(row.position_id),
+    id: row.slug,
+    positionId: String(row.position_id),
     name: row.name,
     district: row.district,
     category: row.category,
@@ -142,8 +467,8 @@ function buildCommentTree(commentRows, usersById) {
     const comment = {
       id: String(row.comment_id),
       userId: row.user_id,
-      author: usersById.get(row.user_id)?.nickname ?? "알 수 없음",
-      body: row.is_deleted ? "삭제된 댓글입니다." : row.body,
+      author: usersById.get(row.user_id)?.nickname ?? '이름 없음',
+      body: row.is_deleted ? '삭제된 댓글입니다.' : row.body,
       parentId: row.parent_id ? String(row.parent_id) : null,
       isDeleted: row.is_deleted,
       createdAt: formatDateTime(row.created_at),
@@ -163,7 +488,7 @@ function buildCommentTree(commentRows, usersById) {
   return roots;
 }
 
-function mapReviewRows(feedRows, commentRows, likeRows, usersById, placesById) {
+function mapReviewRows(feedRows, commentRows, likeRows, usersById, placesByPositionId, likedFeedIds = new Set()) {
   const commentsByFeedId = new Map();
   for (const row of commentRows) {
     const feedId = String(row.feed_id);
@@ -180,13 +505,14 @@ function mapReviewRows(feedRows, commentRows, likeRows, usersById, placesById) {
   }
 
   return feedRows.map((row) => {
+    const place = placesByPositionId.get(String(row.position_id));
     const reviewComments = buildCommentTree(commentsByFeedId.get(String(row.feed_id)) ?? [], usersById);
     return {
       id: String(row.feed_id),
       userId: row.user_id,
-      placeId: String(row.position_id),
-      placeName: placesById.get(String(row.position_id))?.name ?? "장소 정보 없음",
-      author: usersById.get(row.user_id)?.nickname ?? "알 수 없음",
+      placeId: place?.id ?? String(row.position_id),
+      placeName: place?.name ?? '장소 정보 없음',
+      author: usersById.get(row.user_id)?.nickname ?? '이름 없음',
       body: row.body,
       mood: row.mood,
       badge: row.badge,
@@ -194,13 +520,13 @@ function mapReviewRows(feedRows, commentRows, likeRows, usersById, placesById) {
       imageUrl: row.image_url ?? null,
       commentCount: countComments(reviewComments),
       likeCount: likesByFeedId.get(String(row.feed_id)) ?? 0,
-      likedByMe: false,
+      likedByMe: likedFeedIds.has(String(row.feed_id)),
       comments: reviewComments,
     };
   });
 }
 
-function mapCourses(courseRows, coursePlaceRows) {
+function mapCourses(courseRows, coursePlaceRows, placesByPositionId) {
   const placeIdsByCourseId = new Map();
   for (const row of coursePlaceRows) {
     const courseId = String(row.course_id);
@@ -209,7 +535,7 @@ function mapCourses(courseRows, coursePlaceRows) {
     }
     placeIdsByCourseId.get(courseId).push({
       stopOrder: row.stop_order,
-      placeId: String(row.position_id),
+      placeId: placesByPositionId.get(String(row.position_id))?.id ?? String(row.position_id),
     });
   }
 
@@ -226,7 +552,7 @@ function mapCourses(courseRows, coursePlaceRows) {
   }));
 }
 
-function mapCommunityRoutes(routeRows, routePlaceRows, usersById, placesById) {
+function mapCommunityRoutes(routeRows, routePlaceRows, usersById, placesByPositionId, likedRouteIds = new Set()) {
   const placeRowsByRouteId = new Map();
   for (const row of routePlaceRows) {
     const routeId = String(row.route_id);
@@ -235,116 +561,205 @@ function mapCommunityRoutes(routeRows, routePlaceRows, usersById, placesById) {
     }
     placeRowsByRouteId.get(routeId).push({
       stopOrder: row.stop_order,
-      positionId: String(row.position_id),
+      placeId: placesByPositionId.get(String(row.position_id))?.id ?? String(row.position_id),
     });
   }
 
   return routeRows.map((row) => {
-    const placeRows = (placeRowsByRouteId.get(String(row.route_id)) ?? []).sort(
-      (left, right) => left.stopOrder - right.stopOrder,
-    );
-    const placeIds = placeRows.map((item) => item.positionId);
+    const placeRows = (placeRowsByRouteId.get(String(row.route_id)) ?? []).sort((left, right) => left.stopOrder - right.stopOrder);
+    const placeIds = placeRows.map((item) => item.placeId);
     return {
       id: String(row.route_id),
       authorId: row.user_id,
-      author: usersById.get(row.user_id)?.nickname ?? "알 수 없음",
+      author: usersById.get(row.user_id)?.nickname ?? '이름 없음',
       title: row.title,
       description: row.description,
       mood: row.mood,
       likeCount: row.like_count ?? 0,
-      likedByMe: false,
+      likedByMe: likedRouteIds.has(String(row.route_id)),
       createdAt: formatDateTime(row.created_at),
       placeIds,
-      placeNames: placeIds.map((placeId) => placesById.get(placeId)?.name ?? placeId),
+      placeNames: placeIds.map((placeId) => {
+        for (const place of placesByPositionId.values()) {
+          if (place.id === placeId) {
+            return place.name;
+          }
+        }
+        return placeId;
+      }),
     };
   });
 }
 
-async function loadBaseData(env) {
-  const [placeRows, courseRows, coursePlaceRows, feedRows, commentRows, likeRows, userRows] = await Promise.all([
-    supabaseRequest(
-      env,
-      "map?select=position_id,name,district,category,latitude,longitude,summary,description,vibe_tags,visit_time,route_hint,stamp_reward,hero_label,jam_color,accent_color,is_active&is_active=eq.true&order=position_id.asc",
-    ),
-    supabaseRequest(env, "course?select=course_id,title,mood,duration,note,color,display_order&order=display_order.asc"),
-    supabaseRequest(env, "course_place?select=course_id,position_id,stop_order&order=stop_order.asc"),
-    supabaseRequest(env, "feed?select=feed_id,position_id,user_id,body,mood,badge,image_url,created_at&order=created_at.desc"),
-    supabaseRequest(
-      env,
-      "user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&order=created_at.asc",
-    ),
-    supabaseRequest(env, "feed_like?select=feed_id,user_id"),
-    supabaseRequest(env, "user?select=user_id,nickname"),
-  ]);
+async function loadBaseData(env, sessionUserId = null) {
+  const requests = [
+    supabaseRequest(env, 'map?select=position_id,slug,name,district,category,latitude,longitude,summary,description,vibe_tags,visit_time,route_hint,stamp_reward,hero_label,jam_color,accent_color,is_active&is_active=eq.true&order=position_id.asc'),
+    supabaseRequest(env, 'course?select=course_id,title,mood,duration,note,color,display_order&order=display_order.asc'),
+    supabaseRequest(env, 'course_place?select=course_id,position_id,stop_order&order=stop_order.asc'),
+    supabaseRequest(env, 'feed?select=feed_id,position_id,user_id,body,mood,badge,image_url,created_at&order=created_at.desc'),
+    supabaseRequest(env, 'user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&order=created_at.asc'),
+    supabaseRequest(env, 'feed_like?select=feed_id,user_id'),
+    supabaseRequest(env, 'user?select=user_id,nickname'),
+  ];
+
+  if (sessionUserId) {
+    requests.push(
+      supabaseRequest(env, `user_stamp?select=position_id&user_id=eq.${encodeFilterValue(sessionUserId)}`),
+      supabaseRequest(env, `feed_like?select=feed_id&user_id=eq.${encodeFilterValue(sessionUserId)}`),
+    );
+  }
+
+  const results = await Promise.all(requests);
+  const [placeRows, courseRows, coursePlaceRows, feedRows, commentRows, likeRows, userRows] = results;
+  const userStampRows = sessionUserId ? results[7] ?? [] : [];
+  const userFeedLikeRows = sessionUserId ? results[8] ?? [] : [];
 
   const places = placeRows.map(mapPlace);
-  const placesById = new Map(places.map((place) => [place.id, place]));
+  const placesByPositionId = new Map(places.map((place) => [place.positionId, place]));
   const usersById = new Map(userRows.map((row) => [row.user_id, row]));
+  const likedFeedIds = new Set((userFeedLikeRows ?? []).map((row) => String(row.feed_id)));
 
   return {
     places,
-    placesById,
-    usersById,
-    courses: mapCourses(courseRows, coursePlaceRows),
-    reviews: mapReviewRows(feedRows, commentRows, likeRows, usersById, placesById),
+    placesByPositionId,
+    reviews: mapReviewRows(feedRows, commentRows, likeRows, usersById, placesByPositionId, likedFeedIds),
+    courses: mapCourses(courseRows, coursePlaceRows, placesByPositionId),
+    collectedPlaceIds: (userStampRows ?? []).map((row) => placesByPositionId.get(String(row.position_id))?.id).filter(Boolean),
   };
 }
 
+async function loadCommunityRoutes(env, options = {}) {
+  const { sort = 'popular', sessionUserId = null, ownerUserId = null } = options;
+  const routeFilter = ownerUserId
+    ? `user_id=eq.${encodeFilterValue(ownerUserId)}&order=created_at.desc`
+    : `is_public=eq.true&order=${sort === 'popular' ? 'like_count.desc,created_at.desc' : 'created_at.desc'}`;
+
+  const requests = [
+    supabaseRequest(env, `user_route?select=route_id,user_id,title,description,mood,like_count,created_at,is_public&${routeFilter}`),
+    supabaseRequest(env, 'user_route_place?select=route_id,position_id,stop_order&order=stop_order.asc'),
+    supabaseRequest(env, 'map?select=position_id,slug,name&is_active=eq.true'),
+    supabaseRequest(env, 'user?select=user_id,nickname'),
+  ];
+
+  if (sessionUserId) {
+    requests.push(supabaseRequest(env, `user_route_like?select=route_id&user_id=eq.${encodeFilterValue(sessionUserId)}`));
+  }
+
+  const [routeRows, routePlaceRows, placeRows, userRows, userRouteLikeRows = []] = await Promise.all(requests);
+  const placesByPositionId = new Map(placeRows.map((row) => [String(row.position_id), { id: row.slug, name: row.name }]));
+  const usersById = new Map(userRows.map((row) => [row.user_id, row]));
+  const likedRouteIds = new Set(userRouteLikeRows.map((row) => String(row.route_id)));
+  return mapCommunityRoutes(routeRows, routePlaceRows, usersById, placesByPositionId, likedRouteIds);
+}
+
 async function handleHealth(request, env) {
-  return jsonResponse(
-    200,
-    {
-      status: "ok",
-      env: "worker-first",
-      databaseUrl: env.APP_SUPABASE_URL ?? "",
-      databaseProvider: "supabase-rest",
-      storageBackend: env.APP_STORAGE_BACKEND ?? "supabase",
-      storagePath: env.APP_SUPABASE_STORAGE_BUCKET ? `supabase://${env.APP_SUPABASE_STORAGE_BUCKET}` : "",
-      supabaseConfigured: Boolean(env.APP_SUPABASE_URL && getSupabaseKey(env)),
-    },
-    env,
-    request,
-  );
+  return jsonResponse(200, {
+    status: 'ok',
+    env: 'worker-first',
+    databaseUrl: env.APP_SUPABASE_URL ?? '',
+    databaseProvider: 'supabase-rest',
+    storageBackend: env.APP_STORAGE_BACKEND ?? 'supabase',
+    storagePath: env.APP_SUPABASE_STORAGE_BUCKET ? `supabase://${env.APP_SUPABASE_STORAGE_BUCKET}` : '',
+    supabaseConfigured: Boolean(env.APP_SUPABASE_URL && getSupabaseKey(env)),
+  }, env, request);
 }
 
 async function handleAuthProviders(request, env) {
-  return jsonResponse(200, buildAuthProviders(), env, request);
+  return jsonResponse(200, buildAuthProviders(env), env, request);
 }
 
 async function handleAuthSession(request, env) {
-  return jsonResponse(
-    200,
-    {
-      isAuthenticated: false,
-      user: null,
-      providers: buildAuthProviders(),
-    },
-    env,
-    request,
-  );
+  return jsonResponse(200, createAuthResponse(await readSessionUser(request, env), env), env, request);
+}
+
+async function handleLogout(request, env) {
+  return jsonResponse(200, createAuthResponse(null, env), env, request, {
+    'set-cookie': clearCookie(SESSION_COOKIE_NAME, getSecureCookieFlag(request, env)),
+  });
+}
+
+async function handleStartNaverLogin(request, env, url) {
+  if (!naverConfigured(env)) {
+    return jsonResponse(503, { detail: '네이버 로그인 설정이 비어 있어요.' }, env, request);
+  }
+
+  const next = url.searchParams.get('next') || env.APP_FRONTEND_URL || 'https://jamissue.growgardens.app';
+  const state = crypto.randomUUID().replace(/-/g, '');
+  const stateToken = await signPayload(getSigningSecret(env), {
+    state,
+    next,
+    exp: nowSeconds() + OAUTH_STATE_MAX_AGE_SECONDS,
+  });
+
+  return redirectResponse(buildNaverLoginUrl(env, state), env, request, [
+    serializeCookie(OAUTH_STATE_COOKIE_NAME, stateToken, {
+      maxAge: OAUTH_STATE_MAX_AGE_SECONDS,
+      httpOnly: true,
+      secure: getSecureCookieFlag(request, env),
+      sameSite: 'Lax',
+      path: '/',
+    }),
+  ]);
+}
+
+async function handleNaverCallback(request, env, url) {
+  const secure = getSecureCookieFlag(request, env);
+  const stateToken = parseCookies(request).get(OAUTH_STATE_COOKIE_NAME);
+  const statePayload = await verifyPayload(getSigningSecret(env), stateToken);
+  const redirectTarget = statePayload?.next || env.APP_FRONTEND_URL || 'https://jamissue.growgardens.app';
+  const cleanupCookie = clearCookie(OAUTH_STATE_COOKIE_NAME, secure);
+
+  const error = url.searchParams.get('error');
+  const errorDescription = url.searchParams.get('error_description');
+  if (error) {
+    return redirectResponse(buildRedirectUrl(redirectTarget, { auth: 'naver-error', reason: errorDescription || error }), env, request, [cleanupCookie]);
+  }
+
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+  if (!code || !state || !statePayload || statePayload.state !== state || statePayload.exp < nowSeconds()) {
+    return redirectResponse(buildRedirectUrl(redirectTarget, { auth: 'naver-error', reason: 'state-mismatch' }), env, request, [cleanupCookie]);
+  }
+
+  try {
+    const tokenPayload = await exchangeNaverCode(env, code, state);
+    const profile = await fetchNaverProfile(tokenPayload.access_token);
+    const sessionUser = await upsertNaverUser(env, profile);
+    const sessionToken = await signPayload(getSigningSecret(env), { user: sessionUser, exp: nowSeconds() + SESSION_MAX_AGE_SECONDS });
+
+    return redirectResponse(buildRedirectUrl(redirectTarget, { auth: 'naver-success' }), env, request, [
+      cleanupCookie,
+      serializeCookie(SESSION_COOKIE_NAME, sessionToken, {
+        maxAge: SESSION_MAX_AGE_SECONDS,
+        httpOnly: true,
+        secure,
+        sameSite: 'Lax',
+        path: '/',
+      }),
+    ]);
+  } catch (errorValue) {
+    const reason = errorValue instanceof Error ? errorValue.message : String(errorValue);
+    return redirectResponse(buildRedirectUrl(redirectTarget, { auth: 'naver-error', reason }), env, request, [cleanupCookie]);
+  }
 }
 
 async function handleBootstrap(request, env) {
-  const baseData = await loadBaseData(env);
-  return jsonResponse(
-    200,
-    {
-      places: baseData.places,
-      reviews: baseData.reviews,
-      courses: baseData.courses,
-      stamps: { collectedPlaceIds: [] },
-      hasRealData: baseData.places.length > 0,
-    },
-    env,
-    request,
-  );
+  const sessionUser = await readSessionUser(request, env);
+  const baseData = await loadBaseData(env, sessionUser?.id ?? null);
+  return jsonResponse(200, {
+    places: baseData.places.map(({ positionId, ...place }) => place),
+    reviews: baseData.reviews,
+    courses: baseData.courses,
+    stamps: { collectedPlaceIds: baseData.collectedPlaceIds },
+    hasRealData: baseData.places.length > 0,
+  }, env, request);
 }
 
 async function handleReviews(request, env, url) {
-  const baseData = await loadBaseData(env);
-  const placeId = url.searchParams.get("placeId");
-  const userId = url.searchParams.get("userId");
-
+  const sessionUser = await readSessionUser(request, env);
+  const baseData = await loadBaseData(env, sessionUser?.id ?? null);
+  const placeId = url.searchParams.get('placeId');
+  const userId = url.searchParams.get('userId');
   const reviews = baseData.reviews.filter((review) => {
     if (placeId && review.placeId !== placeId) {
       return false;
@@ -354,41 +769,55 @@ async function handleReviews(request, env, url) {
     }
     return true;
   });
-
   return jsonResponse(200, reviews, env, request);
 }
 
 async function handleCommunityRoutes(request, env, url) {
-  const sort = url.searchParams.get("sort") === "latest" ? "latest" : "popular";
-  const [routeRows, routePlaceRows, placeRows, userRows] = await Promise.all([
-    supabaseRequest(
-      env,
-      `user_route?select=route_id,user_id,title,description,mood,like_count,created_at,is_public&is_public=eq.true&order=${
-        sort === "popular" ? "like_count.desc,created_at.desc" : "created_at.desc"
-      }`,
-    ),
-    supabaseRequest(env, "user_route_place?select=route_id,position_id,stop_order&order=stop_order.asc"),
-    supabaseRequest(env, "map?select=position_id,name&is_active=eq.true"),
-    supabaseRequest(env, "user?select=user_id,nickname"),
-  ]);
-
-  const placesById = new Map(placeRows.map((row) => [String(row.position_id), { name: row.name }]));
-  const usersById = new Map(userRows.map((row) => [row.user_id, row]));
-  const routes = mapCommunityRoutes(routeRows, routePlaceRows, usersById, placesById);
+  const sessionUser = await readSessionUser(request, env);
+  const sort = url.searchParams.get('sort') === 'latest' ? 'latest' : 'popular';
+  const routes = await loadCommunityRoutes(env, { sort, sessionUserId: sessionUser?.id ?? null });
   return jsonResponse(200, routes, env, request);
 }
 
 async function handleMyRoutes(request, env) {
-  return jsonResponse(401, { detail: "로그인이 필요해요." }, env, request);
+  const sessionUser = await readSessionUser(request, env);
+  if (!sessionUser) {
+    return jsonResponse(401, { detail: '로그인이 필요해요.' }, env, request);
+  }
+  return jsonResponse(200, await loadCommunityRoutes(env, { ownerUserId: sessionUser.id, sessionUserId: sessionUser.id }), env, request);
+}
+
+async function handleMySummary(request, env) {
+  const sessionUser = await readSessionUser(request, env);
+  if (!sessionUser) {
+    return jsonResponse(401, { detail: '로그인이 필요해요.' }, env, request);
+  }
+
+  const baseData = await loadBaseData(env, sessionUser.id);
+  const routes = await loadCommunityRoutes(env, { ownerUserId: sessionUser.id, sessionUserId: sessionUser.id });
+  const reviewItems = baseData.reviews.filter((review) => review.userId === sessionUser.id);
+  const collectedSet = new Set(baseData.collectedPlaceIds);
+  const collectedPlaces = baseData.places
+    .filter((place) => collectedSet.has(place.id))
+    .map(({ positionId, ...place }) => place);
+
+  return jsonResponse(200, {
+    user: sessionUser,
+    stats: {
+      reviewCount: reviewItems.length,
+      stampCount: baseData.collectedPlaceIds.length,
+      routeCount: routes.length,
+    },
+    reviews: reviewItems,
+    collectedPlaces,
+    routes,
+  }, env, request);
 }
 
 async function handleBannerEvents(request, env) {
   const [eventRows, sourceRows] = await Promise.all([
-    supabaseRequest(
-      env,
-      "public_event?select=public_event_id,title,venue_name,district,starts_at,ends_at,summary,source_page_url&order=starts_at.asc&limit=4",
-    ),
-    supabaseRequest(env, "public_data_source?select=name,last_imported_at&provider=eq.public-event&limit=1"),
+    supabaseRequest(env, 'public_event?select=public_event_id,title,venue_name,district,starts_at,ends_at,summary,source_page_url&order=starts_at.asc&limit=4'),
+    supabaseRequest(env, 'public_data_source?select=name,last_imported_at&provider=eq.public-event&limit=1'),
   ]);
 
   const source = sourceRows[0] ?? null;
@@ -397,31 +826,441 @@ async function handleBannerEvents(request, env) {
     id: String(row.public_event_id),
     title: row.title,
     venueName: row.venue_name ?? null,
-    district: row.district ?? "",
+    district: row.district ?? '',
     startDate: row.starts_at,
     endDate: row.ends_at,
     dateLabel: `${formatDate(row.starts_at)} - ${formatDate(row.ends_at)}`,
-    summary: row.summary ?? "",
+    summary: row.summary ?? '',
     sourcePageUrl: row.source_page_url ?? null,
     linkedPlaceName: null,
     isOngoing: new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() >= now,
   }));
 
-  return jsonResponse(
-    200,
-    {
-      sourceReady: items.length > 0,
-      sourceName: source?.name ?? null,
-      importedAt: source?.last_imported_at ?? null,
-      items,
+  return jsonResponse(200, {
+    sourceReady: items.length > 0,
+    sourceName: source?.name ?? null,
+    importedAt: source?.last_imported_at ?? null,
+    items,
+  }, env, request);
+}
+
+function getStampUnlockRadius(env) {
+  const parsed = Number(env.APP_STAMP_UNLOCK_RADIUS_METERS ?? '120');
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 120;
+}
+
+function calculateDistanceMeters(startLatitude, startLongitude, endLatitude, endLongitude) {
+  const earthRadiusMeters = 6_371_000;
+  const latitudeDelta = ((endLatitude - startLatitude) * Math.PI) / 180;
+  const longitudeDelta = ((endLongitude - startLongitude) * Math.PI) / 180;
+  const startLatitudeRadians = (startLatitude * Math.PI) / 180;
+  const endLatitudeRadians = (endLatitude * Math.PI) / 180;
+
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(startLatitudeRadians) * Math.cos(endLatitudeRadians) * Math.sin(longitudeDelta / 2) ** 2;
+
+  return earthRadiusMeters * (2 * Math.asin(Math.sqrt(haversine)));
+}
+
+function buildNearPlaceMessage(placeName, distanceMeters, unlockRadius) {
+  return `${placeName}까지 ${formatDistanceMeters(distanceMeters)} 남았어요. 반경 ${unlockRadius}m 안에 들어오면 열려요.`;
+}
+
+async function readJsonBody(request) {
+  try {
+    return await request.json();
+  } catch {
+    throw new Error('요청 형식이 올바르지 않아요.');
+  }
+}
+
+async function requireSessionUser(request, env) {
+  const sessionUser = await readSessionUser(request, env);
+  if (!sessionUser) {
+    return { response: jsonResponse(401, { detail: '로그인이 필요해요.' }, env, request) };
+  }
+  return { sessionUser };
+}
+
+async function readFeedRow(env, reviewId) {
+  const rows = await supabaseRequest(env, `feed?select=feed_id,position_id,user_id&feed_id=eq.${encodeFilterValue(reviewId)}&limit=1`);
+  return rows?.[0] ?? null;
+}
+
+async function readCommentRow(env, commentId) {
+  const rows = await supabaseRequest(env, `user_comment?select=comment_id,feed_id&comment_id=eq.${encodeFilterValue(commentId)}&limit=1`);
+  return rows?.[0] ?? null;
+}
+
+async function readRouteRow(env, routeId) {
+  const rows = await supabaseRequest(env, `user_route?select=route_id,user_id,like_count&route_id=eq.${encodeFilterValue(routeId)}&limit=1`);
+  return rows?.[0] ?? null;
+}
+
+async function loadSingleReview(env, reviewId, sessionUserId = null) {
+  const baseData = await loadBaseData(env, sessionUserId);
+  return baseData.reviews.find((review) => review.id === String(reviewId)) ?? null;
+}
+
+function sanitizeFileName(fileName) {
+  return String(fileName || 'upload.jpg').replace(/[^a-zA-Z0-9._-]+/g, '-');
+}
+
+function buildPublicStorageUrl(env, objectPath) {
+  const normalizedPath = objectPath.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+  return `${env.APP_SUPABASE_URL}/storage/v1/object/public/${env.APP_SUPABASE_STORAGE_BUCKET}/${normalizedPath}`;
+}
+
+async function uploadReviewFile(env, sessionUser, file) {
+  if (!env.APP_SUPABASE_URL || !env.APP_SUPABASE_STORAGE_BUCKET) {
+    throw new Error('Supabase Storage 설정이 비어 있어요.');
+  }
+
+  const storageKey = env.APP_SUPABASE_SERVICE_ROLE_KEY || getSupabaseKey(env);
+  if (!storageKey) {
+    throw new Error('Supabase Storage 권한 키가 비어 있어요.');
+  }
+
+  const safeFileName = sanitizeFileName(file.name);
+  const objectPath = `reviews/${sessionUser.id.replace(/[^a-zA-Z0-9_-]+/g, '_')}/${Date.now()}-${safeFileName}`;
+  const uploadUrl = `${env.APP_SUPABASE_URL}/storage/v1/object/${env.APP_SUPABASE_STORAGE_BUCKET}/${objectPath.split('/').map((segment) => encodeURIComponent(segment)).join('/')}`;
+
+  const response = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      apikey: storageKey,
+      Authorization: `Bearer ${storageKey}`,
+      'x-upsert': 'true',
+      'content-type': file.type || 'application/octet-stream',
     },
+    body: file,
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`이미지 업로드에 실패했어요. (${response.status}) ${detail}`);
+  }
+
+  return {
+    url: buildPublicStorageUrl(env, objectPath),
+    fileName: safeFileName,
+    contentType: file.type || 'application/octet-stream',
+  };
+}
+
+async function handleReviewUpload(request, env) {
+  const sessionResult = await requireSessionUser(request, env);
+  if (sessionResult.response) {
+    return sessionResult.response;
+  }
+
+  const formData = await request.formData();
+  const file = formData.get('file');
+  if (!(file instanceof File)) {
+    return jsonResponse(400, { detail: '업로드할 이미지 파일이 필요해요.' }, env, request);
+  }
+  if (!(file.type || '').startsWith('image/')) {
+    return jsonResponse(400, { detail: '이미지 파일만 업로드할 수 있어요.' }, env, request);
+  }
+
+  const maxUploadSize = Number(env.APP_MAX_UPLOAD_SIZE_BYTES ?? '5242880');
+  if (file.size > maxUploadSize) {
+    return jsonResponse(413, { detail: '이미지는 5MB 이하로 올려 주세요.' }, env, request);
+  }
+
+  const uploaded = await uploadReviewFile(env, sessionResult.sessionUser, file);
+  return jsonResponse(200, uploaded, env, request);
+}
+
+async function handleCreateReview(request, env) {
+  const sessionResult = await requireSessionUser(request, env);
+  if (sessionResult.response) {
+    return sessionResult.response;
+  }
+
+  const payload = await readJsonBody(request);
+  const placeId = String(payload.placeId ?? '').trim();
+  const body = String(payload.body ?? '').trim();
+  const mood = String(payload.mood ?? '설렘').trim();
+  const imageUrl = payload.imageUrl ? String(payload.imageUrl) : null;
+  const latitude = Number(payload.latitude);
+  const longitude = Number(payload.longitude);
+
+  if (!placeId) {
+    return jsonResponse(400, { detail: '장소 정보가 필요해요.' }, env, request);
+  }
+  if (!body) {
+    return jsonResponse(400, { detail: '후기를 조금 더 적어 주세요.' }, env, request);
+  }
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return jsonResponse(400, { detail: '현장 좌표가 필요해요.' }, env, request);
+  }
+
+  const baseData = await loadBaseData(env, sessionResult.sessionUser.id);
+  const place = baseData.places.find((item) => item.id === placeId);
+  if (!place) {
+    return jsonResponse(404, { detail: '장소를 찾지 못했어요.' }, env, request);
+  }
+
+  const distanceMeters = calculateDistanceMeters(latitude, longitude, place.latitude, place.longitude);
+  const unlockRadius = getStampUnlockRadius(env);
+  if (distanceMeters > unlockRadius) {
+    return jsonResponse(403, { detail: buildNearPlaceMessage(place.name, distanceMeters, unlockRadius) }, env, request);
+  }
+
+  const insertedRows = await supabaseRequest(env, 'feed?select=feed_id', {
+    method: 'POST',
+    body: JSON.stringify({
+      position_id: Number(place.positionId),
+      user_id: sessionResult.sessionUser.id,
+      body,
+      mood,
+      badge: BADGE_BY_MOOD[mood] ?? '현장 방문',
+      image_url: imageUrl,
+    }),
+  });
+
+  const createdReview = await loadSingleReview(env, insertedRows?.[0]?.feed_id, sessionResult.sessionUser.id);
+  return jsonResponse(201, createdReview, env, request);
+}
+
+async function handleCreateComment(request, env, reviewId) {
+  const sessionResult = await requireSessionUser(request, env);
+  if (sessionResult.response) {
+    return sessionResult.response;
+  }
+
+  const reviewRow = await readFeedRow(env, reviewId);
+  if (!reviewRow) {
+    return jsonResponse(404, { detail: '후기를 찾지 못했어요.' }, env, request);
+  }
+
+  const payload = await readJsonBody(request);
+  const body = String(payload.body ?? '').trim();
+  const parentId = payload.parentId ? Number(payload.parentId) : null;
+  if (!body) {
+    return jsonResponse(400, { detail: '댓글을 조금 더 적어 주세요.' }, env, request);
+  }
+
+  if (parentId) {
+    const parentComment = await readCommentRow(env, parentId);
+    if (!parentComment || String(parentComment.feed_id) !== String(reviewId)) {
+      return jsonResponse(400, { detail: '같은 후기 안의 댓글에만 답글을 달 수 있어요.' }, env, request);
+    }
+  }
+
+  await supabaseRequest(env, 'user_comment?select=comment_id', {
+    method: 'POST',
+    body: JSON.stringify({
+      feed_id: Number(reviewId),
+      user_id: sessionResult.sessionUser.id,
+      parent_id: parentId,
+      body,
+      is_deleted: false,
+    }),
+  });
+
+  const comments = (await loadSingleReview(env, reviewId, sessionResult.sessionUser.id))?.comments ?? [];
+  return jsonResponse(200, comments, env, request);
+}
+
+async function handleToggleReviewLike(request, env, reviewId) {
+  const sessionResult = await requireSessionUser(request, env);
+  if (sessionResult.response) {
+    return sessionResult.response;
+  }
+
+  const reviewRow = await readFeedRow(env, reviewId);
+  if (!reviewRow) {
+    return jsonResponse(404, { detail: '후기를 찾지 못했어요.' }, env, request);
+  }
+
+  const existingRows = await supabaseRequest(
     env,
-    request,
+    `feed_like?select=feed_like_id&feed_id=eq.${encodeFilterValue(reviewId)}&user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&limit=1`,
   );
+  const existing = existingRows?.[0] ?? null;
+
+  if (existing) {
+    await supabaseRequest(env, `feed_like?feed_like_id=eq.${encodeFilterValue(existing.feed_like_id)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' },
+    });
+  } else {
+    await supabaseRequest(env, 'feed_like?select=feed_like_id', {
+      method: 'POST',
+      body: JSON.stringify({
+        feed_id: Number(reviewId),
+        user_id: sessionResult.sessionUser.id,
+      }),
+    });
+  }
+
+  const likeRows = await supabaseRequest(env, `feed_like?select=feed_like_id&feed_id=eq.${encodeFilterValue(reviewId)}`);
+  return jsonResponse(200, {
+    reviewId: String(reviewId),
+    likeCount: likeRows.length,
+    likedByMe: !existing,
+  }, env, request);
+}
+
+async function handleToggleStamp(request, env) {
+  const sessionResult = await requireSessionUser(request, env);
+  if (sessionResult.response) {
+    return sessionResult.response;
+  }
+
+  const payload = await readJsonBody(request);
+  const placeId = String(payload.placeId ?? '').trim();
+  const latitude = Number(payload.latitude);
+  const longitude = Number(payload.longitude);
+  if (!placeId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return jsonResponse(400, { detail: '장소와 현재 좌표가 필요해요.' }, env, request);
+  }
+
+  const baseData = await loadBaseData(env, sessionResult.sessionUser.id);
+  const place = baseData.places.find((item) => item.id === placeId);
+  if (!place) {
+    return jsonResponse(404, { detail: '장소를 찾지 못했어요.' }, env, request);
+  }
+
+  const distanceMeters = calculateDistanceMeters(latitude, longitude, place.latitude, place.longitude);
+  const unlockRadius = getStampUnlockRadius(env);
+  if (distanceMeters > unlockRadius) {
+    return jsonResponse(403, { detail: buildNearPlaceMessage(place.name, distanceMeters, unlockRadius) }, env, request);
+  }
+
+  if (!baseData.collectedPlaceIds.includes(placeId)) {
+    await supabaseRequest(env, 'user_stamp?select=stamp_id', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: sessionResult.sessionUser.id,
+        position_id: Number(place.positionId),
+      }),
+    });
+  }
+
+  const nextBaseData = await loadBaseData(env, sessionResult.sessionUser.id);
+  return jsonResponse(200, { collectedPlaceIds: nextBaseData.collectedPlaceIds }, env, request);
+}
+
+async function handleCreateUserRoute(request, env) {
+  const sessionResult = await requireSessionUser(request, env);
+  if (sessionResult.response) {
+    return sessionResult.response;
+  }
+
+  const payload = await readJsonBody(request);
+  const title = String(payload.title ?? '').trim();
+  const description = String(payload.description ?? '').trim();
+  const mood = String(payload.mood ?? '').trim();
+  const requestedPlaceIds = Array.isArray(payload.placeIds) ? payload.placeIds.map((item) => String(item).trim()).filter(Boolean) : [];
+  const placeIds = [...new Set(requestedPlaceIds)].slice(0, 6);
+  const isPublic = payload.isPublic !== false;
+
+  if (!title) {
+    return jsonResponse(400, { detail: '경로 제목을 적어 주세요.' }, env, request);
+  }
+  if (!description) {
+    return jsonResponse(400, { detail: '한 줄 소개를 적어 주세요.' }, env, request);
+  }
+  if (placeIds.length < 2) {
+    return jsonResponse(400, { detail: '경로에는 최소 두 곳 이상이 필요해요.' }, env, request);
+  }
+
+  const baseData = await loadBaseData(env, sessionResult.sessionUser.id);
+  const collectedSet = new Set(baseData.collectedPlaceIds);
+  const selectedPlaces = placeIds.map((placeId) => baseData.places.find((place) => place.id === placeId)).filter(Boolean);
+
+  if (selectedPlaces.length !== placeIds.length) {
+    return jsonResponse(404, { detail: '경로에 넣은 장소를 찾지 못했어요.' }, env, request);
+  }
+  if (placeIds.some((placeId) => !collectedSet.has(placeId))) {
+    return jsonResponse(403, { detail: '실제로 찍은 스탬프 장소만 추천 경로로 올릴 수 있어요.' }, env, request);
+  }
+
+  const routeRows = await supabaseRequest(env, 'user_route?select=route_id', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_id: sessionResult.sessionUser.id,
+      title,
+      description,
+      mood,
+      is_public: isPublic,
+      like_count: 0,
+    }),
+  });
+
+  const routeId = routeRows?.[0]?.route_id;
+  await supabaseRequest(env, 'user_route_place?select=user_route_place_id', {
+    method: 'POST',
+    body: JSON.stringify(selectedPlaces.map((place, index) => ({
+      route_id: Number(routeId),
+      position_id: Number(place.positionId),
+      stop_order: index + 1,
+    }))),
+  });
+
+  const routes = await loadCommunityRoutes(env, { ownerUserId: sessionResult.sessionUser.id, sessionUserId: sessionResult.sessionUser.id });
+  const createdRoute = routes.find((route) => route.id === String(routeId)) ?? null;
+  return jsonResponse(201, createdRoute, env, request);
+}
+
+async function handleToggleCommunityRouteLike(request, env, routeId) {
+  const sessionResult = await requireSessionUser(request, env);
+  if (sessionResult.response) {
+    return sessionResult.response;
+  }
+
+  const routeRow = await readRouteRow(env, routeId);
+  if (!routeRow) {
+    return jsonResponse(404, { detail: '경로를 찾지 못했어요.' }, env, request);
+  }
+  if (routeRow.user_id === sessionResult.sessionUser.id) {
+    return jsonResponse(400, { detail: '내가 만든 경로에는 좋아요를 남길 수 없어요.' }, env, request);
+  }
+
+  const existingRows = await supabaseRequest(
+    env,
+    `user_route_like?select=route_like_id&route_id=eq.${encodeFilterValue(routeId)}&user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&limit=1`,
+  );
+  const existing = existingRows?.[0] ?? null;
+
+  if (existing) {
+    await supabaseRequest(env, `user_route_like?route_like_id=eq.${encodeFilterValue(existing.route_like_id)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' },
+    });
+  } else {
+    await supabaseRequest(env, 'user_route_like?select=route_like_id', {
+      method: 'POST',
+      body: JSON.stringify({
+        route_id: Number(routeId),
+        user_id: sessionResult.sessionUser.id,
+      }),
+    });
+  }
+
+  const likeRows = await supabaseRequest(env, `user_route_like?select=route_like_id&route_id=eq.${encodeFilterValue(routeId)}`);
+  const likeCount = likeRows.length;
+  await supabaseRequest(env, `user_route?route_id=eq.${encodeFilterValue(routeId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      like_count: likeCount,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+
+  return jsonResponse(200, {
+    routeId: String(routeId),
+    likeCount,
+    likedByMe: !existing,
+  }, env, request);
 }
 
 function resolveOriginUrl(request, env) {
-  const originBaseUrl = (env.APP_ORIGIN_API_URL ?? "").trim();
+  const originBaseUrl = (env.APP_ORIGIN_API_URL ?? '').trim();
   if (!originBaseUrl) {
     return null;
   }
@@ -435,31 +1274,31 @@ function resolveOriginUrl(request, env) {
 function buildProxyHeaders(request) {
   const incomingUrl = new URL(request.url);
   const headers = new Headers(request.headers);
-  headers.set("x-forwarded-host", incomingUrl.host);
-  headers.set("x-forwarded-proto", incomingUrl.protocol.replace(":", ""));
-  headers.set("x-forwarded-for", headers.get("cf-connecting-ip") ?? "");
+  headers.set('x-forwarded-host', incomingUrl.host);
+  headers.set('x-forwarded-proto', incomingUrl.protocol.replace(':', ''));
+  headers.set('x-forwarded-for', headers.get('cf-connecting-ip') ?? '');
   return headers;
 }
 
 async function proxyToOrigin(request, env) {
   const upstreamUrl = resolveOriginUrl(request, env);
   if (!upstreamUrl) {
-    return jsonResponse(501, { detail: "이 엔드포인트는 아직 Worker-first 브랜치에서 구현되지 않았어요." }, env, request);
+    return jsonResponse(501, { detail: '이 기능은 아직 Worker 브랜치에서 직접 구현되지 않았어요.' }, env, request);
   }
 
   const init = {
     method: request.method,
     headers: buildProxyHeaders(request),
-    redirect: "manual",
+    redirect: 'manual',
   };
 
-  if (request.method !== "GET" && request.method !== "HEAD") {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
     init.body = request.body;
   }
 
   const upstreamResponse = await fetch(upstreamUrl.toString(), init);
   const responseHeaders = new Headers(upstreamResponse.headers);
-  responseHeaders.set("cache-control", "no-store");
+  responseHeaders.set('cache-control', 'no-store');
   applyCorsHeaders(responseHeaders, env, request);
   return new Response(upstreamResponse.body, {
     status: upstreamResponse.status,
@@ -470,33 +1309,72 @@ async function proxyToOrigin(request, env) {
 
 async function routeRequest(request, env) {
   const url = new URL(request.url);
+  const reviewCommentMatch = url.pathname.match(/^\/api\/reviews\/(\d+)\/comments$/);
+  const reviewLikeMatch = url.pathname.match(/^\/api\/reviews\/(\d+)\/like$/);
+  const communityRouteLikeMatch = url.pathname.match(/^\/api\/community-routes\/(\d+)\/like$/);
 
-  if (request.method === "OPTIONS") {
+  if (request.method === 'OPTIONS') {
     return handlePreflight(env, request);
   }
-
-  if (request.method === "GET" && url.pathname === "/api/health") {
+  if (request.method === 'GET' && url.pathname === '/api/health') {
     return handleHealth(request, env);
   }
-  if (request.method === "GET" && url.pathname === "/api/auth/providers") {
+  if (request.method === 'GET' && url.pathname === '/api/auth/providers') {
     return handleAuthProviders(request, env);
   }
-  if (request.method === "GET" && url.pathname === "/api/auth/me") {
+  if (request.method === 'GET' && url.pathname === '/api/auth/me') {
     return handleAuthSession(request, env);
   }
-  if (request.method === "GET" && url.pathname === "/api/bootstrap") {
+  if (request.method === 'POST' && url.pathname === '/api/auth/logout') {
+    return handleLogout(request, env);
+  }
+  if (request.method === 'GET' && url.pathname === '/api/auth/naver/login') {
+    return handleStartNaverLogin(request, env, url);
+  }
+  if (request.method === 'GET' && url.pathname === '/api/auth/naver/callback') {
+    return handleNaverCallback(request, env, url);
+  }
+  if (request.method === 'GET' && url.pathname === '/api/bootstrap') {
     return handleBootstrap(request, env);
   }
-  if (request.method === "GET" && url.pathname === "/api/reviews") {
+  if (request.method === 'GET' && url.pathname === '/api/reviews') {
     return handleReviews(request, env, url);
   }
-  if (request.method === "GET" && url.pathname === "/api/community-routes") {
+  if (request.method === 'POST' && url.pathname === '/api/reviews/upload') {
+    return handleReviewUpload(request, env);
+  }
+  if (request.method === 'POST' && url.pathname === '/api/reviews') {
+    return handleCreateReview(request, env);
+  }
+  if (request.method === 'GET' && reviewCommentMatch) {
+    const comments = (await loadSingleReview(env, reviewCommentMatch[1], readSessionCookie(request)?.id ?? null))?.comments ?? [];
+    return jsonResponse(200, comments, env, request);
+  }
+  if (request.method === 'POST' && reviewCommentMatch) {
+    return handleCreateComment(request, env, reviewCommentMatch[1]);
+  }
+  if (request.method === 'POST' && reviewLikeMatch) {
+    return handleToggleReviewLike(request, env, reviewLikeMatch[1]);
+  }
+  if (request.method === 'POST' && url.pathname === '/api/stamps/toggle') {
+    return handleToggleStamp(request, env);
+  }
+  if (request.method === 'GET' && url.pathname === '/api/community-routes') {
     return handleCommunityRoutes(request, env, url);
   }
-  if (request.method === "GET" && url.pathname === "/api/my/routes") {
+  if (request.method === 'POST' && url.pathname === '/api/community-routes') {
+    return handleCreateUserRoute(request, env);
+  }
+  if (request.method === 'POST' && communityRouteLikeMatch) {
+    return handleToggleCommunityRouteLike(request, env, communityRouteLikeMatch[1]);
+  }
+  if (request.method === 'GET' && url.pathname === '/api/my/routes') {
     return handleMyRoutes(request, env);
   }
-  if (request.method === "GET" && url.pathname === "/api/banner/events") {
+  if (request.method === 'GET' && url.pathname === '/api/my/summary') {
+    return handleMySummary(request, env);
+  }
+  if (request.method === 'GET' && url.pathname === '/api/banner/events') {
     return handleBannerEvents(request, env);
   }
 
@@ -508,16 +1386,13 @@ export default {
     try {
       return await routeRequest(request, env);
     } catch (error) {
-      return jsonResponse(
-        500,
-        {
-          service: "jamissue-api-worker-poc",
-          status: "worker-error",
-          message: error instanceof Error ? error.message : String(error),
-        },
-        env,
-        request,
-      );
+      return jsonResponse(500, {
+        service: 'jamissue-api-worker-poc',
+        status: 'worker-error',
+        message: error instanceof Error ? error.message : String(error),
+      }, env, request);
     }
   },
 };
+
+

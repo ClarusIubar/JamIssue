@@ -9,15 +9,10 @@ $assetsDir = Join-Path $siteDir "assets"
 $iconsDir = Join-Path $siteDir "icons"
 $esbuildExe = Join-Path $root "node_modules/@esbuild/win32-x64/esbuild.exe"
 
-function U {
-    param([Parameter(Mandatory = $true)][string]$Text)
-    return [System.Text.RegularExpressions.Regex]::Unescape($Text)
-}
-
-$appName = U('\uB300\uC804\uC7BC\uC788\uC288')
-$appShortName = U('\uC7BC\uC788\uC288')
-$appDescription = U('\uB300\uC804\uC744 \uD55C \uC785\uC5D0 \uACE0\uB974\uB294 \uBAA8\uBC14\uC77C \uC5EC\uD589 \uC571')
-$mapWarning = U('PUBLIC_NAVER_MAP_CLIENT_ID \uAC12\uC774 \uBE44\uC5B4 \uC788\uC5B4 \uC9C0\uB3C4 \uC601\uC5ED\uC740 \uC548\uB0B4 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uB429\uB2C8\uB2E4.')
+$appName = "대전잼있슈"
+$appShortName = "잼있슈"
+$appDescription = "대전을 한 입에 고르는 모바일 여행 앱"
+$mapWarning = "PUBLIC_NAVER_MAP_CLIENT_ID 값이 비어 있어 지도 영역은 안내 상태로 표시됩니다."
 
 function Read-PublicEnv {
     $values = @{}

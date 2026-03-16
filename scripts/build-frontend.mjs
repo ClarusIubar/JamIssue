@@ -10,10 +10,10 @@ const siteDir = path.join(rootDir, "infra", "nginx", "site");
 const assetsDir = path.join(siteDir, "assets");
 const iconsDir = path.join(siteDir, "icons");
 
-const APP_NAME = "\uB300\uC804\uC7BC\uC788\uC288";
-const APP_SHORT_NAME = "\uC7BC\uC788\uC288";
-const APP_DESCRIPTION = "\uB300\uC804\uC744 \uD55C \uC785\uC5D0 \uACE0\uB974\uB294 \uBAA8\uBC14\uC77C \uC5EC\uD589 \uC571";
-const MAP_KEY_WARNING = "PUBLIC_NAVER_MAP_CLIENT_ID \uAC12\uC774 \uBE44\uC5B4 \uC788\uC5B4 \uC9C0\uB3C4 \uC601\uC5ED\uC740 \uC548\uB0B4 \uC0C1\uD0DC\uB85C \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+const APP_NAME = "대전잼있슈";
+const APP_SHORT_NAME = "잼있슈";
+const APP_DESCRIPTION = "대전을 한 입에 고르는 모바일 여행 앱";
+const MAP_KEY_WARNING = "PUBLIC_NAVER_MAP_CLIENT_ID 값이 비어 있어 지도 영역은 안내 상태로 표시됩니다.";
 
 async function readPublicEnv() {
   const envFiles = [path.join(rootDir, ".env.example"), path.join(rootDir, ".env")];

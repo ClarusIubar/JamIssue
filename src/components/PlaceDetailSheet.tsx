@@ -1,4 +1,4 @@
-import { ReviewComposer } from './ReviewComposer';
+﻿import { ReviewComposer } from './ReviewComposer';
 import { ReviewList } from './ReviewList';
 import type { Place, Review, ReviewMood } from '../types';
 
@@ -7,6 +7,8 @@ interface PlaceDetailSheetProps {
   reviews: Review[];
   isOpen: boolean;
   canWrite: boolean;
+  canWriteReview: boolean;
+  reviewLocationMessage: string;
   canToggleLike: boolean;
   isStampCollected: boolean;
   isStampBusy: boolean;
@@ -16,6 +18,7 @@ interface PlaceDetailSheetProps {
   commentSubmittingReviewId: string | null;
   onClose: () => void;
   onRequestLogin: () => void;
+  onRequestReviewLocation: () => void;
   onCollectStamp: (place: Place) => Promise<void>;
   onCreateReview: (payload: { placeId: string; body: string; mood: ReviewMood; file: File | null }) => Promise<void>;
   onToggleReviewLike: (reviewId: string) => Promise<void>;
@@ -27,6 +30,8 @@ export function PlaceDetailSheet({
   reviews,
   isOpen,
   canWrite,
+  canWriteReview,
+  reviewLocationMessage,
   canToggleLike,
   isStampCollected,
   isStampBusy,
@@ -36,6 +41,7 @@ export function PlaceDetailSheet({
   commentSubmittingReviewId,
   onClose,
   onRequestLogin,
+  onRequestReviewLocation,
   onCollectStamp,
   onCreateReview,
   onToggleReviewLike,
@@ -56,7 +62,7 @@ export function PlaceDetailSheet({
             <p>{place.summary}</p>
           </div>
           <button type="button" className="text-button" onClick={onClose}>
-            ??
+            닫기
           </button>
         </div>
         <div className="detail-meta-card">
@@ -70,28 +76,31 @@ export function PlaceDetailSheet({
             onClick={() => void onCollectStamp(place)}
             disabled={isStampCollected || isStampBusy}
           >
-            {isStampBusy ? '?? ?? ?...' : isStampCollected ? '??? ??' : '?? ??? ??'}
+            {isStampBusy ? '확인 중...' : isStampCollected ? '적립 완료' : '현장 스탬프'}
           </button>
         </div>
         <div className="route-hint-box">
-          <strong>?? ??</strong>
+          <strong>이동 힌트</strong>
           <p>{place.routeHint}</p>
         </div>
         <ReviewComposer
           key={place.id}
           placeName={place.name}
           loggedIn={canWrite}
+          canSubmit={canWriteReview}
           submitting={reviewSubmitting}
           errorMessage={reviewError}
+          locationMessage={reviewLocationMessage}
           onSubmit={({ body, mood, file }) => onCreateReview({ placeId: place.id, body, mood, file })}
           onRequestLogin={onRequestLogin}
+          onRequestLocationCheck={onRequestReviewLocation}
         />
         <div className="section-title-row section-title-row--tight">
           <div>
             <p className="eyebrow">LIVE FEED</p>
-            <h3>? ?? ??? ??</h3>
+            <h3>이 장소의 실시간 후기</h3>
           </div>
-          <span className="counter-pill">{reviews.length}? ??</span>
+          <span className="counter-pill">{reviews.length}개 후기</span>
         </div>
         <ReviewList
           reviews={reviews}

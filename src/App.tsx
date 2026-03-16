@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import {
   createComment,
   createReview,
@@ -338,6 +338,16 @@ function App() {
   }, [activeTab, mapLocationStatus]);
 
   useEffect(() => {
+    if (!detailPlaceId || !sessionUser) {
+      return;
+    }
+
+    if (mapLocationStatus === 'idle') {
+      void refreshMapLocation(false);
+    }
+  }, [detailPlaceId, sessionUser, mapLocationStatus]);
+
+  useEffect(() => {
     if (activeTab !== 'stamp') {
       return;
     }
@@ -389,6 +399,30 @@ function App() {
   const detailPlace = places.find((place) => place.id === detailPlaceId) ?? null;
   const selectedPlaceReviews = selectedPlace ? allReviews.filter((review) => review.placeId === selectedPlace.id) : [];
   const detailReviews = detailPlace ? allReviews.filter((review) => review.placeId === detailPlace.id) : [];
+  const reviewEligibilityPosition = currentPosition ?? mapCurrentPosition;
+  const detailPlaceDistanceMeters = detailPlace && reviewEligibilityPosition
+    ? calculateDistanceMeters(
+        reviewEligibilityPosition.latitude,
+        reviewEligibilityPosition.longitude,
+        detailPlace.latitude,
+        detailPlace.longitude,
+      )
+    : null;
+  const canSubmitReview = Boolean(
+    sessionUser &&
+    detailPlace &&
+    typeof detailPlaceDistanceMeters === 'number' &&
+    detailPlaceDistanceMeters <= STAMP_UNLOCK_RADIUS_METERS,
+  );
+  const reviewLocationMessage = !sessionUser
+    ? '로그인하면 현장 반경 안에서 후기 버튼이 열려요.'
+    : mapLocationStatus === 'loading'
+      ? '현재 위치를 확인하고 있어요.'
+      : typeof detailPlaceDistanceMeters !== 'number'
+        ? `반경 ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 후기 버튼이 열려요.`
+        : detailPlaceDistanceMeters <= STAMP_UNLOCK_RADIUS_METERS
+          ? `현재 약 ${formatDistanceMeters(detailPlaceDistanceMeters)} 거리예요. 지금 후기 올리기가 열려 있어요.`
+          : `현재 약 ${formatDistanceMeters(detailPlaceDistanceMeters)} 거리예요. ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 후기 버튼이 열려요.`;
   const visibleCourses = activeMood === '전체' ? courses : courses.filter((course) => course.mood === activeMood);
   const stampRate = calculateStampRate(places.length, collectedStampIds.length);
   const stampDistanceByPlaceId = useMemo(() => {
@@ -530,11 +564,36 @@ function App() {
         imageUrl = uploaded.url;
       }
 
+      const place = places.find((item) => item.id === payload.placeId);
+      if (!place) {
+        throw new Error('후기를 남길 장소를 찾지 못했어요.');
+      }
+
+      const nextPosition = await getCurrentDevicePosition();
+      const distanceMeters = calculateDistanceMeters(
+        nextPosition.latitude,
+        nextPosition.longitude,
+        place.latitude,
+        place.longitude,
+      );
+
+      setCurrentPosition({ latitude: nextPosition.latitude, longitude: nextPosition.longitude });
+      setMapCurrentPosition({ latitude: nextPosition.latitude, longitude: nextPosition.longitude });
+      setMapLocationStatus('ready');
+      setMapLocationMessage(`현재 위치를 지도 위에 표시했어요. 정확도 약 ${formatDistanceMeters(nextPosition.accuracyMeters)}예요.`);
+
+      if (distanceMeters > STAMP_UNLOCK_RADIUS_METERS) {
+        setReviewError(`${place.name}까지 ${formatDistanceMeters(distanceMeters)} 남았어요. 반경 ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 후기 버튼이 열려요.`);
+        return;
+      }
+
       await createReview({
         placeId: payload.placeId,
         body: nextBody,
         mood: payload.mood,
         imageUrl,
+        latitude: nextPosition.latitude,
+        longitude: nextPosition.longitude,
       });
 
       setNotice('후기를 남겼어요. 장소 커뮤니티에 바로 반영됐어요.');
@@ -650,6 +709,7 @@ function App() {
 
     try {
       const nextPosition = await getCurrentDevicePosition();
+      setCurrentPosition({ latitude: nextPosition.latitude, longitude: nextPosition.longitude });
       setMapCurrentPosition({ latitude: nextPosition.latitude, longitude: nextPosition.longitude });
       setMapLocationStatus('ready');
       setMapLocationMessage(`현재 위치를 지도 위에 표시했어요. 정확도 약 ${formatDistanceMeters(nextPosition.accuracyMeters)}예요.`);
@@ -1190,6 +1250,8 @@ function App() {
         reviews={detailReviews}
         isOpen={Boolean(detailPlace)}
         canWrite={Boolean(sessionUser)}
+        canWriteReview={canSubmitReview}
+        reviewLocationMessage={reviewLocationMessage}
         canToggleLike={Boolean(sessionUser)}
         isStampCollected={detailPlace ? collectedStampIds.includes(detailPlace.id) : false}
         isStampBusy={detailPlace ? stampUpdatingId === detailPlace.id : false}
@@ -1199,6 +1261,7 @@ function App() {
         commentSubmittingReviewId={commentSubmittingReviewId}
         onClose={() => setDetailPlaceId(null)}
         onRequestLogin={() => setActiveTab('my')}
+        onRequestReviewLocation={() => void refreshMapLocation(true)}
         onCollectStamp={handleCollectStamp}
         onCreateReview={handleCreateReview}
         onToggleReviewLike={handleToggleReviewLike}
@@ -1209,6 +1272,10 @@ function App() {
 }
 
 export default App;
+
+
+
+
 
 
 

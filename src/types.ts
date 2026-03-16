@@ -1,4 +1,4 @@
-export type Category = 'all' | 'landmark' | 'food' | 'cafe' | 'night';
+﻿export type Category = 'all' | 'landmark' | 'food' | 'cafe' | 'night';
 export type Tab = 'explore' | 'course' | 'stamp' | 'my';
 export type ReviewMood = '설렘' | '친구랑' | '혼자서' | '야경픽';
 export type CourseMood = '전체' | '데이트' | '사진' | '힐링' | '비 오는 날';
@@ -127,6 +127,8 @@ export interface ReviewCreateRequest {
   body: string;
   mood: ReviewMood;
   imageUrl?: string | null;
+  latitude: number;
+  longitude: number;
 }
 
 export interface CommentCreateRequest {
@@ -224,5 +226,3 @@ export interface RoadmapBannerSchema {
   milestones: RoadmapBannerMilestone[];
   closingNote: string;
 }
-
-
