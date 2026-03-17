@@ -1,75 +1,66 @@
 # JamIssue
 
-대전 관광 모바일 웹앱입니다. 이 브랜치는 `worker-first` 배포 실험 브랜치이고, 로컬 백엔드 레퍼런스로는 `FastAPI + SQLAlchemy` 구조를 계속 유지합니다.
+???愿愿?紐⑤컮???뱀빋?낅땲?? ??釉뚮옖移섎뒗 `worker-first` 諛고룷 ?ㅽ뿕 釉뚮옖移섏씠怨? 濡쒖뺄 諛깆뿏???덊띁?곗뒪濡쒕뒗 `FastAPI + SQLAlchemy` 援ъ“瑜?怨꾩냽 ?좎??⑸땲??
 
-## 현재 기준
+## ?꾩옱 湲곗?
 
-- 현재 브랜치: `codex/worker-first-poc`
-- 프론트 도메인: `https://jamissue.growgardens.app`
-- API 도메인: `https://api.jamissue.growgardens.app`
-- 현재 배포 축: `Cloudflare Pages + Cloudflare Worker + Supabase`
-- 로컬/레퍼런스 축: `FastAPI + SQLAlchemy + Supabase`
+- ?꾩옱 釉뚮옖移? `codex/worker-first-poc`
+- ?꾨줎???꾨찓?? `https://jamissue.growgardens.app`
+- API ?꾨찓?? `https://api.jamissue.growgardens.app`
+- ?꾩옱 諛고룷 異? `Cloudflare Pages + Cloudflare Worker + Supabase`
+- 濡쒖뺄/?덊띁?곗뒪 異? `FastAPI + SQLAlchemy + Supabase`
 
-즉, 배포는 Worker 기준으로 보고 있고, 팀 아키텍처 레퍼런스는 FastAPI 코드로 유지하는 상태입니다.
+利? 諛고룷??Worker 湲곗??쇰줈 蹂닿퀬 ?덇퀬, ? ?꾪궎?띿쿂 ?덊띁?곗뒪??FastAPI 肄붾뱶濡??좎??섎뒗 ?곹깭?낅땲??
 
-## 핵심 기능
+## ?듭떖 湲곕뒫
 
-- 지도 중심 탐색
-- 방문 스탬프 적립
-- 방문 증명 기반 후기 작성
-- 댓글 / 후기 좋아요
-- 사용자 생성 추천 경로
-- 네이버 로그인
-- 마이페이지 통계
+- 吏??以묒떖 ?먯깋
+- 諛⑸Ц ?ㅽ꺃???곷┰
+- 諛⑸Ц 利앸챸 湲곕컲 ?꾧린 ?묒꽦
+- ?볤? / ?꾧린 醫뗭븘??- ?ъ슜???앹꽦 異붿쿇 寃쎈줈
+- ?ㅼ씠踰?濡쒓렇??- 留덉씠?섏씠吏 ?듦퀎
 
-## 데이터 정규화 기준
+## ?곗씠???뺢퇋??湲곗?
 
-### 1. 스탬프는 로그다
+### 1. ?ㅽ꺃?꾨뒗 濡쒓렇??
+`user_stamp` ???⑥닚??諛⑸Ц ?щ? ?뚯씠釉붿씠 ?꾨땲??諛⑸Ц 濡쒓렇?낅땲??
 
-`user_stamp` 는 단순한 방문 여부 테이블이 아니라 방문 로그입니다.
+- 媛숈? ?μ냼?쇰룄 ?좎쭨媛 ?ㅻⅤ硫??ㅼ떆 ?곷┰ 媛??- 媛숈? ?좎쭨?먮뒗 ???μ냼????踰덈쭔 ?곷┰
+- `visit_ordinal` 濡?`2踰덉㎏ 諛⑸Ц` 媛숈? ?쒖떆 媛??
+### 2. ?곗냽 諛⑸Ц? ?몄뀡?쇰줈 臾띕뒗??
+`travel_session` ? ?ㅽ꺃??濡쒓렇瑜?臾띕뒗 ?ы뻾 ?⑥쐞?낅땲??
 
-- 같은 장소라도 날짜가 다르면 다시 적립 가능
-- 같은 날짜에는 한 장소당 한 번만 적립
-- `visit_ordinal` 로 `2번째 방문` 같은 표시 가능
+- 吏곸쟾 ?ㅽ꺃?꾩? 24?쒓컙 ?대궡硫?媛숈? ?몄뀡
+- 24?쒓컙 珥덇낵硫????몄뀡
 
-### 2. 연속 방문은 세션으로 묶는다
+### 3. ?꾧린 ?묒꽦? 諛⑸Ц 利앸챸???꾩슂?섎떎
 
-`travel_session` 은 스탬프 로그를 묶는 여행 단위입니다.
+`feed` ??諛섎뱶??`stamp_id` 瑜?媛吏묐땲??
 
-- 직전 스탬프와 24시간 이내면 같은 세션
-- 24시간 초과면 새 세션
+- ?⑥닚 GPS 吏꾩엯留뚯쑝濡??꾧린 ?묒꽦 遺덇?
+- ?ㅼ젣濡??곷┰???ㅽ꺃?꾧? ?덉뼱???꾧린 ?묒꽦 媛??- ?꾧린 移대뱶??n踰덉㎏ 諛⑸Ц 臾멸뎄瑜??쒖떆?????덉쓬
 
-### 3. 후기 작성은 방문 증명이 필요하다
+### 4. 異붿쿇 寃쎈줈???ъ슜???앺깭怨꾨? ?곗꽑?쒕떎
 
-`feed` 는 반드시 `stamp_id` 를 가집니다.
+`user_route` ??媛쒕컻???먮젅?댁뀡 肄붿뒪? ?ъ슜???앹꽦 寃쎈줈瑜?媛숈씠 ?대릺, `is_user_generated` 濡?援щ텇?⑸땲??
 
-- 단순 GPS 진입만으로 후기 작성 불가
-- 실제로 적립한 스탬프가 있어야 후기 작성 가능
-- 후기 카드에 n번째 방문 문구를 표시할 수 있음
+?꾨줈?앺듃 ?먯튃:
 
-### 4. 추천 경로는 사용자 생태계를 우선한다
+`?ъ슜?먭? ?ㅼ젣 諛⑸Ц???ㅽ꺃??湲곕컲 ?숈꽑??怨듦컻 寃쎈줈濡?諛쒗뻾?섍퀬, ?ㅻⅨ ?ъ슜?먮뒗 醫뗭븘?붿닚/理쒖떊?쒖쑝濡?洹?寃쎈줈瑜??먯깋?????덉뼱???쒕떎.`
 
-`user_route` 는 개발자 큐레이션 코스와 사용자 생성 경로를 같이 담되, `is_user_generated` 로 구분합니다.
+?곸슜 洹쒖튃:
 
-프로젝트 원칙:
+- ?ㅼ젣濡??ㅽ꺃?꾨? 李띿? ?μ냼留?寃쎈줈???ы븿 媛??- 理쒖냼 2怨??댁긽?댁뼱??寃쎈줈 諛쒗뻾 媛??- ?뺣젹? `醫뗭븘?붿닚(popular)` / `理쒖떊??latest)`
+- ?댁쁺??肄붿뒪??珥덇린 ?먮젅?댁뀡 ?⑸룄
 
-`사용자가 실제 방문한 스탬프 기반 동선을 공개 경로로 발행하고, 다른 사용자는 좋아요순/최신순으로 그 경로를 탐색할 수 있어야 한다.`
+### 5. 怨꾩젙怨?濡쒓렇???쒓났?먮뒗 遺꾨━?쒕떎
 
-적용 규칙:
+- ?대? 怨꾩젙 ?앸퀎?? `user.user_id`
+- ?몃? 濡쒓렇???앸퀎?? `user_identity`
+- 媛숈? ?대찓???먮룞 蹂묓빀 ?놁쓬
+- ?됰꽕??以묐났 ?덉슜
 
-- 실제로 스탬프를 찍은 장소만 경로에 포함 가능
-- 최소 2곳 이상이어야 경로 발행 가능
-- 정렬은 `좋아요순(popular)` / `최신순(latest)`
-- 운영자 코스는 초기 큐레이션 용도
-
-### 5. 계정과 로그인 제공자는 분리한다
-
-- 내부 계정 식별자: `user.user_id`
-- 외부 로그인 식별자: `user_identity`
-- 같은 이메일 자동 병합 없음
-- 닉네임 중복 허용
-
-## 현재 배포 구조
+## ?꾩옱 諛고룷 援ъ“
 
 ```text
 Frontend
@@ -85,7 +76,7 @@ Reference Backend
 -> Supabase
 ```
 
-## 현재 Worker가 직접 처리하는 API
+## ?꾩옱 Worker媛 吏곸젒 泥섎━?섎뒗 API
 
 - `GET /api/health`
 - `GET /api/auth/providers`
@@ -108,26 +99,24 @@ Reference Backend
 - `GET /api/my/summary`
 - `GET /api/banner/events`
 
-## Cloudflare Pages 값
-
-프로젝트: `jamissue-web`
+## Cloudflare Pages 媛?
+?꾨줈?앺듃: `jamissue-web`
 
 ```env
 PUBLIC_APP_BASE_URL=https://api.jamissue.growgardens.app
-PUBLIC_NAVER_MAP_CLIENT_ID=<네이버 지도 Dynamic Map Client ID>
+PUBLIC_NAVER_MAP_CLIENT_ID=<?ㅼ씠踰?吏??Dynamic Map Client ID>
 ```
 
-설명:
+?ㅻ챸:
 
 - `PUBLIC_APP_BASE_URL`
-  - 프론트가 호출할 API 주소
+  - ?꾨줎?멸? ?몄텧??API 二쇱냼
 - `PUBLIC_NAVER_MAP_CLIENT_ID`
-  - 네이버 지도용 키
-  - 로그인 키와 다름
+  - ?ㅼ씠踰?吏?꾩슜 ??  - 濡쒓렇???ㅼ? ?ㅻ쫫
 
 ## Cloudflare Worker Variables
 
-프로젝트: `jamissue-api`
+?꾨줈?앺듃: `jamissue-api`
 
 ```env
 APP_ENV=worker-first
@@ -142,80 +131,74 @@ APP_STAMP_UNLOCK_RADIUS_METERS=120
 APP_ORIGIN_API_URL=
 ```
 
-설명:
+?ㅻ챸:
 
-- `APP_FRONTEND_URL`: 로그인 완료 후 되돌릴 프론트 주소
-- `APP_CORS_ORIGINS`: 브라우저에서 허용할 origin
-- `APP_NAVER_LOGIN_CALLBACK_URL`: 네이버 로그인 callback 주소
-- `APP_STORAGE_BACKEND`: 현재는 `supabase`
-- `APP_SUPABASE_URL`: Supabase 프로젝트 URL
-- `APP_SUPABASE_STORAGE_BUCKET`: 후기 이미지 버킷
-- `APP_STAMP_UNLOCK_RADIUS_METERS`: 반경 제한
-- `APP_ORIGIN_API_URL`: Worker가 아직 직접 처리하지 않는 API를 FastAPI origin에 넘길 때만 사용
+- `APP_FRONTEND_URL`: 濡쒓렇???꾨즺 ???섎룎由??꾨줎??二쇱냼
+- `APP_CORS_ORIGINS`: 釉뚮씪?곗??먯꽌 ?덉슜??origin
+- `APP_NAVER_LOGIN_CALLBACK_URL`: ?ㅼ씠踰?濡쒓렇??callback 二쇱냼
+- `APP_STORAGE_BACKEND`: ?꾩옱??`supabase`
+- `APP_SUPABASE_URL`: Supabase ?꾨줈?앺듃 URL
+- `APP_SUPABASE_STORAGE_BUCKET`: ?꾧린 ?대?吏 踰꾪궥
+- `APP_STAMP_UNLOCK_RADIUS_METERS`: 諛섍꼍 ?쒗븳
+- `APP_ORIGIN_API_URL`: Worker媛 ?꾩쭅 吏곸젒 泥섎━?섏? ?딅뒗 API瑜?FastAPI origin???섍만 ?뚮쭔 ?ъ슜
 
 ## Cloudflare Worker Secrets
 
-프로젝트: `jamissue-api`
+?꾨줈?앺듃: `jamissue-api`
 
 ```env
-APP_SESSION_SECRET=<랜덤 64자 이상>
-APP_JWT_SECRET=<랜덤 64자 이상>
+APP_SESSION_SECRET=<?쒕뜡 64???댁긽>
+APP_JWT_SECRET=<?쒕뜡 64???댁긽>
 APP_DATABASE_URL=postgres://postgres.<project-ref>:<DB_PASSWORD>@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres
 APP_SUPABASE_SERVICE_ROLE_KEY=<Supabase service_role key>
-APP_NAVER_LOGIN_CLIENT_ID=<네이버 로그인 Client ID>
-APP_NAVER_LOGIN_CLIENT_SECRET=<네이버 로그인 Client Secret>
+APP_NAVER_LOGIN_CLIENT_ID=<?ㅼ씠踰?濡쒓렇??Client ID>
+APP_NAVER_LOGIN_CLIENT_SECRET=<?ㅼ씠踰?濡쒓렇??Client Secret>
 ```
 
-설명:
+?ㅻ챸:
 
-- `APP_SESSION_SECRET`: 세션 쿠키 서명용
-- `APP_JWT_SECRET`: JWT 서명용
-- `APP_DATABASE_URL`: Supabase Postgres transaction pooler 주소
-- `APP_SUPABASE_SERVICE_ROLE_KEY`: 서버 권한용 Supabase 키
-- `APP_NAVER_LOGIN_CLIENT_ID`: 네이버 로그인 키
-- `APP_NAVER_LOGIN_CLIENT_SECRET`: 네이버 로그인 시크릿
+- `APP_SESSION_SECRET`: ?몄뀡 荑좏궎 ?쒕챸??- `APP_JWT_SECRET`: JWT ?쒕챸??- `APP_DATABASE_URL`: Supabase Postgres transaction pooler 二쇱냼
+- `APP_SUPABASE_SERVICE_ROLE_KEY`: ?쒕쾭 沅뚰븳??Supabase ??- `APP_NAVER_LOGIN_CLIENT_ID`: ?ㅼ씠踰?濡쒓렇????- `APP_NAVER_LOGIN_CLIENT_SECRET`: ?ㅼ씠踰?濡쒓렇???쒗겕由?
+## Supabase ?곸슜 ?쒖꽌
 
-## Supabase 적용 순서
-
-SQL Editor에서 아래 순서로 실행합니다.
+SQL Editor?먯꽌 ?꾨옒 ?쒖꽌濡??ㅽ뻾?⑸땲??
 
 1. [backend/sql/supabase_schema.sql](/D:/Code305/JamIssue/backend/sql/supabase_schema.sql)
 2. [backend/sql/supabase_seed.sql](/D:/Code305/JamIssue/backend/sql/supabase_seed.sql)
 3. [backend/sql/supabase_storage.sql](/D:/Code305/JamIssue/backend/sql/supabase_storage.sql)
 
-추가 마이그레이션이 필요하면:
+異붽? 留덉씠洹몃젅?댁뀡???꾩슂?섎㈃:
 
 4. [backend/sql/migrations/20260318_stamp_session_refactor.sql](/D:/Code305/JamIssue/backend/sql/migrations/20260318_stamp_session_refactor.sql)
 
-## 네이버 개발자센터 값
-
-- 서비스 URL: `https://jamissue.growgardens.app`
+## ?ㅼ씠踰?媛쒕컻?먯꽱??媛?
+- ?쒕퉬??URL: `https://jamissue.growgardens.app`
 - Callback URL: `https://api.jamissue.growgardens.app/api/auth/naver/callback`
 
-## 로컬 점검 명령
+## 濡쒖뺄 ?먭? 紐낅졊
 
-프론트 타입체크:
+?꾨줎????낆껜??
 
 ```powershell
 cd D:/Code305/JamIssue
 npm.cmd run typecheck
 ```
 
-프론트 빌드:
+?꾨줎??鍮뚮뱶:
 
 ```powershell
 cd D:/Code305/JamIssue
 npm.cmd run build
 ```
 
-백엔드 테스트:
+諛깆뿏???뚯뒪??
 
 ```powershell
 cd D:/Code305/JamIssue/backend
 .\.venv\Scripts\python.exe -m pytest tests
 ```
 
-## 문서
+## 臾몄꽌
 
 - [docs/README.md](/D:/Code305/JamIssue/docs/README.md)
 - [docs/prd-compliance.md](/D:/Code305/JamIssue/docs/prd-compliance.md)
@@ -223,3 +206,10 @@ cd D:/Code305/JamIssue/backend
 - [docs/account-identity-schema.md](/D:/Code305/JamIssue/docs/account-identity-schema.md)
 - [docs/worker-first-poc.md](/D:/Code305/JamIssue/docs/worker-first-poc.md)
 - [docs/growgardens-deploy-runbook.md](/D:/Code305/JamIssue/docs/growgardens-deploy-runbook.md)
+
+## 배포 브랜치 운영
+
+- production 배포 브랜치: codex/production-deploy`r
+- 기능 작업은 별도 브랜치에서 진행한 뒤 codex/production-deploy로 PR/merge
+- merge 후 GitHub Actions가 프론트 Pages와 API Worker를 함께 production 배포
+- Pages는 production 브랜치 슬롯으로, Worker는 jamissue-api custom domain으로 배포
