@@ -1,4 +1,4 @@
-import type { AuthProvider, ProviderKey } from '../types';
+﻿import type { AuthProvider, ProviderKey } from '../types';
 
 interface ProviderButtonsProps {
   providers: AuthProvider[];
@@ -7,17 +7,16 @@ interface ProviderButtonsProps {
 
 export function ProviderButtons({ providers, onLogin }: ProviderButtonsProps) {
   return (
-    <div className="provider-grid">
+    <div className="provider-button-list">
       {providers.map((provider) => (
         <button
           key={provider.key}
           type="button"
-          className={provider.isEnabled ? 'provider-button' : 'provider-button is-disabled'}
-          onClick={() => provider.isEnabled && onLogin(provider.key)}
+          className={provider.isEnabled ? 'primary-button provider-button' : 'secondary-button provider-button is-disabled'}
           disabled={!provider.isEnabled}
+          onClick={() => onLogin(provider.key)}
         >
-          <span className="provider-button__label">{provider.label}</span>
-          <strong>{provider.isEnabled ? '로그인 연결' : '준비 중'}</strong>
+          {provider.isEnabled ? `${provider.label}로 로그인` : `${provider.label} 준비 중`}
         </button>
       ))}
     </div>

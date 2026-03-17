@@ -1,4 +1,4 @@
-"""JWT 발급과 복호화를 담당합니다."""
+﻿"""JWT 발급과 복호화를 담당합니다."""
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ def issue_access_token(settings: Settings, user: SessionUser) -> str:
         "provider": user.provider,
         "profile_image": user.profile_image,
         "is_admin": user.is_admin,
+        "profile_completed_at": user.profile_completed_at,
         "exp": expires_at,
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
@@ -52,4 +53,5 @@ def read_access_token(settings: Settings, token: str | None) -> SessionUser | No
         provider=provider,
         profileImage=payload.get("profile_image"),
         isAdmin=bool(payload.get("is_admin")),
+        profileCompletedAt=payload.get("profile_completed_at"),
     )

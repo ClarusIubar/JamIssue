@@ -1,4 +1,4 @@
-import { getClientConfig } from '../config';
+﻿import { getClientConfig } from '../config';
 import type {
   AdminPlace,
   AdminSummaryResponse,
@@ -9,13 +9,14 @@ import type {
   CommunityRouteSort,
   MyPageResponse,
   PlaceVisibilityRequest,
+  ProfileUpdateRequest,
   ProviderKey,
   PublicImportResponse,
   Review,
   ReviewCreateRequest,
   ReviewLikeResponse,
+  StampClaimRequest,
   StampState,
-  StampToggleRequest,
   UploadResponse,
   UserRoute,
   UserRouteCreateRequest,
@@ -72,8 +73,8 @@ export function getApiBaseUrl() {
   return getClientConfig().apiBaseUrl;
 }
 
-export function getProviderLoginUrl(provider: ProviderKey, nextUrl: string) {
-  return `${getApiBaseUrl()}/api/auth/${provider}/login?next=${encodeURIComponent(nextUrl)}`;
+export function getProviderLoginUrl(provider: ProviderKey, nextUrl: string, mode: 'login' | 'link' = 'login') {
+  return `${getApiBaseUrl()}/api/auth/${provider}/login?next=${encodeURIComponent(nextUrl)}&mode=${mode}`;
 }
 
 export function getAuthSession() {
@@ -83,6 +84,13 @@ export function getAuthSession() {
 export function logout() {
   return fetchJson<AuthSessionResponse>('/api/auth/logout', {
     method: 'POST',
+  });
+}
+
+export function updateProfile(payload: ProfileUpdateRequest) {
+  return fetchJson<AuthSessionResponse>('/api/auth/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
   });
 }
 
@@ -160,7 +168,7 @@ export function getMySummary() {
   return fetchJson<MyPageResponse>('/api/my/summary');
 }
 
-export function toggleStamp(payload: StampToggleRequest) {
+export function claimStamp(payload: StampClaimRequest) {
   return fetchJson<StampState>('/api/stamps/toggle', {
     method: 'POST',
     body: JSON.stringify(payload),

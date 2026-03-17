@@ -1,4 +1,4 @@
-"""JamIssue FastAPI 애플리케이션 진입점입니다."""
+﻿"""JamIssue FastAPI 애플리케이션 진입점입니다."""
 
 from pathlib import Path
 from uuid import uuid4
@@ -28,6 +28,7 @@ from .models import (
     MyPageResponse,
     PlaceOut,
     PlaceVisibilityUpdate,
+    ProfileUpdateRequest,
     PublicImportResponse,
     ReviewCreate,
     ReviewLikeResponse,
@@ -49,7 +50,7 @@ from .naver_oauth import (
     generate_oauth_state,
 )
 from .public_event_api import router as public_event_router
-from .repository import (
+from .repository_normalized import (
     create_comment,
     create_review,
     delete_account,
@@ -67,6 +68,7 @@ from .repository import (
     list_reviews,
     to_session_user,
     toggle_review_like,
+    update_user_profile,
     toggle_stamp,
     update_place_visibility,
     upsert_naver_user,
@@ -74,7 +76,7 @@ from .repository import (
 )
 from .seed import seed_database
 from .storage import get_storage_adapter
-from .user_routes import (
+from .user_routes_normalized import (
     create_user_route,
     delete_user_route,
     list_public_user_routes,
@@ -86,7 +88,7 @@ settings = get_settings()
 app = FastAPI(
     title="JamIssue API",
     version="1.0.0",
-    summary="??꾩쓣 ???낆뿉 怨좊Ⅴ??紐⑤컮???ы뻾 ???쒕쾭",
+    summary="대전을 한 입에 고르는 모바일 여행 앱",
 )
 
 app.add_middleware(
@@ -207,6 +209,33 @@ def read_auth_session(
     app_settings: Settings = Depends(get_settings),
 ) -> AuthSessionResponse:
     return build_auth_response(session_user, app_settings)
+
+
+@app.patch("/api/auth/profile", response_model=AuthSessionResponse, tags=["auth"])
+def patch_auth_profile(
+    payload: ProfileUpdateRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    session_user: SessionUser = Depends(require_session_user),
+    app_settings: Settings = Depends(get_settings),
+) -> AuthSessionResponse:
+    try:
+        user = update_user_profile(db, session_user.id, payload)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+
+    next_session_user = to_session_user(user, app_settings.is_admin(user.user_id), provider=user.provider)
+    access_token = issue_access_token(app_settings, next_session_user)
+    response.set_cookie(
+        key=ACCESS_TOKEN_COOKIE,
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        secure=app_settings.session_https,
+        max_age=app_settings.jwt_access_token_minutes * 60,
+        path="/",
+    )
+    return build_auth_response(next_session_user, app_settings)
 
 
 @app.get("/api/auth/{provider}/login", tags=["auth"])

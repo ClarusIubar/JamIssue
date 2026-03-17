@@ -3,10 +3,11 @@ CREATE TABLE IF NOT EXISTS `user` (
     `email` VARCHAR(255) NULL,
     `nickname` VARCHAR(100) NOT NULL,
     `provider` VARCHAR(50) NOT NULL DEFAULT 'demo',
+    `profile_completed_at` DATETIME NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`user_id`),
-
+    KEY `idx_user_provider` (`provider`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `user_identity` (
@@ -116,7 +117,7 @@ CREATE TABLE IF NOT EXISTS `public_event` (
     `external_id` VARCHAR(120) NOT NULL,
     `title` VARCHAR(160) NOT NULL,
     `venue_name` VARCHAR(140) NULL,
-    `district` VARCHAR(50) NOT NULL DEFAULT '대전',
+    `district` VARCHAR(50) NOT NULL DEFAULT '',
     `address` VARCHAR(255) NULL,
     `road_address` VARCHAR(255) NULL,
     `latitude` DOUBLE NULL,
@@ -158,21 +159,57 @@ CREATE TABLE IF NOT EXISTS `public_event_map_link` (
     CONSTRAINT `fk_public_event_map_link_position_id` FOREIGN KEY (`position_id`) REFERENCES `map` (`position_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `travel_session` (
+    `travel_session_id` INT NOT NULL AUTO_INCREMENT,
+    `user_id` VARCHAR(64) NOT NULL,
+    `started_at` DATETIME NOT NULL,
+    `ended_at` DATETIME NOT NULL,
+    `last_stamp_at` DATETIME NOT NULL,
+    `stamp_count` INT NOT NULL DEFAULT 0,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`travel_session_id`),
+    KEY `idx_travel_session_user_id` (`user_id`),
+    KEY `idx_travel_session_last_stamp_at` (`last_stamp_at`),
+    CONSTRAINT `fk_travel_session_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `user_stamp` (
+    `stamp_id` INT NOT NULL AUTO_INCREMENT,
+    `user_id` VARCHAR(64) NOT NULL,
+    `position_id` INT NOT NULL,
+    `travel_session_id` INT NULL,
+    `stamp_date` DATE NOT NULL,
+    `visit_ordinal` INT NOT NULL DEFAULT 1,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`stamp_id`),
+    UNIQUE KEY `uq_user_stamp_per_day` (`user_id`, `position_id`, `stamp_date`),
+    KEY `idx_user_stamp_position_id` (`position_id`),
+    KEY `idx_user_stamp_travel_session_id` (`travel_session_id`),
+    KEY `idx_user_stamp_user_created_at` (`user_id`, `created_at`),
+    CONSTRAINT `fk_user_stamp_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_user_stamp_position_id` FOREIGN KEY (`position_id`) REFERENCES `map` (`position_id`),
+    CONSTRAINT `fk_user_stamp_travel_session_id` FOREIGN KEY (`travel_session_id`) REFERENCES `travel_session` (`travel_session_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `feed` (
     `feed_id` INT NOT NULL AUTO_INCREMENT,
     `position_id` INT NOT NULL,
     `user_id` VARCHAR(64) NOT NULL,
+    `stamp_id` INT NOT NULL,
     `body` TEXT NOT NULL,
     `mood` VARCHAR(20) NOT NULL,
-    `badge` VARCHAR(50) NOT NULL DEFAULT '잼메이트',
+    `badge` VARCHAR(50) NOT NULL DEFAULT '로컬 메모',
     `image_url` VARCHAR(255) NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`feed_id`),
     KEY `idx_feed_position_id` (`position_id`),
     KEY `idx_feed_user_id` (`user_id`),
+    KEY `idx_feed_stamp_id` (`stamp_id`),
     CONSTRAINT `fk_feed_position_id` FOREIGN KEY (`position_id`) REFERENCES `map` (`position_id`),
-    CONSTRAINT `fk_feed_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE
+    CONSTRAINT `fk_feed_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_feed_stamp_id` FOREIGN KEY (`stamp_id`) REFERENCES `user_stamp` (`stamp_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `feed_like` (
@@ -231,32 +268,24 @@ CREATE TABLE IF NOT EXISTS `course_place` (
     CONSTRAINT `fk_course_place_position_id` FOREIGN KEY (`position_id`) REFERENCES `map` (`position_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `user_stamp` (
-    `stamp_id` INT NOT NULL AUTO_INCREMENT,
-    `user_id` VARCHAR(64) NOT NULL,
-    `position_id` INT NOT NULL,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`stamp_id`),
-    UNIQUE KEY `uq_user_stamp` (`user_id`, `position_id`),
-    KEY `idx_user_stamp_position_id` (`position_id`),
-    CONSTRAINT `fk_user_stamp_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_user_stamp_position_id` FOREIGN KEY (`position_id`) REFERENCES `map` (`position_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS `user_route` (
     `route_id` INT NOT NULL AUTO_INCREMENT,
     `user_id` VARCHAR(64) NOT NULL,
+    `travel_session_id` INT NULL,
     `title` VARCHAR(120) NOT NULL,
     `description` VARCHAR(255) NOT NULL,
     `mood` VARCHAR(20) NOT NULL,
     `is_public` TINYINT(1) NOT NULL DEFAULT 1,
+    `is_user_generated` TINYINT(1) NOT NULL DEFAULT 0,
     `like_count` INT NOT NULL DEFAULT 0,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`route_id`),
     KEY `idx_user_route_user_id` (`user_id`),
+    KEY `idx_user_route_travel_session_id` (`travel_session_id`),
     KEY `idx_user_route_public_sort` (`is_public`, `like_count`, `created_at`),
-    CONSTRAINT `fk_user_route_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE
+    CONSTRAINT `fk_user_route_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_user_route_travel_session_id` FOREIGN KEY (`travel_session_id`) REFERENCES `travel_session` (`travel_session_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `user_route_place` (

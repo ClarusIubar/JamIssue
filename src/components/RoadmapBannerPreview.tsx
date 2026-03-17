@@ -34,7 +34,7 @@ export function RoadmapBannerPreview() {
       }
     }
 
-    loadBanner();
+    void loadBanner();
     return () => {
       active = false;
     };
@@ -48,13 +48,11 @@ export function RoadmapBannerPreview() {
 
   return (
     <div className="app-shell preview-shell">
-      <div className="aurora aurora-left" />
-      <div className="aurora aurora-right" />
       <main className="phone-shell roadmap-shell">
-        <section className="roadmap-hero card-block">
+        <section className="roadmap-hero sheet-card">
           <p className="eyebrow">PUBLIC EVENT BANNER</p>
           <h1>대전 행사 일정 배너</h1>
-          <p className="roadmap-hero__subtitle">공공 행사 API에서 가져온 일정만 배너 카드로 보여주는 프리뷰입니다.</p>
+          <p className="roadmap-hero__subtitle">공공 행사 API에서 가져온 일정만 카드로 보여주는 프리뷰입니다.</p>
 
           <div className="roadmap-summary">
             {summaryItems.map((item) => (
@@ -75,12 +73,12 @@ export function RoadmapBannerPreview() {
 
           <p className="roadmap-hero__helper">
             {data.sourceReady
-              ? '행사 API가 연결되어 있으면 최신 일정만 여기에 들어옵니다.'
+              ? '행사 API가 연결되어 있으면 최신 일정만 여기로 들어옵니다.'
               : '행사 API URL이 아직 연결되지 않았어요. 연결되면 이 배너가 실제 일정으로 채워집니다.'}
           </p>
         </section>
 
-        <section className="roadmap-section card-block">
+        <section className="roadmap-section sheet-card">
           <div className="section-title-row section-title-row--tight roadmap-section__header">
             <div>
               <p className="eyebrow">LIVE SCHEDULE</p>
@@ -92,7 +90,7 @@ export function RoadmapBannerPreview() {
           {status === 'loading' ? (
             <article className="roadmap-empty">
               <strong>행사 일정을 불러오는 중이에요.</strong>
-              <p>실제 API 연결이 되어 있으면 최신 일정이 카드로 채워집니다.</p>
+              <p>실제 API가 연결되어 있으면 최신 일정이 카드로 채워집니다.</p>
             </article>
           ) : null}
 
@@ -106,7 +104,7 @@ export function RoadmapBannerPreview() {
           {status === 'ready' && data.items.length === 0 ? (
             <article className="roadmap-empty">
               <strong>현재 보여줄 행사 일정이 없어요.</strong>
-              <p>행사 API URL 또는 이벤트 JSON이 연결되면 일정 카드가 여기에 들어옵니다.</p>
+              <p>행사 API URL이나 JSON을 연결하면 일정 카드가 여기에 들어옵니다.</p>
             </article>
           ) : null}
 
@@ -131,7 +129,7 @@ export function RoadmapBannerPreview() {
                 </p>
                 <div className="roadmap-card__meta">
                   <span>{item.venueName ?? '장소 정보 없음'}</span>
-                  {item.linkedPlaceName ? <span>앱 장소 연결 · {item.linkedPlaceName}</span> : null}
+                  {item.linkedPlaceName ? <span>연결 장소 · {item.linkedPlaceName}</span> : null}
                 </div>
                 {item.sourcePageUrl ? (
                   <a className="roadmap-card__link" href={item.sourcePageUrl} target="_blank" rel="noreferrer">

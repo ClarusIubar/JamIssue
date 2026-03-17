@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { getClientConfig } from '../config';
 import type { ApiStatus, Place } from '../types';
 
@@ -34,9 +34,9 @@ function loadNaverMaps(clientId: string) {
         resolve(window.naver.maps);
         return;
       }
-      reject(new Error('네이버 지도 SDK를 읽지 못했어요.'));
+      reject(new Error('네이버 지도 SDK를 찾지 못했어요.'));
     };
-    script.onerror = () => reject(new Error('네이버 지도 SDK 로딩에 실패했어요.'));
+    script.onerror = () => reject(new Error('네이버 지도 SDK를 불러오지 못했어요.'));
     document.head.appendChild(script);
   });
 
@@ -74,6 +74,7 @@ interface NaverMapProps {
   currentLocationMessage: string | null;
   focusCurrentLocationKey: number;
   onLocateCurrentPosition: () => void;
+  height?: string;
 }
 
 export function NaverMap({
@@ -85,6 +86,7 @@ export function NaverMap({
   currentLocationMessage,
   focusCurrentLocationKey,
   onLocateCurrentPosition,
+  height = '100%',
 }: NaverMapProps) {
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -97,7 +99,7 @@ export function NaverMap({
   useEffect(() => {
     if (!clientId) {
       setStatus('error');
-      setErrorMessage('.env의 NAVER_MAP_CLIENT_ID 값을 넣어 주세요.');
+      setErrorMessage('네이버 지도 Client ID가 비어 있어요.');
       return;
     }
 
@@ -128,7 +130,7 @@ export function NaverMap({
           new maps.LatLng(DAEJEON_BOUNDS.northEast.latitude, DAEJEON_BOUNDS.northEast.longitude),
         );
 
-        mapRef.current.fitBounds(bounds, { top: 44, right: 28, bottom: 44, left: 28 });
+        mapRef.current.fitBounds(bounds, { top: 64, right: 28, bottom: 120, left: 28 });
         setStatus('ready');
       })
       .catch((error: Error) => {
@@ -236,23 +238,18 @@ export function NaverMap({
     <div className="map-surface-frame">
       {status === 'loading' && (
         <div className="map-status-card map-status-card--overlay">
-          <strong>대전 지도를 준비하고 있어요.</strong>
-          <p>키가 맞으면 실제 네이버 지도가 여기서 열려요.</p>
+          <strong>대전 지도를 준비하고 있어요</strong>
+          <p>잠시만 기다리면 지도와 마커를 바로 보여드릴게요.</p>
         </div>
       )}
       <div className="map-floating-controls">
-        <button
-          type="button"
-          className="map-locate-button"
-          onClick={onLocateCurrentPosition}
-          disabled={currentLocationStatus === 'loading'}
-        >
-          {currentLocationStatus === 'loading' ? '위치 확인 중' : currentPosition ? '내 위치 보기' : '내 위치 켜기'}
+        <button type="button" className="map-locate-button" onClick={onLocateCurrentPosition} disabled={currentLocationStatus === 'loading'}>
+          {currentLocationStatus === 'loading' ? '위치 확인 중...' : currentPosition ? '내 위치 보기' : '내 위치 켜기'}
         </button>
       </div>
-      <div ref={mapElementRef} style={{ width: '100%', height: '360px' }} />
+      <div ref={mapElementRef} style={{ width: '100%', height }} />
       {currentLocationMessage && <div className="map-location-pill">{currentLocationMessage}</div>}
-      <div className="map-caption">대전 범위만 가볍게 보이도록 정리했어요.</div>
+      <div className="map-caption">대전 범위만 가볍게 보이도록 정리한 지도예요.</div>
     </div>
   );
 }

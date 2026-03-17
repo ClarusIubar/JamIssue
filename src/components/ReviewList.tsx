@@ -10,6 +10,9 @@ interface ReviewListProps {
   onToggleLike: (reviewId: string) => Promise<void>;
   onSubmitComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
   onRequestLogin: () => void;
+  onOpenPlace?: (placeId: string) => void;
+  emptyTitle: string;
+  emptyBody: string;
 }
 
 export function ReviewList({
@@ -21,13 +24,16 @@ export function ReviewList({
   onToggleLike,
   onSubmitComment,
   onRequestLogin,
+  onOpenPlace,
+  emptyTitle,
+  emptyBody,
 }: ReviewListProps) {
   if (reviews.length === 0) {
     return (
-      <article className="review-card review-card--empty">
-        <strong>아직 남겨진 후기가 없어요.</strong>
-        <p>첫 후기 한 줄이 다음 사람의 대전 코스를 바꿔 줄 수 있어요.</p>
-      </article>
+      <section className="sheet-card stack-gap">
+        <strong>{emptyTitle}</strong>
+        <p className="section-copy">{emptyBody}</p>
+      </section>
     );
   }
 
@@ -37,32 +43,49 @@ export function ReviewList({
         <article key={review.id} className="review-card">
           <div className="review-card__top">
             <div>
-              <strong>{review.author}</strong>
+              <strong>{review.placeName}</strong>
               <p>
-                {review.badge} / {review.visitedAt}
+                {review.author} · {review.visitLabel} · {review.visitedAt}
               </p>
             </div>
             <span className="mood-pill">{review.mood}</span>
           </div>
+
+          <div className="review-card__meta-line">
+            <span className="review-card__visit-pill">{review.visitLabel}</span>
+            {review.travelSessionId && <span className="soft-tag">연속 여행 기록</span>}
+          </div>
+
           <p className="review-card__body">{review.body}</p>
-          {review.imageUrl && <img className="review-card__image" src={review.imageUrl} alt={`${review.placeName} 후기 사진`} />}
+
+          <div className="chip-row compact-gap">
+            <span className="soft-tag">{review.badge}</span>
+          </div>
+
+          {review.imageUrl && <img className="review-card__image" src={review.imageUrl} alt={`${review.placeName} 후기 이미지`} />}
+
           <div className="review-card__actions">
             <button
               type="button"
-              className={review.likedByMe ? 'text-button review-action-button is-active' : 'text-button review-action-button'}
-              onClick={() => (canToggleLike ? onToggleLike(review.id) : onRequestLogin())}
+              className={review.likedByMe ? 'secondary-button is-complete' : 'secondary-button'}
               disabled={likingReviewId === review.id}
+              onClick={() => (canToggleLike ? onToggleLike(review.id) : onRequestLogin())}
             >
               {likingReviewId === review.id ? '반영 중' : `좋아요 ${review.likeCount}`}
             </button>
-            <span className="review-action-copy">댓글 {review.commentCount}</span>
+            {onOpenPlace && (
+              <button type="button" className="text-button" onClick={() => onOpenPlace(review.placeId)}>
+                장소 보기
+              </button>
+            )}
           </div>
+
           <CommentThread
-            reviewId={review.id}
             comments={review.comments}
-            canWrite={canWriteComment}
-            submitting={submittingReviewId === review.id}
-            onSubmit={onSubmitComment}
+            canWriteComment={canWriteComment}
+            submittingReviewId={submittingReviewId}
+            reviewId={review.id}
+            onSubmitComment={onSubmitComment}
             onRequestLogin={onRequestLogin}
           />
         </article>

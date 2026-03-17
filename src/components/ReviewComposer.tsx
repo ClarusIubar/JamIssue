@@ -1,4 +1,4 @@
-﻿import { FormEvent, useState } from 'react';
+﻿import { useState } from 'react';
 import type { ReviewMood } from '../types';
 
 interface ReviewComposerProps {
@@ -7,13 +7,13 @@ interface ReviewComposerProps {
   canSubmit: boolean;
   submitting: boolean;
   errorMessage: string | null;
-  locationMessage: string;
+  proofMessage: string;
   onSubmit: (payload: { body: string; mood: ReviewMood; file: File | null }) => Promise<void>;
   onRequestLogin: () => void;
-  onRequestLocationCheck: () => void;
+  onRequestProof: () => void;
 }
 
-const moodItems: ReviewMood[] = ['설렘', '친구랑', '혼자서', '야경픽'];
+const moodOptions: ReviewMood[] = ['혼자서', '친구랑', '데이트', '야경 맛집'];
 
 export function ReviewComposer({
   placeName,
@@ -21,74 +21,84 @@ export function ReviewComposer({
   canSubmit,
   submitting,
   errorMessage,
-  locationMessage,
+  proofMessage,
   onSubmit,
   onRequestLogin,
-  onRequestLocationCheck,
+  onRequestProof,
 }: ReviewComposerProps) {
   const [body, setBody] = useState('');
-  const [mood, setMood] = useState<ReviewMood>('설렘');
+  const [mood, setMood] = useState<ReviewMood>('혼자서');
   const [file, setFile] = useState<File | null>(null);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!loggedIn) {
-      onRequestLogin();
+    if (!canSubmit || body.trim().length < 4) {
       return;
     }
 
-    if (!canSubmit) {
-      onRequestLocationCheck();
-      return;
-    }
+    await onSubmit({
+      body: body.trim(),
+      mood,
+      file,
+    });
 
-    await onSubmit({ body, mood, file });
     setBody('');
-    setMood('설렘');
     setFile(null);
+    setMood('혼자서');
   }
 
+  const actionLabel = !loggedIn ? '로그인하고 작성' : canSubmit ? '피드 올리기' : '현장 스탬프 먼저 찍기';
+  const actionHandler = !loggedIn ? onRequestLogin : canSubmit ? undefined : onRequestProof;
+
   return (
-    <form className="review-composer" onSubmit={handleSubmit}>
-      <div className="section-title-row">
-        <div>
-          <p className="eyebrow">PLACE FEED</p>
-          <h3>{placeName} 후기 남기기</h3>
+    <section className="sheet-card stack-gap review-composer">
+      <div>
+        <p className="eyebrow">WRITE FEED</p>
+        <h3>{placeName} 후기 남기기</h3>
+        <p className="section-copy">{proofMessage}</p>
+      </div>
+
+      <form className="route-builder-form" onSubmit={handleSubmit}>
+        <div className="chip-row compact-gap">
+          {moodOptions.map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={option === mood ? 'chip is-active' : 'chip'}
+              onClick={() => setMood(option)}
+            >
+              {option}
+            </button>
+          ))}
         </div>
-        {!loggedIn ? (
-          <button type="button" className="text-button" onClick={onRequestLogin}>
-            로그인 필요
+
+        <label className="route-builder-field">
+          <span>한 줄 후기</span>
+          <textarea
+            rows={4}
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            placeholder="오늘 분위기나 동선을 짧고 또렷하게 남겨 보세요"
+          />
+        </label>
+
+        <label className="route-builder-field">
+          <span>사진 첨부</span>
+          <input type="file" accept="image/*" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
+        </label>
+
+        {errorMessage && <p className="form-error-copy">{errorMessage}</p>}
+
+        {actionHandler ? (
+          <button type="button" className="primary-button route-submit-button" onClick={actionHandler}>
+            {actionLabel}
           </button>
         ) : (
-          <button type="button" className="text-button" onClick={onRequestLocationCheck}>
-            현장 위치 확인
+          <button type="submit" className="primary-button route-submit-button" disabled={submitting || body.trim().length < 4}>
+            {submitting ? '올리는 중' : actionLabel}
           </button>
         )}
-      </div>
-      <p className="review-composer__hint">{locationMessage}</p>
-      <div className="chip-row compact-gap">
-        {moodItems.map((item) => (
-          <button key={item} type="button" className={item === mood ? 'chip is-active' : 'chip'} onClick={() => setMood(item)}>
-            {item}
-          </button>
-        ))}
-      </div>
-      <textarea
-        className="review-composer__textarea"
-        value={body}
-        onChange={(event) => setBody(event.target.value)}
-        placeholder="길게 쓰지 않아도 돼요. 현장에서 느낀 한 줄이면 충분해요."
-        rows={4}
-        disabled={loggedIn && !canSubmit}
-      />
-      <label className="file-picker">
-        <span>{file ? file.name : '사진 한 장 추가하기'}</span>
-        <input type="file" accept="image/*" onChange={(event) => setFile(event.target.files?.[0] ?? null)} disabled={loggedIn && !canSubmit} />
-      </label>
-      {errorMessage && <p className="inline-error">{errorMessage}</p>}
-      <button type="submit" className="primary-button" disabled={submitting || (loggedIn && !canSubmit)}>
-        {!loggedIn ? '로그인 후 작성' : submitting ? '저장 중...' : canSubmit ? '후기 올리기' : '근처 도착 후 활성화'}
-      </button>
-    </form>
+      </form>
+    </section>
   );
 }

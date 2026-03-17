@@ -1,43 +1,45 @@
-import { FormEvent, useState } from 'react';
+﻿import { useState } from 'react';
 import type { Comment } from '../types';
 
 interface CommentThreadProps {
-  reviewId: string;
   comments: Comment[];
-  canWrite: boolean;
-  submitting: boolean;
-  onSubmit: (reviewId: string, body: string, parentId?: string) => Promise<void>;
+  canWriteComment: boolean;
+  submittingReviewId: string | null;
+  reviewId: string;
+  onSubmitComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
   onRequestLogin: () => void;
 }
 
-interface CommentNodeProps {
+function CommentItem({
+  comment,
+  reviewId,
+  canWriteComment,
+  submittingReviewId,
+  onSubmitComment,
+  onRequestLogin,
+}: {
   comment: Comment;
   reviewId: string;
-  canWrite: boolean;
-  submitting: boolean;
-  onSubmit: (reviewId: string, body: string, parentId?: string) => Promise<void>;
+  canWriteComment: boolean;
+  submittingReviewId: string | null;
+  onSubmitComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
   onRequestLogin: () => void;
-}
-
-function CommentNode({ comment, reviewId, canWrite, submitting, onSubmit, onRequestLogin }: CommentNodeProps) {
-  const [isReplyOpen, setIsReplyOpen] = useState(false);
+}) {
   const [replyBody, setReplyBody] = useState('');
+  const [replyOpen, setReplyOpen] = useState(false);
 
-  async function handleReplySubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleReplySubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canWrite) {
+    if (!canWriteComment) {
       onRequestLogin();
       return;
     }
-
-    const trimmed = replyBody.trim();
-    if (!trimmed) {
+    if (replyBody.trim().length < 2) {
       return;
     }
-
-    await onSubmit(reviewId, trimmed, comment.id);
+    await onSubmitComment(reviewId, replyBody.trim(), comment.id);
     setReplyBody('');
-    setIsReplyOpen(false);
+    setReplyOpen(false);
   }
 
   return (
@@ -47,23 +49,35 @@ function CommentNode({ comment, reviewId, canWrite, submitting, onSubmit, onRequ
           <strong>{comment.author}</strong>
           <span>{comment.createdAt}</span>
         </div>
-        <p>{comment.body}</p>
-        <button type="button" className="text-button" onClick={() => setIsReplyOpen((current) => !current)}>
-          답글
-        </button>
+        <p>{comment.isDeleted ? '삭제된 댓글입니다.' : comment.body}</p>
+        {!comment.isDeleted && (
+          <button type="button" className="text-button" onClick={() => (canWriteComment ? setReplyOpen((value) => !value) : onRequestLogin())}>
+            답글 달기
+          </button>
+        )}
       </div>
-      {isReplyOpen && (
-        <form className="comment-thread__reply" onSubmit={handleReplySubmit}>
-          <input value={replyBody} onChange={(event) => setReplyBody(event.target.value)} placeholder="짧게 답글 남기기" />
-          <button type="submit" className="text-button" disabled={submitting}>
-            {submitting ? '저장 중...' : '등록'}
+
+      {replyOpen && (
+        <form className="comment-thread__reply-form" onSubmit={handleReplySubmit}>
+          <input value={replyBody} onChange={(event) => setReplyBody(event.target.value)} placeholder="답글 내용을 적어 보세요" />
+          <button type="submit" className="secondary-button" disabled={submittingReviewId === reviewId || replyBody.trim().length < 2}>
+            {submittingReviewId === reviewId ? '보내는 중' : '등록'}
           </button>
         </form>
       )}
+
       {comment.replies.length > 0 && (
-        <ul className="comment-thread__list is-nested">
+        <ul className="comment-thread__children">
           {comment.replies.map((reply) => (
-            <CommentNode key={reply.id} comment={reply} reviewId={reviewId} canWrite={canWrite} submitting={submitting} onSubmit={onSubmit} onRequestLogin={onRequestLogin} />
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              reviewId={reviewId}
+              canWriteComment={canWriteComment}
+              submittingReviewId={submittingReviewId}
+              onSubmitComment={onSubmitComment}
+              onRequestLogin={onRequestLogin}
+            />
           ))}
         </ul>
       )}
@@ -71,16 +85,53 @@ function CommentNode({ comment, reviewId, canWrite, submitting, onSubmit, onRequ
   );
 }
 
-export function CommentThread({ reviewId, comments, canWrite, submitting, onSubmit, onRequestLogin }: CommentThreadProps) {
-  if (comments.length === 0) {
-    return <p className="comment-thread__empty">아직 댓글이 없어요. 첫 반응을 남겨 보세요.</p>;
+export function CommentThread({
+  comments,
+  canWriteComment,
+  submittingReviewId,
+  reviewId,
+  onSubmitComment,
+  onRequestLogin,
+}: CommentThreadProps) {
+  const [commentBody, setCommentBody] = useState('');
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canWriteComment) {
+      onRequestLogin();
+      return;
+    }
+    if (commentBody.trim().length < 2) {
+      return;
+    }
+    await onSubmitComment(reviewId, commentBody.trim());
+    setCommentBody('');
   }
 
   return (
-    <ul className="comment-thread__list">
-      {comments.map((comment) => (
-        <CommentNode key={comment.id} comment={comment} reviewId={reviewId} canWrite={canWrite} submitting={submitting} onSubmit={onSubmit} onRequestLogin={onRequestLogin} />
-      ))}
-    </ul>
+    <div className="comment-thread">
+      <form className="comment-thread__form" onSubmit={handleSubmit}>
+        <input value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder="댓글 내용을 적어 보세요" />
+        <button type="submit" className="secondary-button" disabled={submittingReviewId === reviewId || commentBody.trim().length < 2}>
+          {submittingReviewId === reviewId ? '올리는 중' : '댓글'}
+        </button>
+      </form>
+
+      {comments.length > 0 && (
+        <ul className="comment-thread__list">
+          {comments.map((comment) => (
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              reviewId={reviewId}
+              canWriteComment={canWriteComment}
+              submittingReviewId={submittingReviewId}
+              onSubmitComment={onSubmitComment}
+              onRequestLogin={onRequestLogin}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

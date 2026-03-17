@@ -1,6 +1,6 @@
-from datetime import datetime
+﻿from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -13,6 +13,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), nullable=True)
     nickname: Mapped[str] = mapped_column(String(100), nullable=False)
     provider: Mapped[str] = mapped_column(String(50), default="demo", nullable=False)
+    profile_completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -47,6 +48,11 @@ class User(Base):
         passive_deletes=True,
     )
     route_likes: Mapped[list["UserRouteLike"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    travel_sessions: Mapped[list["TravelSession"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -177,7 +183,7 @@ class PublicEvent(Base):
     external_id: Mapped[str] = mapped_column(String(120), nullable=False)
     title: Mapped[str] = mapped_column(String(160), nullable=False)
     venue_name: Mapped[str] = mapped_column(String(140), nullable=True)
-    district: Mapped[str] = mapped_column(String(50), nullable=False, default="대전")
+    district: Mapped[str] = mapped_column(String(50), nullable=False, default="")
     address: Mapped[str] = mapped_column(String(255), nullable=True)
     road_address: Mapped[str] = mapped_column(String(255), nullable=True)
     latitude: Mapped[float] = mapped_column(Float, nullable=True)
@@ -224,15 +230,17 @@ class Feed(Base):
     feed_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     position_id: Mapped[int] = mapped_column(ForeignKey("map.position_id"), nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    stamp_id: Mapped[int] = mapped_column(ForeignKey("user_stamp.stamp_id"), nullable=False, index=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     mood: Mapped[str] = mapped_column(String(20), nullable=False)
-    badge: Mapped[str] = mapped_column(String(50), nullable=False, default="잼메이트")
+    badge: Mapped[str] = mapped_column(String(50), nullable=False, default="로컬 메모")
     image_url: Mapped[str] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     place: Mapped["MapPlace"] = relationship(back_populates="feeds")
     user: Mapped["User"] = relationship(back_populates="feeds")
+    stamp: Mapped["UserStamp"] = relationship(back_populates="feeds")
     likes: Mapped[list["FeedLike"]] = relationship(back_populates="feed", cascade="all, delete-orphan", passive_deletes=True)
     comments: Mapped[list["UserComment"]] = relationship(
         back_populates="feed",
@@ -300,17 +308,39 @@ class CoursePlace(Base):
     place: Mapped["MapPlace"] = relationship(back_populates="course_places")
 
 
+class TravelSession(Base):
+    __tablename__ = "travel_session"
+
+    travel_session_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    ended_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    last_stamp_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    stamp_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    user: Mapped["User"] = relationship(back_populates="travel_sessions")
+    stamp_logs: Mapped[list["UserStamp"]] = relationship(back_populates="travel_session")
+    routes: Mapped[list["UserRoute"]] = relationship(back_populates="travel_session")
+
+
 class UserStamp(Base):
     __tablename__ = "user_stamp"
-    __table_args__ = (UniqueConstraint("user_id", "position_id", name="uq_user_stamp"),)
+    __table_args__ = (UniqueConstraint("user_id", "position_id", "stamp_date", name="uq_user_stamp_per_day"),)
 
     stamp_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False, index=True)
     position_id: Mapped[int] = mapped_column(ForeignKey("map.position_id"), nullable=False, index=True)
+    travel_session_id: Mapped[int | None] = mapped_column(ForeignKey("travel_session.travel_session_id", ondelete="SET NULL"), nullable=True, index=True)
+    stamp_date: Mapped[date] = mapped_column(Date, nullable=False)
+    visit_ordinal: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="stamps")
     place: Mapped["MapPlace"] = relationship(back_populates="stamps")
+    travel_session: Mapped["TravelSession"] = relationship(back_populates="stamp_logs")
+    feeds: Mapped[list["Feed"]] = relationship(back_populates="stamp")
 
 
 class UserRoute(Base):
@@ -318,15 +348,18 @@ class UserRoute(Base):
 
     route_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    travel_session_id: Mapped[int | None] = mapped_column(ForeignKey("travel_session.travel_session_id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(120), nullable=False)
     description: Mapped[str] = mapped_column(String(255), nullable=False)
     mood: Mapped[str] = mapped_column(String(20), nullable=False)
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_user_generated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="created_routes")
+    travel_session: Mapped["TravelSession"] = relationship(back_populates="routes")
     route_places: Mapped[list["UserRoutePlace"]] = relationship(back_populates="route", cascade="all, delete-orphan", passive_deletes=True)
     likes: Mapped[list["UserRouteLike"]] = relationship(back_populates="route", cascade="all, delete-orphan", passive_deletes=True)
 
@@ -356,3 +389,4 @@ class UserRouteLike(Base):
 
     route: Mapped["UserRoute"] = relationship(back_populates="likes")
     user: Mapped["User"] = relationship(back_populates="route_likes")
+
