@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   font-family: 'Pretendard', 'Segoe UI', sans-serif;
   color: #402833;
   background:
@@ -286,6 +286,17 @@ img {
   background: linear-gradient(135deg, var(--pink), var(--pink-deep));
   color: white;
   box-shadow: 0 14px 24px rgba(255, 93, 146, 0.22);
+}
+
+@keyframes jamFlow {
+  0% { box-shadow: 0 0 0 0 rgba(255, 93, 146, 0.7); transform: scale(1); }
+  50% { box-shadow: 0 0 0 10px rgba(255, 93, 146, 0); transform: scale(1.03); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 93, 146, 0); transform: scale(1); }
+}
+
+.primary-button.highlight-jam {
+  animation: jamFlow 1.6s infinite ease-in-out;
+  background: linear-gradient(135deg, #ff5d92, #d34779); /* slightly deeper jam color */
 }
 
 .secondary-button {

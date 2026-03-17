@@ -20,9 +20,9 @@ export function CommunityRouteSection({ routes, sort, sessionUser, likingRouteId
     <section className="card-block community-route-block">
       <div className="section-title-row section-title-row--tight">
         <div>
-          <p className="eyebrow">COMMUNITY ROUTES</p>
-          <h3>스탬프로 쌓인 유저 경로</h3>
-          <p className="section-copy">좋아요가 많은 경로를 먼저 보고, 필요하면 최신 공개 순으로 바꿔 볼 수 있어요.</p>
+          <p className="eyebrow">COMMUNITY TOAST</p>
+          <h3>오늘의 토스트를 만드는 새로운 방법</h3>
+          <p className="section-copy">다른 여행자들이 어떤 토스트(스탬프 모음)를 만들었는지 확인해보세요.</p>
         </div>
       </div>
 
@@ -42,7 +42,7 @@ export function CommunityRouteSection({ routes, sort, sessionUser, likingRouteId
             <article key={route.id} className="community-route-card">
               <div className="community-route-card__header">
                 <div>
-                  <p className="eyebrow">{route.mood}</p>
+                  <p className="eyebrow">{route.mood} 무드</p>
                   <h4>{route.title}</h4>
                 </div>
                 <button
@@ -55,8 +55,9 @@ export function CommunityRouteSection({ routes, sort, sessionUser, likingRouteId
                 </button>
               </div>
               <p>{route.description}</p>
-              <div className="community-route-meta">
-                <span>{route.author}</span>
+              <div className="community-route-meta" style={{ display: 'flex', gap: '8px', marginBottom: '8px', color: 'var(--muted)', fontSize: '12px' }}>
+                <span>작성자: {route.author}님</span>
+                <span>•</span>
                 <span>{route.createdAt}</span>
               </div>
               <div className="course-card__places community-route-places">
@@ -71,7 +72,7 @@ export function CommunityRouteSection({ routes, sort, sessionUser, likingRouteId
             </article>
           );
         })}
-        {routes.length === 0 && <p className="empty-copy">아직 공개된 유저 경로가 없어요. 첫 번째 경로를 공개해 보세요.</p>}
+        {routes.length === 0 && <p className="empty-copy">아직 공개된 토스트 모음집이 없어요. 첫 번째 모음집을 공개해 보세요.</p>}
       </div>
     </section>
   );

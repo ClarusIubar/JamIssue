@@ -1,4 +1,4 @@
-﻿import { FormEvent, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import type { ReviewMood } from '../types';
 
 interface ReviewComposerProps {
@@ -13,7 +13,7 @@ interface ReviewComposerProps {
   onRequestLocationCheck: () => void;
 }
 
-const moodItems: ReviewMood[] = ['설렘', '친구랑', '혼자서', '야경픽'];
+const moodItems: ReviewMood[] = ['딸기잼', '버터', '초코스프레드', '크림치즈', '무화과잼'];
 
 export function ReviewComposer({
   placeName,
@@ -27,8 +27,9 @@ export function ReviewComposer({
   onRequestLocationCheck,
 }: ReviewComposerProps) {
   const [body, setBody] = useState('');
-  const [mood, setMood] = useState<ReviewMood>('설렘');
+  const [mood, setMood] = useState<ReviewMood>('딸기잼');
   const [file, setFile] = useState<File | null>(null);
+  const [showLaterNotice, setShowLaterNotice] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,7 +45,7 @@ export function ReviewComposer({
 
     await onSubmit({ body, mood, file });
     setBody('');
-    setMood('설렘');
+    setMood('딸기잼');
     setFile(null);
   }
 
@@ -52,8 +53,8 @@ export function ReviewComposer({
     <form className="review-composer" onSubmit={handleSubmit}>
       <div className="section-title-row">
         <div>
-          <p className="eyebrow">PLACE FEED</p>
-          <h3>{placeName} 후기 남기기</h3>
+          <p className="eyebrow">TRAVEL TOAST</p>
+          <h3>오늘의 토스트에 바를 잼은?</h3>
         </div>
         {!loggedIn ? (
           <button type="button" className="text-button" onClick={onRequestLogin}>
@@ -86,9 +87,17 @@ export function ReviewComposer({
         <input type="file" accept="image/*" onChange={(event) => setFile(event.target.files?.[0] ?? null)} disabled={loggedIn && !canSubmit} />
       </label>
       {errorMessage && <p className="inline-error">{errorMessage}</p>}
-      <button type="submit" className="primary-button" disabled={submitting || (loggedIn && !canSubmit)}>
-        {!loggedIn ? '로그인 후 작성' : submitting ? '저장 중...' : canSubmit ? '후기 올리기' : '근처 도착 후 활성화'}
-      </button>
+      <div style={{ display: 'grid', gap: '8px' }}>
+        <button type="submit" className="primary-button" disabled={submitting || (loggedIn && !canSubmit)}>
+          {!loggedIn ? '로그인 후 작성' : submitting ? '바르는 중...' : canSubmit ? '잼 바르기 (후기 완료)' : '스탬프 찍은 후 활성화'}
+        </button>
+        {canSubmit && !submitting && (
+          <button type="button" className="text-button" onClick={() => setShowLaterNotice(true)}>
+            나중에 작성할게요
+          </button>
+        )}
+      </div>
+      {showLaterNotice && <p className="review-composer__hint" style={{ textAlign: 'center' }}>나중에 '마이' 탭이나 이 장소 페이지에서 다시 작성할 수 있어요!</p>}
     </form>
   );
 }

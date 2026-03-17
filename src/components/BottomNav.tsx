@@ -6,7 +6,7 @@ interface BottomNavProps {
 }
 
 const items: { key: Tab; label: string }[] = [
-  { key: 'explore', label: '탐색' },
+  { key: 'map', label: '탐색' },
   { key: 'course', label: '코스' },
   { key: 'stamp', label: '스탬프' },
   { key: 'my', label: '마이' },

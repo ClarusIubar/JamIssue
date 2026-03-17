@@ -10,12 +10,12 @@ interface MyRouteBuilderProps {
   onOpenPlace: (placeId: string) => void;
 }
 
-const moodOptions = ['데이트', '사진', '힐링', '비 오는 날'];
+const moodOptions = ['딸기잼', '버터', '초코스프레드', '크림치즈', '무화과잼'];
 
 export function MyRouteBuilder({ collectedPlaces, routes, submitting, errorMessage, onSubmit, onOpenPlace }: MyRouteBuilderProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [mood, setMood] = useState('데이트');
+  const [mood, setMood] = useState('딸기잼');
   const [selectedPlaceIds, setSelectedPlaceIds] = useState<string[]>([]);
 
   function togglePlace(placeId: string) {
@@ -32,7 +32,7 @@ export function MyRouteBuilder({ collectedPlaces, routes, submitting, errorMessa
     });
     setTitle('');
     setDescription('');
-    setMood('데이트');
+    setMood('딸기잼');
     setSelectedPlaceIds([]);
   }
 
@@ -43,7 +43,7 @@ export function MyRouteBuilder({ collectedPlaces, routes, submitting, errorMessa
           <div>
             <p className="eyebrow">MY ROUTE MAKER</p>
             <h3>내 스탬프로 추천 경로 만들기</h3>
-            <p className="section-copy">실제로 찍은 스탬프만 묶어서 다른 사람에게 공개할 수 있어요.</p>
+            <p className="section-copy">실제로 수집한 스탬프들을 엮어 새로운 토스트 모음집을 만들고, <strong>커뮤니티에 다른 여행자들을 위해 추천해주세요.</strong></p>
           </div>
         </div>
 
@@ -97,7 +97,7 @@ export function MyRouteBuilder({ collectedPlaces, routes, submitting, errorMessa
             </div>
             {errorMessage && <p className="form-error-copy">{errorMessage}</p>}
             <button type="submit" className="primary-button route-submit-button" disabled={submitting || selectedPlaceIds.length < 2}>
-              {submitting ? '경로 올리는 중' : '공개 경로 올리기'}
+              {submitting ? '추천 올리는 중...' : '공개 추천 토스트 발행하기'}
             </button>
           </form>
         )}

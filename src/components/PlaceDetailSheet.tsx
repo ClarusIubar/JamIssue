@@ -1,4 +1,4 @@
-﻿import { ReviewComposer } from './ReviewComposer';
+import { ReviewComposer } from './ReviewComposer';
 import { ReviewList } from './ReviewList';
 import type { Place, Review, ReviewMood } from '../types';
 
@@ -72,7 +72,7 @@ export function PlaceDetailSheet({
           </div>
           <button
             type="button"
-            className={isStampCollected ? 'secondary-button is-complete' : 'primary-button'}
+            className={isStampCollected ? 'secondary-button is-complete' : canWriteReview ? 'primary-button highlight-jam' : 'primary-button'}
             onClick={() => void onCollectStamp(place)}
             disabled={isStampCollected || isStampBusy}
           >

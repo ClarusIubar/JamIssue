@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   createComment,
   createReview,
@@ -56,7 +56,7 @@ const emptyProviders: AuthProvider[] = [
   { key: 'naver', label: '네이버', isEnabled: false, loginUrl: null },
   { key: 'kakao', label: '카카오', isEnabled: false, loginUrl: null },
 ];
-const validTabs: Tab[] = ['explore', 'course', 'stamp', 'my'];
+const validTabs: Tab[] = ['map', 'course', 'stamp', 'my'];
 const STAMP_UNLOCK_RADIUS_METERS = 120;
 const DAEJEON_CENTER = { latitude: 36.3504, longitude: 127.3845 };
 const DAEJEON_VALID_RADIUS_METERS = 45_000;
@@ -65,7 +65,7 @@ const EARLY_SUCCESS_LOCATION_ACCURACY_METERS = 150;
 
 function getInitialTab(): Tab {
   if (typeof window === 'undefined') {
-    return 'explore';
+    return 'map';
   }
 
   const params = new URLSearchParams(window.location.search);
@@ -78,7 +78,7 @@ function getInitialTab(): Tab {
     return 'my';
   }
 
-  return 'explore';
+  return 'map';
 }
 
 function getInitialNotice() {
@@ -323,12 +323,17 @@ function App() {
   const [mapLocationMessage, setMapLocationMessage] = useState<string | null>(null);
   const [mapLocationFocusKey, setMapLocationFocusKey] = useState(0);
 
+  // --- Stay-time Engine State ---
+  const [stampablePlaceId, setStampablePlaceId] = useState<string | null>(null);
+  // (We use a ref internally to track the timeout so it doesn't cause re-renders, but since it's only timer ID, state is fine too. Using state for simplicity)
+  const [stayTimerId, setStayTimerId] = useState<number | null>(null);
+
   useEffect(() => {
     void loadApp(true);
   }, []);
 
   useEffect(() => {
-    if (activeTab !== 'explore') {
+    if (activeTab !== 'map') {
       return;
     }
 
@@ -421,8 +426,10 @@ function App() {
       : typeof detailPlaceDistanceMeters !== 'number'
         ? `반경 ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 후기 버튼이 열려요.`
         : detailPlaceDistanceMeters <= STAMP_UNLOCK_RADIUS_METERS
-          ? `현재 약 ${formatDistanceMeters(detailPlaceDistanceMeters)} 거리예요. 지금 후기 올리기가 열려 있어요.`
-          : `현재 약 ${formatDistanceMeters(detailPlaceDistanceMeters)} 거리예요. ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 후기 버튼이 열려요.`;
+          ? (stampablePlaceId === detailPlace.id 
+              ? `현재 이 곳에 30초 이상 머무르셨네요! 잼(스탬프) 버튼이 열려 있어요 ✨`
+              : `현재 약 ${formatDistanceMeters(detailPlaceDistanceMeters)} 거리예요. 30초 대기 중입니다.`)
+          : `현재 약 ${formatDistanceMeters(detailPlaceDistanceMeters)} 거리예요. ${STAMP_UNLOCK_RADIUS_METERS}m 안에서 30초 머물면 잠금이 열려요.`;
   const visibleCourses = activeMood === '전체' ? courses : courses.filter((course) => course.mood === activeMood);
   const stampRate = calculateStampRate(places.length, collectedStampIds.length);
   const stampDistanceByPlaceId = useMemo(() => {
@@ -440,6 +447,47 @@ function App() {
 
     return nextDistances;
   }, [places, currentPosition]);
+
+  // --- Stay-time Logic Check ---
+  useEffect(() => {
+    if (!currentPosition) return;
+    
+    // 이펙트 실행마다 내 근처 반경에 있는 모든 place를 찾음
+    const closePlaceIds = places
+      .filter((place) => {
+        const distance = stampDistanceByPlaceId.get(place.id);
+        return typeof distance === 'number' && distance <= STAMP_UNLOCK_RADIUS_METERS;
+      })
+      .map(p => p.id);
+
+    // 아직 스탬프 안 찍은 장소 중 현재 가장 가까운 걸 하나 타겟팅 (단순화를 위해 첫 번째 매칭)
+    const targetId = closePlaceIds.find(id => !collectedStampIds.includes(id));
+
+    if (targetId) {
+       if (stampablePlaceId === targetId) {
+          // 이미 해금된 상태면 유지
+          return;
+       }
+       if (stayTimerId === null) {
+          // 범위에 들어왔으나 아직 타이머가 없다면 30초 시작
+          const timer = window.setTimeout(() => {
+             setStampablePlaceId(targetId);
+             setNotice('스탬프 잼을 바를 준비가 완료되었어요!'); // Notification Alert
+          }, 30000); 
+          setStayTimerId(timer);
+       }
+    } else {
+       // 범위를 벗어났으면 초기화
+       if (stayTimerId !== null) {
+          window.clearTimeout(stayTimerId);
+          setStayTimerId(null);
+       }
+       if (stampablePlaceId !== null) {
+          // (선택 사항) 다시 범위 밖으로 나가면 해금 취소할지? 보통은 도망가면 취소
+          setStampablePlaceId(null);
+       }
+    }
+  }, [currentPosition, places, stampDistanceByPlaceId, collectedStampIds, stampablePlaceId, stayTimerId]);
 
   useEffect(() => {
     if (!selectedPlaceId && filteredPlaces[0]) {
@@ -463,7 +511,7 @@ function App() {
 
   function openPlaceFromRoute(placeId: string) {
     setSelectedPlaceId(placeId);
-    setActiveTab('explore');
+    setActiveTab('map');
     setDetailPlaceId(placeId);
   }
 
@@ -498,6 +546,9 @@ function App() {
     if (withLoading) {
       setBootstrapStatus('loading');
     }
+
+    // Force fetch map location right on app load due to map center requirement
+    void refreshMapLocation(true);
     setBootstrapError(null);
 
     try {
@@ -852,7 +903,7 @@ function App() {
       <div className="aurora aurora-right" />
       <div className="phone-shell">
         <main className="content">
-          {activeTab === 'explore' && (
+          {activeTab === 'map' && (
         <header className="top-card">
           <div className="top-card__copy">
             <p className="eyebrow">DAEJEON JAM ISSUE</p>
@@ -886,7 +937,7 @@ function App() {
             </section>
           )}
 
-          {activeTab === 'explore' && selectedPlace && (
+          {activeTab === 'map' && selectedPlace && (
             <>
               <section className="card-block">
                 <div className="section-title-row">
@@ -1104,14 +1155,16 @@ function App() {
                   ? '이미 적립한 스탬프예요.'
                   : typeof distanceMeters !== "number"
                     ? `반경 ${STAMP_UNLOCK_RADIUS_METERS}m 안에서 버튼이 열려요.`
-                    : isNearby
-                      ? `현재 약 ${formatDistanceMeters(distanceMeters)} 거리예요. 지금 적립할 수 있어요.`
-                      : `현재 약 ${formatDistanceMeters(distanceMeters)} 거리예요. ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 열려요.`;
+                    : isNearby && stampablePlaceId === place.id
+                      ? `현재 약 ${formatDistanceMeters(distanceMeters)} 거리예요. 지금 적립할 수 있어요! 🍓`
+                      : isNearby 
+                        ? `잠금을 해제하기 위해 주변을 탐색해 보세요. 30초 대기 중입니다.`
+                        : `현재 약 ${formatDistanceMeters(distanceMeters)} 거리예요. ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 열려요.`;
                 const buttonClassName = isCollected
                   ? 'secondary-button is-complete stamp-action-button'
-                  : isLocked
+                  : isLocked || (!isLocked && stampablePlaceId !== place.id)
                     ? 'secondary-button stamp-action-button is-locked'
-                    : 'primary-button stamp-action-button';
+                    : 'primary-button stamp-action-button highlight-jam';
 
                 return (
                   <section key={place.id} className="card-block stamp-item">

@@ -1,6 +1,6 @@
-﻿export type Category = 'all' | 'landmark' | 'food' | 'cafe' | 'night';
-export type Tab = 'explore' | 'course' | 'stamp' | 'my';
-export type ReviewMood = '설렘' | '친구랑' | '혼자서' | '야경픽';
+export type Category = 'all' | 'landmark' | 'food' | 'cafe' | 'night';
+export type Tab = 'map' | 'course' | 'stamp' | 'my';
+export type ReviewMood = '딸기잼' | '버터' | '초코스프레드' | '크림치즈' | '무화과잼';
 export type CourseMood = '전체' | '데이트' | '사진' | '힐링' | '비 오는 날';
 export type ApiStatus = 'idle' | 'loading' | 'ready' | 'error';
 export type ProviderKey = 'naver' | 'kakao';
