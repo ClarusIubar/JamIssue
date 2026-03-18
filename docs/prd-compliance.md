@@ -1,14 +1,14 @@
 # JamIssue PRD 대비 구현 체크
 
 기준일: 2026-03-16  
-기준 저장소: `D:/Code305/JamIssue`
+기준 저장소: `잼있슈 레포지토리 (현재 작업 공간)`
 
 이 문서는 현재 저장소 기준으로 무엇이 구현되었고, 무엇이 부분 구현이며, 무엇이 아직 비어 있는지 PRD 축으로 빠르게 확인하기 위한 체크 문서다.
 
 관련 문서:
-- 문서 가이드: [docs/README.md](D:/Code305/JamIssue/docs/README.md)
-- 화면설계서: [docs/screen-spec.md](D:/Code305/JamIssue/docs/screen-spec.md)
-- 계정/삭제 규칙: [docs/account-identity-schema.md](D:/Code305/JamIssue/docs/account-identity-schema.md)
+- 문서 가이드: [docs/README.md](./README.md)
+- 화면설계서: [docs/screen-spec.md](./screen-spec.md)
+- 계정/삭제 규칙: [docs/account-identity-schema.md](./account-identity-schema.md)
 
 ## 1. 비전과 타깃 적합성
 
@@ -128,7 +128,7 @@
 - [x] 댓글 self FK와 삭제 규칙 반영
 - [x] 회원탈퇴 cascade 정책 반영
 - [ ] 운영 스토리지 분리 완료
-- [ ] 배포 아키텍처 최종 확정
+- [x] 배포 아키텍처 최종 확정 (Cloudflare Pages + Worker)
 
 판정: 대체로 준수
 
@@ -176,10 +176,11 @@
 - [x] 로컬 nginx 진입점
 - [x] health check
 - [ ] 스테이징
-- [ ] 운영 배포 파이프라인
+- [x] 운영 배포 파이프라인 (Cloudflare Pages 수동/CLI 연동)
+- [x] 배포/운영 구조 문서 (deployment-guide.md 통폐합 정리 완료)
 - [ ] 모니터링 / 로그 / 롤백 문서
 
-판정: 미완료
+판정: 부분 완료
 
 ## 12. 측정/회고
 
@@ -191,4 +192,4 @@
 
 ## 현재 한 줄 요약
 
-현재 JamIssue는 `지도 탐색 + 네이버 로그인 + 후기/댓글 + 현장 스탬프 + 사용자 경로`까지 이어지는 로컬 MVP다. 다만 PRD 완성도 기준으로는 `UI/UX 정리`, `후기 작성 정책`, `공공데이터 정식 연동`, `모바일 QA`, `배포/운영 문서`가 아직 핵심 잔여 작업이다.
+현재 JamIssue는 `지도 탐색 + 네이버 로그인 + 후기/댓글 + 현장 스탬프 + 사용자 경로`까지 이어지는 MVP 릴리즈 상태다. 인프라 관점으로 `Cloudflare Pages(프론트)` 와 `Worker(API)` 배포 파이프라인이 검증되었으나, PRD 원본 완성도 기준으로는 `UI/UX 폴리싱`, `후기 작성 상세 정책`, `공공데이터 정식 연동`, `모바일 실기기 QA` 가 남은 잔여 목표다.
