@@ -788,15 +788,15 @@ img {
 .preview-card h3,
 .stamp-item h3,
 .course-card h3 {
-  font-size: 18px;
-  line-height: 1.18;
+  font-size: 19px;
+  line-height: 1.25;
   word-break: keep-all;
 }
 
 .card-block,
 .map-card-block {
-  padding: 16px;
-  border-radius: 24px;
+  padding: 18px;
+  border-radius: 26px;
 }
 
 .notice-banner {

@@ -16,9 +16,9 @@ export function AdminPanel({ summary, busyPlaceId, isImporting, onRefreshImport,
   return (
     <section className="admin-panel card-block">
       <div className="section-title-row">
-        <div>
-          <p className="eyebrow">ADMIN</p>
-          <h3>운영 대시보드</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <p className="eyebrow" style={{ margin: 0 }}>ADMIN</p>
+          <h3 style={{ margin: 0 }}>운영 대시보드</h3>
         </div>
         <button type="button" className="secondary-button" onClick={() => void onRefreshImport()} disabled={isImporting}>
           {isImporting ? '가져오는 중...' : '공공 데이터 다시 가져오기'}

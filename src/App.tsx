@@ -426,7 +426,7 @@ function App() {
       : typeof detailPlaceDistanceMeters !== 'number'
         ? `반경 ${STAMP_UNLOCK_RADIUS_METERS}m 안에 들어오면 후기 버튼이 열려요.`
         : detailPlaceDistanceMeters <= STAMP_UNLOCK_RADIUS_METERS
-          ? (stampablePlaceId === detailPlace.id 
+          ? (stampablePlaceId === detailPlace?.id 
               ? `현재 이 곳에 30초 이상 머무르셨네요! 잼(스탬프) 버튼이 열려 있어요 ✨`
               : `현재 약 ${formatDistanceMeters(detailPlaceDistanceMeters)} 거리예요. 30초 대기 중입니다.`)
           : `현재 약 ${formatDistanceMeters(detailPlaceDistanceMeters)} 거리예요. ${STAMP_UNLOCK_RADIUS_METERS}m 안에서 30초 머물면 잠금이 열려요.`;
