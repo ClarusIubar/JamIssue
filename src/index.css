@@ -654,7 +654,7 @@ img {
 .map-caption {
   position: absolute;
   right: 14px;
-  bottom: 12px;
+  bottom: 20px;
   padding: 8px 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
@@ -1341,7 +1341,7 @@ img {
 .map-location-pill {
   position: absolute;
   left: 14px;
-  bottom: 48px;
+  bottom: 56px;
   max-width: calc(100% - 28px);
   padding: 10px 12px;
   border-radius: 16px;
