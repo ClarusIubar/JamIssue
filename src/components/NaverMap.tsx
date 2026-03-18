@@ -120,7 +120,7 @@ export function NaverMap({
           scaleControl: false,
           logoControl: false,
           mapDataControl: false,
-          zoomControl: true,
+          zoomControl: false,
         });
 
         const bounds = new maps.LatLngBounds(
