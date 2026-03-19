@@ -770,8 +770,16 @@ textarea {
 .comment-thread__form,
 .comment-thread__reply-form {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.comment-thread__reply-hint {
+  width: 100%;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 2px;
 }
 
 .comment-thread__form input,

@@ -588,9 +588,9 @@ def create_comment(db: Session, review_id: str, payload: CommentCreate, user_id:
         parent = db.get(UserComment, parent_id)
         if not parent or parent.feed_id != review_key:
             raise ValueError("같은 후기 안에 있는 댓글에만 답글을 달 수 있어요.")
-        # Enforce 2-level depth: if parent is itself a reply, use its root comment instead
+        # Enforce strict 2-level depth: reject replies to depth-1 comments
         if parent.parent_id is not None:
-            parent_id = parent.parent_id
+            raise ValueError("대댓글에는 답글을 달 수 없어요.")
 
     user = get_or_create_user(db, user_id, nickname)
     now = utcnow_naive()

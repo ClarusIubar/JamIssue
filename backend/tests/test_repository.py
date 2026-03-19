@@ -1,6 +1,7 @@
 ﻿from datetime import timedelta
 from pathlib import Path
 
+import pytest
 from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import sessionmaker
 
@@ -199,8 +200,8 @@ def test_delete_comment_keeps_reply_tree(tmp_path: Path):
     assert updated_tree[0].replies[0].body == '대댓글'
 
 
-def test_reply_of_reply_is_flattened_to_depth_one(tmp_path: Path):
-    """대댓글의 답글은 2단계 깊이를 초과하지 않고 부모 댓글의 자식으로 귀속됩니다."""
+def test_reply_of_reply_is_rejected_with_value_error(tmp_path: Path):
+    """대댓글(depth 1)에 답글을 달려고 하면 ValueError가 발생합니다."""
     session = build_session(tmp_path)
     load_seed_data(session)
 
@@ -215,19 +216,9 @@ def test_reply_of_reply_is_flattened_to_depth_one(tmp_path: Path):
     create_comment(session, review.id, CommentCreate(body='대댓글', parentId=str(root.comment_id)), 'user-b', '가은')
     reply = session.scalars(select(UserComment).where(UserComment.body == '대댓글')).one()
 
-    # Attempt to create depth-2 reply (should be redirected to root comment as parent)
-    tree = create_comment(session, review.id, CommentCreate(body='대댓글의 답글', parentId=str(reply.comment_id)), 'user-c', '지우')
-
-    deep_reply = session.scalars(select(UserComment).where(UserComment.body == '대댓글의 답글')).one()
-
-    # The reply-of-reply must point to the root comment, not the depth-1 reply
-    assert deep_reply.parent_id == root.comment_id
-
-    # The tree must have exactly one root with two depth-1 replies (no depth-2 nesting)
-    assert len(tree) == 1
-    assert len(tree[0].replies) == 2
-    assert tree[0].replies[1].body == '대댓글의 답글'
-    assert len(tree[0].replies[1].replies) == 0
+    # Attempt to create depth-2 reply must raise ValueError
+    with pytest.raises(ValueError, match="대댓글에는 답글을 달 수 없어요"):
+        create_comment(session, review.id, CommentCreate(body='대댓글의 답글', parentId=str(reply.comment_id)), 'user-c', '지우')
 
 
 def test_delete_review_removes_comments_and_likes(tmp_path: Path):
