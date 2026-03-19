@@ -26,7 +26,7 @@ function jsonResponse(status, payload, env, request, extraHeaders = {}) {
     ...extraHeaders,
   });
   applyCorsHeaders(headers, env, request);
-  return new Response(JSON.stringify(payload, null, 2), { status, headers });
+  return new Response(JSON.stringify(payload), { status, headers });
 }
 
 function redirectResponse(location, env, request, cookies = []) {
@@ -1983,6 +1983,7 @@ export default {
     }
   },
 };
+
 
 
 
