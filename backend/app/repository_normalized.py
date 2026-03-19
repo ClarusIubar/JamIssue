@@ -42,6 +42,7 @@ from .models import (
     ReviewCreate,
     ReviewLikeResponse,
     ReviewOut,
+    ReviewUpdate,
     SessionUser,
     StampLogOut,
     StampState,
@@ -683,6 +684,40 @@ def create_review(db: Session, payload: ReviewCreate, user_id: str, nickname: st
         .where(Feed.feed_id == feed.feed_id)
     ).unique().one()
     return to_review_out(stored_feed, current_user_id=user.user_id)
+
+
+def update_review(db: Session, review_id: str, payload: ReviewUpdate, user_id: str) -> ReviewOut:
+    review_key = parse_review_id(review_id)
+    feed = db.scalars(
+        select(Feed)
+        .options(
+            joinedload(Feed.user),
+            joinedload(Feed.place),
+            joinedload(Feed.stamp),
+            joinedload(Feed.likes),
+            joinedload(Feed.comments).joinedload(UserComment.user),
+        )
+        .where(Feed.feed_id == review_key)
+    ).unique().first()
+    if not feed:
+        raise ValueError("후기를 찾을 수 없어요.")
+    if feed.user_id != user_id:
+        raise PermissionError("내 후기만 수정할 수 있어요.")
+
+    body = payload.body.strip()
+    if not body:
+        raise ValueError("후기 본문을 적어 주세요.")
+
+    feed.body = body
+    feed.mood = payload.mood
+    feed.badge = BADGE_BY_MOOD.get(payload.mood, feed.badge)
+    if payload.image_url is not None:
+        feed.image_url = payload.image_url
+    feed.updated_at = utcnow_naive()
+
+    db.commit()
+    db.refresh(feed)
+    return to_review_out(feed, current_user_id=user_id)
 
 
 def toggle_review_like(db: Session, review_id: str, user_id: str, nickname: str) -> ReviewLikeResponse:

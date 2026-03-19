@@ -33,6 +33,7 @@ from .models import (
     ReviewCreate,
     ReviewLikeResponse,
     ReviewOut,
+    ReviewUpdate,
     RouteSort,
     SessionUser,
     StampState,
@@ -68,6 +69,7 @@ from .repository_normalized import (
     list_reviews,
     to_session_user,
     toggle_review_like,
+    update_review,
     update_user_profile,
     toggle_stamp,
     update_place_visibility,
@@ -506,6 +508,25 @@ def remove_review(
     except PermissionError as error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.patch("/api/reviews/{review_id}", response_model=ReviewOut, tags=["reviews"])
+def edit_review(
+    review_id: str,
+    payload: ReviewUpdate,
+    db: Session = Depends(get_db),
+    session_user: SessionUser = Depends(require_session_user),
+) -> ReviewOut:
+    try:
+        return update_review(db, review_id, payload, session_user.id)
+    except ValueError as error:
+        detail = str(error)
+        status_code = status.HTTP_400_BAD_REQUEST
+        if "찾을 수 없어요" in detail:
+            status_code = status.HTTP_404_NOT_FOUND
+        raise HTTPException(status_code=status_code, detail=detail) from error
+    except PermissionError as error:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from error
 
 
 @app.post("/api/reviews/{review_id}/like", response_model=ReviewLikeResponse, tags=["reviews"])

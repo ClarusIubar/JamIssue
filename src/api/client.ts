@@ -15,6 +15,7 @@ import type {
   Review,
   ReviewCreateRequest,
   ReviewLikeResponse,
+  ReviewUpdateRequest,
   StampClaimRequest,
   StampState,
   UploadResponse,
@@ -135,6 +136,13 @@ export function getReviews(params?: { placeId?: string; userId?: string }) {
 export function createReview(payload: ReviewCreateRequest) {
   return fetchJson<Review>('/api/reviews', {
     method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateReview(reviewId: string, payload: ReviewUpdateRequest) {
+  return fetchJson<Review>(`/api/reviews/${reviewId}`, {
+    method: 'PATCH',
     body: JSON.stringify(payload),
   });
 }

@@ -10,6 +10,7 @@ interface PlaceDetailSheetProps {
   isOpen: boolean;
   drawerState: DrawerState;
   loggedIn: boolean;
+  sessionUserId?: string | null;
   visitCount: number;
   latestStamp: StampLog | null;
   todayStamp: StampLog | null;
@@ -20,6 +21,9 @@ interface PlaceDetailSheetProps {
   reviewSubmitting: boolean;
   reviewLikeUpdatingId: string | null;
   commentSubmittingReviewId: string | null;
+  editingReviewId?: string | null;
+  reviewEditSubmitting?: boolean;
+  reviewEditError?: string | null;
   canCreateReview: boolean;
   onClose: () => void;
   onExpand: () => void;
@@ -29,6 +33,9 @@ interface PlaceDetailSheetProps {
   onCreateReview: (payload: { stampId: string; body: string; mood: ReviewMood; file: File | null }) => Promise<void>;
   onToggleReviewLike: (reviewId: string) => Promise<void>;
   onCreateComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
+  onEditReview?: (reviewId: string) => void;
+  onSaveEdit?: (reviewId: string, payload: { body: string; mood: ReviewMood; file: File | null }) => Promise<void>;
+  onCancelEdit?: () => void;
 }
 
 export function PlaceDetailSheet({
@@ -37,6 +44,7 @@ export function PlaceDetailSheet({
   isOpen,
   drawerState,
   loggedIn,
+  sessionUserId,
   visitCount,
   latestStamp,
   todayStamp,
@@ -47,6 +55,9 @@ export function PlaceDetailSheet({
   reviewSubmitting,
   reviewLikeUpdatingId,
   commentSubmittingReviewId,
+  editingReviewId,
+  reviewEditSubmitting,
+  reviewEditError,
   canCreateReview,
   onClose,
   onExpand,
@@ -56,6 +67,9 @@ export function PlaceDetailSheet({
   onCreateReview,
   onToggleReviewLike,
   onCreateComment,
+  onEditReview,
+  onSaveEdit,
+  onCancelEdit,
 }: PlaceDetailSheetProps) {
   const dragStartYRef = useRef<number | null>(null);
 
@@ -199,13 +213,20 @@ export function PlaceDetailSheet({
         </div>
         <ReviewList
           reviews={reviews}
+          sessionUserId={sessionUserId}
           canWriteComment={loggedIn}
           canToggleLike={loggedIn}
           likingReviewId={reviewLikeUpdatingId}
           submittingReviewId={commentSubmittingReviewId}
+          editingReviewId={editingReviewId}
+          reviewEditSubmitting={reviewEditSubmitting}
+          reviewEditError={reviewEditError}
           onToggleLike={onToggleReviewLike}
           onSubmitComment={onCreateComment}
           onRequestLogin={onRequestLogin}
+          onEditReview={onEditReview}
+          onSaveEdit={onSaveEdit}
+          onCancelEdit={onCancelEdit}
           emptyTitle="이 장소는 아직 첫 피드를 기다리고 있어요"
           emptyBody="현장 스탬프를 찍은 다음, 지금 분위기를 짧게 남겨 보세요."
         />

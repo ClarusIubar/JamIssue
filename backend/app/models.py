@@ -177,6 +177,12 @@ class ReviewCreate(ApiModel):
     image_url: str | None = Field(default=None, alias='imageUrl')
 
 
+class ReviewUpdate(ApiModel):
+    body: str
+    mood: ReviewMood | str
+    image_url: str | None = Field(default=None, alias='imageUrl')
+
+
 class CommentCreate(ApiModel):
     body: str
     parent_id: str | None = Field(default=None, alias='parentId')

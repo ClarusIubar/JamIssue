@@ -247,3 +247,71 @@ def test_delete_account_cascades_user_content_and_detaches_replies(tmp_path: Pat
     assert remaining_reply.parent_id is None
     assert session.scalar(select(func.count()).select_from(UserComment).where(UserComment.user_id == social_user.user_id)) == 0
     assert session.scalar(select(func.count()).select_from(Feed).where(Feed.feed_id == int(own_review.id))) == 0
+
+
+def test_update_review_changes_body_mood_and_timestamp(tmp_path: Path):
+    from app.models import ReviewUpdate
+    from app.repository_normalized import update_review
+
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    stamp_state = claim_stamp_for(session, 'user-1', 'hanbat-forest')
+    review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', stampId=stamp_id_for_place(stamp_state, 'hanbat-forest'), body='원본 후기', mood='설렘', imageUrl=None),
+        'user-1',
+        '민서',
+    )
+    original_updated_at = session.get(Feed, int(review.id)).updated_at
+
+    updated = update_review(session, review.id, ReviewUpdate(body='수정된 후기', mood='혼자서', imageUrl=None), 'user-1')
+
+    assert updated.body == '수정된 후기'
+    assert updated.mood == '혼자서'
+    db_feed = session.get(Feed, int(review.id))
+    assert db_feed.updated_at >= original_updated_at
+
+
+def test_update_review_preserves_image_when_not_provided(tmp_path: Path):
+    from app.models import ReviewUpdate
+    from app.repository_normalized import update_review
+
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    stamp_state = claim_stamp_for(session, 'user-1', 'hanbat-forest')
+    review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', stampId=stamp_id_for_place(stamp_state, 'hanbat-forest'), body='원본 후기', mood='설렘', imageUrl='/uploads/original.jpg'),
+        'user-1',
+        '민서',
+    )
+
+    updated = update_review(session, review.id, ReviewUpdate(body='글만 바꿨어요', mood='설렘', imageUrl=None), 'user-1')
+
+    assert updated.image_url == '/uploads/original.jpg'
+
+
+def test_update_review_rejects_other_user(tmp_path: Path):
+    from app.models import ReviewUpdate
+    from app.repository_normalized import update_review
+
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    stamp_state = claim_stamp_for(session, 'user-1', 'hanbat-forest')
+    review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', stampId=stamp_id_for_place(stamp_state, 'hanbat-forest'), body='원본 후기', mood='설렘', imageUrl=None),
+        'user-1',
+        '민서',
+    )
+
+    blocked = False
+    try:
+        update_review(session, review.id, ReviewUpdate(body='남이 수정', mood='혼자서', imageUrl=None), 'user-2')
+    except PermissionError:
+        blocked = True
+
+    assert blocked is True

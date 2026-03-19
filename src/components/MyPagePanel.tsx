@@ -1,6 +1,7 @@
 ﻿import { useMemo, useState } from 'react';
 import { ProviderButtons } from './ProviderButtons';
-import type { AuthProvider, CourseMood, MyPageResponse, MyPageTabKey, SessionUser, TravelSession } from '../types';
+import { ReviewEditForm } from './ReviewEditForm';
+import type { AuthProvider, CourseMood, MyPageResponse, MyPageTabKey, ReviewMood, SessionUser, TravelSession } from '../types';
 
 interface MyPagePanelProps {
   sessionUser: SessionUser | null;
@@ -12,12 +13,18 @@ interface MyPagePanelProps {
   profileError: string | null;
   routeSubmitting: boolean;
   routeError: string | null;
+  editingReviewId: string | null;
+  reviewEditSubmitting: boolean;
+  reviewEditError: string | null;
   onChangeTab: (nextTab: MyPageTabKey) => void;
   onLogin: (provider: 'naver' | 'kakao') => void;
   onLogout: () => Promise<void>;
   onSaveNickname: (nickname: string) => Promise<void>;
   onPublishRoute: (payload: { travelSessionId: string; title: string; description: string; mood: string }) => Promise<void>;
   onOpenPlace: (placeId: string) => void;
+  onEditReview: (reviewId: string) => void;
+  onSaveEdit: (reviewId: string, payload: { body: string; mood: ReviewMood; file: File | null }) => Promise<void>;
+  onCancelEdit: () => void;
 }
 
 const routeMoodOptions: CourseMood[] = ['데이트', '사진', '힐링', '비 오는 날'];
@@ -48,12 +55,18 @@ export function MyPagePanel({
   profileError,
   routeSubmitting,
   routeError,
+  editingReviewId,
+  reviewEditSubmitting,
+  reviewEditError,
   onChangeTab,
   onLogin,
   onLogout,
   onSaveNickname,
   onPublishRoute,
   onOpenPlace,
+  onEditReview,
+  onSaveEdit,
+  onCancelEdit,
 }: MyPagePanelProps) {
   const [nickname, setNickname] = useState(sessionUser?.nickname ?? '');
   const [showVisitedDetail, setShowVisitedDetail] = useState(false);
@@ -210,21 +223,46 @@ export function MyPagePanel({
 
             {activeTab === 'feeds' && (
               <div className="review-stack">
-                {myPage.reviews.map((review) => (
-                  <article key={review.id} className="review-card">
-                    <div className="review-card__top">
-                      <div>
-                        <strong>{review.placeName}</strong>
-                        <p>{review.visitLabel} · {review.visitedAt}</p>
+                {myPage.reviews.map((review) => {
+                  const isEditing = editingReviewId === review.id;
+                  return (
+                    <article key={review.id} className="review-card">
+                      <div className="review-card__top">
+                        <div>
+                          <strong>{review.placeName}</strong>
+                          <p>{review.visitLabel} · {review.visitedAt}</p>
+                        </div>
+                        <div className="review-card__top-actions">
+                          <span className="mood-pill">{review.mood}</span>
+                          {!isEditing && (
+                            <button type="button" className="text-button review-card__edit-button" onClick={() => onEditReview(review.id)}>
+                              수정
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <span className="mood-pill">{review.mood}</span>
-                    </div>
-                    <p className="review-card__body">{review.body}</p>
-                    <button type="button" className="text-button review-card__place-link" onClick={() => onOpenPlace(review.placeId)}>
-                      장소 열기
-                    </button>
-                  </article>
-                ))}
+                      {isEditing ? (
+                        <ReviewEditForm
+                          reviewId={review.id}
+                          initialBody={review.body}
+                          initialMood={review.mood}
+                          hasExistingImage={Boolean(review.imageUrl)}
+                          submitting={reviewEditSubmitting}
+                          errorMessage={reviewEditError}
+                          onSave={(payload) => onSaveEdit(review.id, payload)}
+                          onCancel={onCancelEdit}
+                        />
+                      ) : (
+                        <>
+                          <p className="review-card__body">{review.body}</p>
+                          <button type="button" className="text-button review-card__place-link" onClick={() => onOpenPlace(review.placeId)}>
+                            장소 열기
+                          </button>
+                        </>
+                      )}
+                    </article>
+                  );
+                })}
                 {myPage.reviews.length === 0 && <p className="empty-copy">아직 작성한 피드가 없어요.</p>}
               </div>
             )}

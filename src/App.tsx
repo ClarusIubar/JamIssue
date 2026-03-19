@@ -14,6 +14,7 @@ import {
   toggleCommunityRouteLike,
   toggleReviewLike,
   updateProfile,
+  updateReview,
   uploadReviewImage,
 } from './api/client';
 import { BottomNav } from './components/BottomNav';
@@ -204,6 +205,9 @@ export default function App() {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewLikeUpdatingId, setReviewLikeUpdatingId] = useState<string | null>(null);
   const [commentSubmittingReviewId, setCommentSubmittingReviewId] = useState<string | null>(null);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [reviewEditSubmitting, setReviewEditSubmitting] = useState(false);
+  const [reviewEditError, setReviewEditError] = useState<string | null>(null);
   const [stampActionStatus, setStampActionStatus] = useState<ApiStatus>('idle');
   const [stampActionMessage, setStampActionMessage] = useState('장소를 선택하면 오늘 스탬프 가능 여부를 바로 알려드릴게요.');
   const [routeSubmitting, setRouteSubmitting] = useState(false);
@@ -515,6 +519,37 @@ export default function App() {
     }
   }
 
+  async function handleUpdateReview(reviewId: string, payload: { body: string; mood: ReviewMood; file: File | null }) {
+    if (!sessionUser) {
+      goToTab('my');
+      return;
+    }
+
+    setReviewEditSubmitting(true);
+    setReviewEditError(null);
+    try {
+      let imageUrl: string | null = null;
+      if (payload.file) {
+        const uploaded = await uploadReviewImage(payload.file);
+        imageUrl = uploaded.url;
+      }
+
+      await updateReview(reviewId, {
+        body: payload.body.trim(),
+        mood: payload.mood,
+        imageUrl,
+      });
+
+      setEditingReviewId(null);
+      setNotice('피드를 수정했어요.');
+      await loadApp(false);
+    } catch (error) {
+      setReviewEditError(formatErrorMessage(error));
+    } finally {
+      setReviewEditSubmitting(false);
+    }
+  }
+
   async function handleCreateComment(reviewId: string, body: string, parentId?: string) {
     if (!sessionUser) {
       goToTab('my');
@@ -722,6 +757,7 @@ export default function App() {
               isOpen={Boolean(selectedPlace) && drawerState !== 'closed'}
               drawerState={drawerState}
               loggedIn={Boolean(sessionUser)}
+              sessionUserId={sessionUser?.id ?? null}
               visitCount={visitCount}
               latestStamp={latestStamp}
               todayStamp={todayStamp}
@@ -732,6 +768,9 @@ export default function App() {
               reviewSubmitting={reviewSubmitting}
               reviewLikeUpdatingId={reviewLikeUpdatingId}
               commentSubmittingReviewId={commentSubmittingReviewId}
+              editingReviewId={editingReviewId}
+              reviewEditSubmitting={reviewEditSubmitting}
+              reviewEditError={reviewEditError}
               canCreateReview={canCreateReview}
               onClose={closeDrawer}
               onExpand={() => selectedPlace && commitRouteState({ tab: 'map', placeId: selectedPlace.id, festivalId: null, drawerState: 'full' }, 'replace')}
@@ -741,6 +780,15 @@ export default function App() {
               onCreateReview={handleCreateReview}
               onToggleReviewLike={handleToggleReviewLike}
               onCreateComment={handleCreateComment}
+              onEditReview={(reviewId) => {
+                setEditingReviewId(reviewId);
+                setReviewEditError(null);
+              }}
+              onSaveEdit={handleUpdateReview}
+              onCancelEdit={() => {
+                setEditingReviewId(null);
+                setReviewEditError(null);
+              }}
             />
 
             <FestivalDetailSheet
@@ -764,10 +812,22 @@ export default function App() {
                 sessionUser={sessionUser}
                 reviewLikeUpdatingId={reviewLikeUpdatingId}
                 commentSubmittingReviewId={commentSubmittingReviewId}
+                editingReviewId={editingReviewId}
+                reviewEditSubmitting={reviewEditSubmitting}
+                reviewEditError={reviewEditError}
                 onToggleReviewLike={handleToggleReviewLike}
                 onCreateComment={handleCreateComment}
                 onRequestLogin={() => goToTab('my')}
                 onOpenPlace={openPlace}
+                onEditReview={(reviewId) => {
+                  setEditingReviewId(reviewId);
+                  setReviewEditError(null);
+                }}
+                onSaveEdit={handleUpdateReview}
+                onCancelEdit={() => {
+                  setEditingReviewId(null);
+                  setReviewEditError(null);
+                }}
               />
             )}
 
@@ -800,12 +860,24 @@ export default function App() {
                 profileError={profileError}
                 routeSubmitting={routeSubmitting}
                 routeError={routeError}
+                editingReviewId={editingReviewId}
+                reviewEditSubmitting={reviewEditSubmitting}
+                reviewEditError={reviewEditError}
                 onChangeTab={setMyPageTab}
                 onLogin={startProviderLogin}
                 onLogout={handleLogout}
                 onSaveNickname={handleUpdateProfile}
                 onPublishRoute={handlePublishRoute}
                 onOpenPlace={openPlace}
+                onEditReview={(reviewId) => {
+                  setEditingReviewId(reviewId);
+                  setReviewEditError(null);
+                }}
+                onSaveEdit={handleUpdateReview}
+                onCancelEdit={() => {
+                  setEditingReviewId(null);
+                  setReviewEditError(null);
+                }}
               />
             )}
           </div>
