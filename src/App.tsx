@@ -371,8 +371,12 @@ export default function App() {
 
     setCommentSubmittingReviewId(reviewId);
     try {
-      await createComment(reviewId, { body, parentId: parentId ?? null });
-      await loadApp(false);
+      const updatedComments = await createComment(reviewId, { body, parentId: parentId ?? null });
+      setReviews((current) =>
+        current.map((r) =>
+          r.id === reviewId ? { ...r, comments: updatedComments, commentCount: updatedComments.length } : r,
+        ),
+      );
     } catch (error) {
       setNotice(formatErrorMessage(error));
     } finally {
@@ -389,8 +393,12 @@ export default function App() {
 
     setReviewLikeUpdatingId(reviewId);
     try {
-      await toggleReviewLike(reviewId);
-      await loadApp(false);
+      const result = await toggleReviewLike(reviewId);
+      setReviews((current) =>
+        current.map((r) =>
+          r.id === reviewId ? { ...r, likeCount: result.likeCount, likedByMe: result.likedByMe } : r,
+        ),
+      );
     } catch (error) {
       setNotice(formatErrorMessage(error));
     } finally {

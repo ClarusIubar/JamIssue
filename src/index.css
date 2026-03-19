@@ -626,7 +626,8 @@ textarea {
 .review-composer__textarea,
 .route-builder-field input,
 .route-builder-field textarea,
-.comment-thread__reply input {
+.comment-thread__form input,
+.comment-thread__reply-form input {
   width: 100%;
   padding: 14px 16px;
   border-radius: 18px;
@@ -715,6 +716,108 @@ textarea {
 
 .review-action-button.is-active {
   color: var(--pink-deep);
+}
+
+.review-card__action-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.review-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 245, 249, 0.92);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.review-action-button:disabled {
+  opacity: 0.6;
+}
+
+.review-action-button__icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.review-action-button__label {
+  min-width: 1ch;
+}
+
+.review-link-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 236, 243, 0.92);
+  color: var(--pink-deep);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.comment-thread {
+  margin-top: 12px;
+}
+
+.comment-thread__form,
+.comment-thread__reply-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.comment-thread__form input,
+.comment-thread__reply-form input {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 10px 14px;
+}
+
+.comment-thread__submit {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--pink), var(--pink-deep));
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.comment-thread__submit:disabled {
+  opacity: 0.55;
+}
+
+.comment-thread__reply-toggle {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--pink-deep);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.comment-thread__item {
+  list-style: none;
+}
+
+.comment-thread__children {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0 12px;
+  padding: 0;
+  list-style: none;
 }
 
 .comment-thread__list {
