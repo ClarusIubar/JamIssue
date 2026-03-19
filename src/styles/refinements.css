@@ -756,3 +756,99 @@ input.visually-hidden[type='file'] {
   flex-wrap: wrap !important;
   margin-top: 4px !important;
 }
+
+/* 2026-03-19 unified typography scale */
+:root {
+  --type-lg: 1.25rem;
+  --type-md: 0.9375rem;
+  --type-sm: 0.75rem;
+}
+
+body {
+  font-size: var(--type-md) !important;
+}
+
+.panel-header h2,
+.map-stage__brand-title,
+.place-drawer__header h2,
+.review-card__title,
+.community-route-card h4,
+.section-title-row h3,
+.review-composer h3,
+.settings-card__header h3 {
+  font-size: var(--type-lg) !important;
+  line-height: 1.2 !important;
+}
+
+.panel-header p:last-child,
+.section-copy,
+.empty-copy,
+.review-card__body,
+.community-route-card p,
+.route-hint-box p,
+.map-caption,
+.map-location-pill,
+.file-picker span,
+.form-error-copy,
+.inline-error,
+.comment-thread__body,
+.place-drawer__summary,
+.place-drawer__description,
+.review-card__author-line,
+.review-card__meta-line,
+.community-route-meta,
+.map-drawer-teaser strong,
+.map-drawer-teaser p,
+.review-action-button,
+.secondary-button,
+.primary-button,
+.text-button,
+.bottom-nav__item,
+.chip,
+.map-filter-chip,
+.map-locate-button,
+.counter-pill,
+.mood-pill,
+.soft-tag,
+.review-card__place-link,
+.review-link-button,
+.review-card__place-anchor strong {
+  font-size: var(--type-md) !important;
+  line-height: 1.5 !important;
+}
+
+.eyebrow,
+.map-stage__brand-kicker,
+.counter-pill,
+.mood-pill,
+.soft-tag,
+.review-card__label,
+.review-action-button__label,
+.review-action-button__icon,
+.comment-thread__meta,
+.bottom-nav__item .bottom-nav__hint,
+.map-drawer-teaser__line,
+.map-drawer-teaser__chip {
+  font-size: var(--type-sm) !important;
+  line-height: 1.35 !important;
+}
+
+.bottom-nav__item,
+.chip,
+.map-filter-chip,
+.secondary-button,
+.primary-button,
+.review-link-button,
+.review-card__place-link,
+.review-action-button {
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.panel-header h2,
+.review-card__title,
+.community-route-card h4,
+.place-drawer__header h2,
+.map-stage__brand-title {
+  letter-spacing: -0.03em !important;
+}
