@@ -11,7 +11,7 @@ class User(Base):
 
     user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     email: Mapped[str] = mapped_column(String(255), nullable=True)
-    nickname: Mapped[str] = mapped_column(String(100), nullable=False)
+    nickname: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     provider: Mapped[str] = mapped_column(String(50), default="demo", nullable=False)
     profile_completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
@@ -90,6 +90,7 @@ class MapPlace(Base):
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
     summary: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     vibe_tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     visit_time: Mapped[str] = mapped_column(String(50), nullable=False)
     route_hint: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -389,4 +390,6 @@ class UserRouteLike(Base):
 
     route: Mapped["UserRoute"] = relationship(back_populates="likes")
     user: Mapped["User"] = relationship(back_populates="route_likes")
+
+
 

@@ -230,6 +230,28 @@ def test_reply_of_reply_is_flattened_to_depth_one(tmp_path: Path):
     assert len(tree[0].replies[1].replies) == 0
 
 
+
+def test_my_page_includes_my_comments(tmp_path: Path):
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    stamp_state = claim_stamp_for(session, 'user-owner', 'hanbat-forest')
+    review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', stampId=stamp_id_for_place(stamp_state, 'hanbat-forest'), body='댓글 목록 테스트 후기', mood='설렘', imageUrl=None),
+        'user-owner',
+        '소희',
+    )
+    create_comment(session, review.id, CommentCreate(body='루트 댓글', parentId=None), 'user-owner', '소희')
+    root = session.scalars(select(UserComment).where(UserComment.body == '루트 댓글')).one()
+    create_comment(session, review.id, CommentCreate(body='답글 댓글', parentId=str(root.comment_id)), 'user-owner', '소희')
+
+    my_page = get_my_page(session, 'user-owner', False)
+
+    assert len(my_page.comments) == 2
+    assert my_page.comments[0].place_name == '한밭수목원 잼가든'
+    assert my_page.comments[0].review_body == '댓글 목록 테스트 후기'
+
 def test_delete_review_removes_comments_and_likes(tmp_path: Path):
     session = build_session(tmp_path)
     load_seed_data(session)
@@ -278,3 +300,28 @@ def test_delete_account_cascades_user_content_and_detaches_replies(tmp_path: Pat
     assert remaining_reply.parent_id is None
     assert session.scalar(select(func.count()).select_from(UserComment).where(UserComment.user_id == social_user.user_id)) == 0
     assert session.scalar(select(func.count()).select_from(Feed).where(Feed.feed_id == int(own_review.id))) == 0
+
+
+def test_profile_update_rejects_duplicate_nickname(tmp_path: Path):
+    session = build_session(tmp_path)
+    first = upsert_social_user(session, provider='naver', provider_user_id='naver-111', nickname='민서', email='a@example.com')
+    second = upsert_social_user(session, provider='kakao', provider_user_id='kakao-222', nickname='가은', email='b@example.com')
+
+    error = None
+    try:
+        update_user_profile(session, second.user_id, ProfileUpdateRequest(nickname=first.nickname))
+    except ValueError as exc:
+        error = str(exc)
+
+    assert error == '이미 사용 중인 닉네임이에요.'
+
+
+def test_social_signup_generates_distinct_duplicate_nickname(tmp_path: Path):
+    session = build_session(tmp_path)
+
+    first = upsert_social_user(session, provider='naver', provider_user_id='naver-123', nickname='민서', email='same@example.com')
+    second = upsert_social_user(session, provider='kakao', provider_user_id='kakao-456', nickname='민서', email='same@example.com')
+
+    assert first.nickname == '민서'
+    assert second.nickname != '민서'
+    assert second.nickname.startswith('민서')

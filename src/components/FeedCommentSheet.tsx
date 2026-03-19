@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+﻿import { useRef } from 'react';
 import { CommentThread } from './CommentThread';
 import type { Review } from '../types';
 
@@ -7,6 +7,7 @@ interface FeedCommentSheetProps {
   isOpen: boolean;
   canWriteComment: boolean;
   submittingReviewId: string | null;
+  highlightedCommentId: string | null;
   onClose: () => void;
   onSubmitComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
   onRequestLogin: () => void;
@@ -17,6 +18,7 @@ export function FeedCommentSheet({
   isOpen,
   canWriteComment,
   submittingReviewId,
+  highlightedCommentId,
   onClose,
   onSubmitComment,
   onRequestLogin,
@@ -41,7 +43,7 @@ export function FeedCommentSheet({
   const sheetClassName = `feed-comment-sheet${isOpen ? ' feed-comment-sheet--open' : ' feed-comment-sheet--closed'}`;
 
   return (
-    <section className={sheetClassName} aria-label="댓글" aria-hidden={!isOpen}>
+    <section className={sheetClassName} aria-label="댓글 시트" aria-hidden={!isOpen}>
       <button
         type="button"
         className="feed-comment-sheet__handle"
@@ -60,7 +62,7 @@ export function FeedCommentSheet({
               <div className="feed-comment-sheet__title-group">
                 <strong className="feed-comment-sheet__place">{review.placeName}</strong>
                 <p className="feed-comment-sheet__meta">
-                  {review.author} · {review.visitedAt}
+                  {review.author} · {review.visitLabel} · {review.visitedAt}
                 </p>
               </div>
               <button type="button" className="feed-comment-sheet__close" onClick={onClose} aria-label="닫기">
@@ -76,6 +78,7 @@ export function FeedCommentSheet({
               comments={review.comments}
               canWriteComment={canWriteComment}
               submittingReviewId={submittingReviewId}
+              highlightedCommentId={highlightedCommentId}
               reviewId={review.id}
               onSubmitComment={onSubmitComment}
               onRequestLogin={onRequestLogin}

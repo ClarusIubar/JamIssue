@@ -1,5 +1,4 @@
-﻿import { useState } from 'react';
-import { useScrollRestoration } from '../hooks/useScrollRestoration';
+﻿import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { FeedCommentSheet } from './FeedCommentSheet';
 import { ReviewList } from './ReviewList';
 import type { Review, SessionUser } from '../types';
@@ -9,10 +8,14 @@ interface FeedTabProps {
   sessionUser: SessionUser | null;
   reviewLikeUpdatingId: string | null;
   commentSubmittingReviewId: string | null;
+  activeCommentReviewId: string | null;
+  highlightedCommentId: string | null;
   onToggleReviewLike: (reviewId: string) => Promise<void>;
   onCreateComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
   onRequestLogin: () => void;
   onOpenPlace: (placeId: string) => void;
+  onOpenComments: (reviewId: string, commentId?: string | null) => void;
+  onCloseComments: () => void;
 }
 
 export function FeedTab({
@@ -20,15 +23,17 @@ export function FeedTab({
   sessionUser,
   reviewLikeUpdatingId,
   commentSubmittingReviewId,
+  activeCommentReviewId,
+  highlightedCommentId,
   onToggleReviewLike,
   onCreateComment,
   onRequestLogin,
   onOpenPlace,
+  onOpenComments,
+  onCloseComments,
 }: FeedTabProps) {
   const scrollRef = useScrollRestoration<HTMLElement>('feed');
-  const [activeCommentReviewId, setActiveCommentReviewId] = useState<string | null>(null);
-
-  const activeReview = reviews.find((r) => r.id === activeCommentReviewId) ?? null;
+  const activeReview = reviews.find((review) => review.id === activeCommentReviewId) ?? null;
 
   return (
     <>
@@ -48,7 +53,7 @@ export function FeedTab({
           onSubmitComment={onCreateComment}
           onRequestLogin={onRequestLogin}
           onOpenPlace={onOpenPlace}
-          onOpenComments={(reviewId) => setActiveCommentReviewId(reviewId)}
+          onOpenComments={(reviewId) => onOpenComments(reviewId)}
           emptyTitle="아직 공개된 피드가 없어요"
           emptyBody="먼저 스탬프를 찍고 오늘의 분위기를 짧게 남겨 보세요."
         />
@@ -58,7 +63,8 @@ export function FeedTab({
         isOpen={activeCommentReviewId !== null}
         canWriteComment={Boolean(sessionUser)}
         submittingReviewId={commentSubmittingReviewId}
-        onClose={() => setActiveCommentReviewId(null)}
+        highlightedCommentId={highlightedCommentId}
+        onClose={onCloseComments}
         onSubmitComment={onCreateComment}
         onRequestLogin={onRequestLogin}
       />
