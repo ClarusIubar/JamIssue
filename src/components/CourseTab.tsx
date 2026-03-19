@@ -1,4 +1,5 @@
-﻿import type { CommunityRouteSort, Course, SessionUser, UserRoute } from '../types';
+﻿import { useScrollRestoration } from '../hooks/useScrollRestoration';
+import type { CommunityRouteSort, Course, SessionUser, UserRoute } from '../types';
 
 interface CourseTabProps {
   curatedCourses: Course[];
@@ -25,8 +26,10 @@ export function CourseTab({
   onOpenPlace,
   onRequestLogin,
 }: CourseTabProps) {
+  const scrollRef = useScrollRestoration<HTMLElement>('course');
+
   return (
-    <section className="page-panel page-panel--scrollable">
+    <section ref={scrollRef} className="page-panel page-panel--scrollable">
       <header className="panel-header">
         <p className="eyebrow">COURSE</p>
         <h2>코스</h2>

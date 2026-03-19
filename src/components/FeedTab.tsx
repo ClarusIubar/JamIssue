@@ -1,4 +1,5 @@
-﻿import { ReviewList } from './ReviewList';
+﻿import { useScrollRestoration } from '../hooks/useScrollRestoration';
+import { ReviewList } from './ReviewList';
 import type { Review, SessionUser } from '../types';
 
 interface FeedTabProps {
@@ -22,8 +23,10 @@ export function FeedTab({
   onRequestLogin,
   onOpenPlace,
 }: FeedTabProps) {
+  const scrollRef = useScrollRestoration<HTMLElement>('feed');
+
   return (
-    <section className="page-panel page-panel--scrollable">
+    <section ref={scrollRef} className="page-panel page-panel--scrollable">
       <header className="panel-header">
         <p className="eyebrow">FEED</p>
         <h2>방문 피드</h2>

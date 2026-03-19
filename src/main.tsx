@@ -5,6 +5,10 @@ import { RoadmapBannerPreview } from './components/RoadmapBannerPreview';
 import './index.css';
 import './styles/refinements.css';
 
+if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual';
+}
+
 const rootElement = document.getElementById('root');
 
 if (!rootElement) {

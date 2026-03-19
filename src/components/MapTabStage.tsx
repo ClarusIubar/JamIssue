@@ -41,6 +41,8 @@ interface MapTabStageProps {
   reviewLikeUpdatingId: string | null;
   commentSubmittingReviewId: string | null;
   canCreateReview: boolean;
+  initialMapCenter?: { lat: number; lng: number };
+  initialMapZoom?: number;
   onOpenPlace: (placeId: string) => void;
   onOpenFestival: (festivalId: string) => void;
   onCloseDrawer: () => void;
@@ -54,6 +56,7 @@ interface MapTabStageProps {
   onToggleReviewLike: (reviewId: string) => Promise<void>;
   onCreateComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
   onLocateCurrentPosition: () => void;
+  onMapViewportChange: (lat: number, lng: number, zoom: number) => void;
 }
 
 export function MapTabStage({
@@ -84,6 +87,8 @@ export function MapTabStage({
   reviewLikeUpdatingId,
   commentSubmittingReviewId,
   canCreateReview,
+  initialMapCenter,
+  initialMapZoom,
   onOpenPlace,
   onOpenFestival,
   onCloseDrawer,
@@ -97,6 +102,7 @@ export function MapTabStage({
   onToggleReviewLike,
   onCreateComment,
   onLocateCurrentPosition,
+  onMapViewportChange,
 }: MapTabStageProps) {
   return (
     <div className="map-stage">
@@ -156,6 +162,9 @@ export function MapTabStage({
         currentLocationMessage={drawerState === 'closed' ? mapLocationMessage : null}
         focusCurrentLocationKey={mapLocationFocusKey}
         onLocateCurrentPosition={onLocateCurrentPosition}
+        initialCenter={initialMapCenter}
+        initialZoom={initialMapZoom}
+        onViewportChange={onMapViewportChange}
         height="100%"
       />
 

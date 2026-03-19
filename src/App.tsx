@@ -21,7 +21,7 @@ import { CourseTab } from './components/CourseTab';
 import { FeedTab } from './components/FeedTab';
 import { MapTabStage } from './components/MapTabStage';
 import { MyPagePanel } from './components/MyPagePanel';
-import { useAppRouteState, clearAuthQueryParams, getInitialNotice, getLoginReturnUrl } from './hooks/useAppRouteState';
+import { useAppRouteState, clearAuthQueryParams, getInitialNotice, getLoginReturnUrl, getInitialMapViewport, updateMapViewportInUrl } from './hooks/useAppRouteState';
 import { getCurrentDevicePosition } from './lib/geolocation';
 import {
   calculateDistanceMeters,
@@ -82,6 +82,8 @@ export default function App() {
     openFestival,
     closeDrawer,
   } = useAppRouteState();
+
+  const [initialMapViewport] = useState(getInitialMapViewport);
 
   const [myPageTab, setMyPageTab] = useState<MyPageTabKey>('stamps');
   const [activeCategory, setActiveCategory] = useState<Category>('all');
@@ -528,6 +530,8 @@ export default function App() {
             reviewLikeUpdatingId={reviewLikeUpdatingId}
             commentSubmittingReviewId={commentSubmittingReviewId}
             canCreateReview={canCreateReview}
+            initialMapCenter={{ lat: initialMapViewport.lat, lng: initialMapViewport.lng }}
+            initialMapZoom={initialMapViewport.zoom}
             onOpenPlace={openPlace}
             onOpenFestival={openFestival}
             onCloseDrawer={closeDrawer}
@@ -553,6 +557,7 @@ export default function App() {
             onToggleReviewLike={handleToggleReviewLike}
             onCreateComment={handleCreateComment}
             onLocateCurrentPosition={() => void refreshCurrentPosition(true)}
+            onMapViewportChange={updateMapViewportInUrl}
           />
         ) : (
           <div className="page-stage">
