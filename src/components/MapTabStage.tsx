@@ -1,4 +1,4 @@
-﻿import { categoryInfo, categoryItems } from '../lib/categories';
+import { categoryInfo, categoryItems } from '../lib/categories';
 import { FestivalDetailSheet } from './FestivalDetailSheet';
 import { NaverMap } from './NaverMap';
 import { PlaceDetailSheet } from './PlaceDetailSheet';
@@ -38,9 +38,8 @@ interface MapTabStageProps {
   reviewProofMessage: string;
   reviewError: string | null;
   reviewSubmitting: boolean;
-  reviewLikeUpdatingId: string | null;
-  commentSubmittingReviewId: string | null;
   canCreateReview: boolean;
+  onOpenFeedReview: () => void;
   initialMapCenter?: { lat: number; lng: number };
   initialMapZoom?: number;
   onOpenPlace: (placeId: string) => void;
@@ -53,8 +52,6 @@ interface MapTabStageProps {
   onRequestLogin: () => void;
   onClaimStamp: (place: Place) => Promise<void>;
   onCreateReview: (payload: { stampId: string; body: string; mood: ReviewMood; file: File | null }) => Promise<void>;
-  onToggleReviewLike: (reviewId: string) => Promise<void>;
-  onCreateComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
   onLocateCurrentPosition: () => void;
   onMapViewportChange: (lat: number, lng: number, zoom: number) => void;
 }
@@ -84,9 +81,8 @@ export function MapTabStage({
   reviewProofMessage,
   reviewError,
   reviewSubmitting,
-  reviewLikeUpdatingId,
-  commentSubmittingReviewId,
   canCreateReview,
+  onOpenFeedReview,
   initialMapCenter,
   initialMapZoom,
   onOpenPlace,
@@ -99,8 +95,6 @@ export function MapTabStage({
   onRequestLogin,
   onClaimStamp,
   onCreateReview,
-  onToggleReviewLike,
-  onCreateComment,
   onLocateCurrentPosition,
   onMapViewportChange,
 }: MapTabStageProps) {
@@ -170,9 +164,14 @@ export function MapTabStage({
       {!selectedPlace && !selectedFestival && (
         <section className="map-drawer-teaser">
           <span className="map-drawer-teaser__handle" aria-hidden="true" />
-          <div>
-            <strong>아래 시트에서 상세를 확인해요</strong>
-            <p>지도 마커를 누르면 장소 정보, 현장 스탬프, 축제 안내가 아래에서 바로 열립니다.</p>
+          <div className="map-drawer-teaser__peek" aria-hidden="true">
+            <div className="map-drawer-teaser__line" />
+            <div className="map-drawer-teaser__line map-drawer-teaser__line--short" />
+            <div className="map-drawer-teaser__chips">
+              <span className="map-drawer-teaser__chip" />
+              <span className="map-drawer-teaser__chip" />
+              <span className="map-drawer-teaser__chip map-drawer-teaser__chip--wide" />
+            </div>
           </div>
         </section>
       )}
@@ -191,17 +190,14 @@ export function MapTabStage({
         reviewProofMessage={reviewProofMessage}
         reviewError={reviewError}
         reviewSubmitting={reviewSubmitting}
-        reviewLikeUpdatingId={reviewLikeUpdatingId}
-        commentSubmittingReviewId={commentSubmittingReviewId}
         canCreateReview={canCreateReview}
+        onOpenFeedReview={onOpenFeedReview}
         onClose={onCloseDrawer}
         onExpand={onExpandPlaceDrawer}
         onCollapse={onCollapsePlaceDrawer}
         onRequestLogin={onRequestLogin}
         onClaimStamp={onClaimStamp}
         onCreateReview={onCreateReview}
-        onToggleReviewLike={onToggleReviewLike}
-        onCreateComment={onCreateComment}
       />
 
       <FestivalDetailSheet

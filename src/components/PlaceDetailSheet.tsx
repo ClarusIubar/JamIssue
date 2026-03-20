@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import { categoryInfo } from '../lib/categories';
 import { ReviewComposer } from './ReviewComposer';
-import { ReviewList } from './ReviewList';
 import type { ApiStatus, DrawerState, Place, Review, ReviewMood, StampLog } from '../types';
 
 interface PlaceDetailSheetProps {
@@ -18,17 +17,29 @@ interface PlaceDetailSheetProps {
   reviewProofMessage: string;
   reviewError: string | null;
   reviewSubmitting: boolean;
-  reviewLikeUpdatingId: string | null;
-  commentSubmittingReviewId: string | null;
   canCreateReview: boolean;
+  onOpenFeedReview: () => void;
   onClose: () => void;
   onExpand: () => void;
   onCollapse: () => void;
   onRequestLogin: () => void;
   onClaimStamp: (place: Place) => Promise<void>;
   onCreateReview: (payload: { stampId: string; body: string; mood: ReviewMood; file: File | null }) => Promise<void>;
-  onToggleReviewLike: (reviewId: string) => Promise<void>;
-  onCreateComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
+}
+
+function formatVisitedAt(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
 }
 
 export function PlaceDetailSheet({
@@ -45,17 +56,14 @@ export function PlaceDetailSheet({
   reviewProofMessage,
   reviewError,
   reviewSubmitting,
-  reviewLikeUpdatingId,
-  commentSubmittingReviewId,
   canCreateReview,
+  onOpenFeedReview,
   onClose,
   onExpand,
   onCollapse,
   onRequestLogin,
   onClaimStamp,
   onCreateReview,
-  onToggleReviewLike,
-  onCreateComment,
 }: PlaceDetailSheetProps) {
   const dragStartYRef = useRef<number | null>(null);
 
@@ -71,8 +79,10 @@ export function PlaceDetailSheet({
     if (dragStartYRef.current === null) {
       return;
     }
+
     const delta = event.clientY - dragStartYRef.current;
     dragStartYRef.current = null;
+
     if (delta > 72) {
       if (drawerState === 'full') {
         onCollapse();
@@ -81,6 +91,7 @@ export function PlaceDetailSheet({
       onClose();
       return;
     }
+
     if (delta < -48) {
       onExpand();
     }
@@ -90,13 +101,14 @@ export function PlaceDetailSheet({
   const visitLabel = latestStamp ? latestStamp.visitLabel : '첫 방문 대기';
   const canClaimStamp = loggedIn && !todayStamp;
   const categoryMeta = categoryInfo[place.category];
+  const reviewPreview = reviews.slice(0, 2);
 
   return (
-    <section className={sheetClassName} aria-label="장소 상세 드로워">
+    <section className={sheetClassName} aria-label="장소 상세 시트">
       <button
         type="button"
         className="place-drawer__handle"
-        aria-label="드로워 높이 조절"
+        aria-label="시트 높이 조절"
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onClick={drawerState === 'partial' ? onExpand : onCollapse}
@@ -201,23 +213,36 @@ export function PlaceDetailSheet({
             <p className="eyebrow">PLACE FEED</p>
             <h3>이 장소의 피드</h3>
           </div>
-          <span className="counter-pill">{reviews.length}개</span>
+          <button type="button" className="secondary-button place-drawer__feed-button" onClick={onOpenFeedReview}>
+            피드에서 보기
+          </button>
         </div>
-        <ReviewList
-          reviews={reviews}
-          canWriteComment={loggedIn}
-          canToggleLike={loggedIn}
-          likingReviewId={reviewLikeUpdatingId}
-          submittingReviewId={commentSubmittingReviewId}
-          onToggleLike={onToggleReviewLike}
-          onSubmitComment={onCreateComment}
-          onRequestLogin={onRequestLogin}
-          emptyTitle="이 장소는 아직 첫 피드를 기다리고 있어요"
-          emptyBody="현장 스탬프를 찍은 다음, 지금 분위기를 짧게 남겨 보세요."
-        />
+
+        {reviewPreview.length > 0 ? (
+          <div className="review-stack place-drawer__feed-preview">
+            {reviewPreview.map((review) => (
+              <article key={review.id} className="sheet-card place-drawer__preview-card">
+                <div className="review-card__top place-drawer__preview-top">
+                  <strong>{review.author}</strong>
+                  <span className="counter-pill counter-pill--muted">{review.badge}</span>
+                </div>
+                <p className="review-card__meta-line">
+                  {review.visitLabel} · {formatVisitedAt(review.visitedAt)}
+                </p>
+                <p className="review-card__body place-drawer__preview-body">{review.body}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="sheet-card stack-gap place-drawer__preview-empty">
+            <strong>아직 등록된 피드가 없어요</strong>
+            <p className="section-copy">현장 스탬프를 찍은 뒤 첫 피드를 남겨 보세요.</p>
+            <button type="button" className="secondary-button primary-button--block" onClick={onOpenFeedReview}>
+              피드 탭 열기
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
 }
-
-

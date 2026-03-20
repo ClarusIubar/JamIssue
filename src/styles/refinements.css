@@ -1,4 +1,4 @@
-﻿/* 2026-03-18 prototype reset */
+/* 2026-03-18 prototype reset */
 .phone-shell--map {
   display: block !important;
 }
@@ -889,3 +889,41 @@ body {
   flex-wrap: wrap !important;
 }
 
+
+.place-drawer__proof-copy,
+.place-drawer__proof-action,
+.place-drawer__preview-empty {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.place-drawer__proof-action {
+  justify-items: end !important;
+}
+
+.place-drawer__proof-kicker {
+  font-size: var(--type-sm) !important;
+  color: rgba(93, 77, 101, 0.72) !important;
+  font-weight: 700 !important;
+}
+
+.place-drawer__proof-button,
+.place-drawer__feed-button {
+  white-space: nowrap !important;
+}
+
+.place-drawer__feed-preview {
+  margin-bottom: 8px !important;
+}
+
+.place-drawer__preview-card {
+  gap: 8px !important;
+}
+
+.place-drawer__preview-top {
+  align-items: center !important;
+}
+
+.place-drawer__preview-body {
+  margin: 0 !important;
+}

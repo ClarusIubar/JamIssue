@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   claimStamp,
   createComment,
@@ -45,6 +45,7 @@ import type {
   SessionUser,
   Tab,
   UserRoute,
+  DrawerState,
 } from './types';
 
 const emptyProviders: AuthProvider[] = [
@@ -125,6 +126,9 @@ export default function App() {
     activeCommentReviewId: string | null;
     highlightedCommentId: string | null;
     highlightedReviewId: string | null;
+    placeId: string | null;
+    festivalId: string | null;
+    drawerState: DrawerState;
   } | null>(null);
   const [stampActionStatus, setStampActionStatus] = useState<ApiStatus>('idle');
   const [stampActionMessage, setStampActionMessage] = useState('장소를 선택하면 오늘 스탬프 가능 여부를 바로 알려드릴게요.');
@@ -242,7 +246,7 @@ export default function App() {
 
   function handleOpenReviewComments(reviewId: string, commentId: string | null = null) {
     goToTab('feed');
-    setHighlightedReviewId(reviewId);
+    setHighlightedReviewId(reviewId ?? null);
     setActiveCommentReviewId(reviewId);
     setHighlightedCommentId(commentId);
   }
@@ -260,12 +264,15 @@ export default function App() {
         activeCommentReviewId,
         highlightedCommentId,
         highlightedReviewId,
+        placeId: selectedPlaceId,
+        festivalId: selectedFestivalId,
+        drawerState,
       });
     }
     openPlace(placeId);
   }
 
-  function handleOpenReviewWithReturn(reviewId: string) {
+  function handleOpenReviewWithReturn(reviewId: string | null) {
     if (activeTab !== 'feed') {
       setReturnView({
         tab: activeTab,
@@ -273,6 +280,9 @@ export default function App() {
         activeCommentReviewId,
         highlightedCommentId,
         highlightedReviewId,
+        placeId: selectedPlaceId,
+        festivalId: selectedFestivalId,
+        drawerState,
       });
     }
     setHighlightedReviewId(reviewId);
@@ -289,6 +299,9 @@ export default function App() {
         activeCommentReviewId,
         highlightedCommentId,
         highlightedReviewId,
+        placeId: selectedPlaceId,
+        festivalId: selectedFestivalId,
+        drawerState,
       });
     }
     handleOpenReviewComments(reviewId, commentId);
@@ -747,7 +760,15 @@ export default function App() {
       setHighlightedReviewId(returnView.highlightedReviewId);
       const nextTab = returnView.tab;
       setReturnView(null);
-      commitRouteState({ tab: nextTab, placeId: null, festivalId: null, drawerState: 'closed' }, 'replace');
+      commitRouteState(
+        {
+          tab: nextTab,
+          placeId: nextTab === 'map' ? returnView.placeId : null,
+          festivalId: nextTab === 'map' ? returnView.festivalId : null,
+          drawerState: nextTab === 'map' ? returnView.drawerState : 'closed',
+        },
+        'replace',
+      );
       return;
     }
 
@@ -800,9 +821,11 @@ export default function App() {
             reviewProofMessage={reviewProofMessage}
             reviewError={reviewError}
             reviewSubmitting={reviewSubmitting}
-            reviewLikeUpdatingId={reviewLikeUpdatingId}
-            commentSubmittingReviewId={commentSubmittingReviewId}
             canCreateReview={canCreateReview}
+            onOpenFeedReview={() => {
+              const primaryReview = selectedPlaceReviews[0];
+              handleOpenReviewWithReturn(primaryReview?.id ?? null);
+            }}
             initialMapCenter={{ lat: initialMapViewport.lat, lng: initialMapViewport.lng }}
             initialMapZoom={initialMapViewport.zoom}
             onOpenPlace={openPlace}
@@ -827,8 +850,6 @@ export default function App() {
             onRequestLogin={() => goToTab('my')}
             onClaimStamp={handleClaimStamp}
             onCreateReview={handleCreateReview}
-            onToggleReviewLike={handleToggleReviewLike}
-            onCreateComment={handleCreateComment}
             onLocateCurrentPosition={() => void refreshCurrentPosition(true)}
             onMapViewportChange={updateMapViewportInUrl}
           />
