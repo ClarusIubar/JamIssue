@@ -18,6 +18,10 @@ const NAVER_AUTHORIZE_URL = 'https://nid.naver.com/oauth2.0/authorize';
 const NAVER_TOKEN_URL = 'https://nid.naver.com/oauth2.0/token';
 const NAVER_PROFILE_URL = 'https://openapi.naver.com/v1/nid/me';
 const textEncoder = new TextEncoder();
+const STATIC_BASE_CACHE_TTL_MS = 5 * 60 * 1000;
+const FESTIVALS_CACHE_TTL_MS = 10 * 60 * 1000;
+let staticBaseCache = { expiresAt: 0, value: null, pending: null };
+let festivalsCache = { expiresAt: 0, syncAt: 0, value: null, pending: null };
 
 function jsonResponse(status, payload, env, request, extraHeaders = {}) {
   const headers = new Headers({
@@ -26,7 +30,7 @@ function jsonResponse(status, payload, env, request, extraHeaders = {}) {
     ...extraHeaders,
   });
   applyCorsHeaders(headers, env, request);
-  return new Response(JSON.stringify(payload, null, 2), { status, headers });
+  return new Response(JSON.stringify(payload), { status, headers });
 }
 
 function redirectResponse(location, env, request, cookies = []) {
@@ -111,6 +115,28 @@ async function supabaseRequest(env, path, init = {}) {
 
 function encodeFilterValue(value) {
   return encodeURIComponent(String(value));
+}
+
+function uniqueValues(values) {
+  return [...new Set((values ?? []).filter((value) => value !== null && value !== undefined && value !== ''))];
+}
+
+function buildInFilter(values) {
+  const unique = uniqueValues(values);
+  if (unique.length === 0) {
+    return null;
+  }
+  return `in.(${unique.map((value) => encodeFilterValue(value)).join(',')})`;
+}
+
+async function rememberPending(cacheState, loader) {
+  if (cacheState.pending) {
+    return cacheState.pending;
+  }
+  cacheState.pending = loader().finally(() => {
+    cacheState.pending = null;
+  });
+  return cacheState.pending;
 }
 
 function formatDateTime(value) {
@@ -464,22 +490,69 @@ async function readUserRow(env, userId) {
   );
   return rows?.[0] ?? null;
 }
+
+async function findUserByNickname(env, nickname, excludeUserId = null) {
+  const normalized = String(nickname ?? '').trim();
+  if (!normalized) {
+    return null;
+  }
+  const rows = await supabaseRequest(env, 'user?select=user_id,nickname');
+  return (rows ?? []).find((row) => {
+    if (excludeUserId && row.user_id === excludeUserId) {
+      return false;
+    }
+    return String(row.nickname ?? '').toLowerCase() === normalized.toLowerCase();
+  }) ?? null;
+}
+
+async function ensureUniqueNickname(env, nickname, excludeUserId = null) {
+  const normalized = String(nickname ?? '').trim();
+  if (normalized.length < 2) {
+    const error = new Error('닉네임은 두 글자 이상으로 적어 주세요.');
+    error.status = 400;
+    throw error;
+  }
+  const existing = await findUserByNickname(env, normalized, excludeUserId);
+  if (existing) {
+    const error = new Error('이미 사용 중인 닉네임이에요.');
+    error.status = 409;
+    throw error;
+  }
+  return normalized;
+}
+
+async function buildUniqueSocialNickname(env, nickname) {
+  const base = String(nickname ?? '').trim() || '이름 없음';
+  const existing = await findUserByNickname(env, base);
+  if (!existing) {
+    return base;
+  }
+  for (let suffix = 2; suffix < 10000; suffix += 1) {
+    const candidate = `${base.slice(0, 95)}${suffix}`;
+    const duplicate = await findUserByNickname(env, candidate);
+    if (!duplicate) {
+      return candidate;
+    }
+  }
+  throw new Error('사용 가능한 닉네임을 만들 수 없어요.');
+}
+
 async function upsertNaverUser(env, profile) {
-  const fallbackNickname = profile.nickname || profile.name || "이름 없음";
+  const fallbackNickname = profile.nickname || profile.name || '이름 없음';
   const nowIso = new Date().toISOString();
-  const existingIdentity = await findIdentity(env, "naver", profile.id);
+  const existingIdentity = await findIdentity(env, 'naver', profile.id);
 
   if (existingIdentity) {
     await supabaseRequest(env, `user?user_id=eq.${encodeFilterValue(existingIdentity.user_id)}`, {
-      method: "PATCH",
+      method: 'PATCH',
       body: JSON.stringify({
         email: profile.email ?? null,
-        provider: "naver",
+        provider: 'naver',
         updated_at: nowIso,
       }),
     });
-    await supabaseRequest(env, `user_identity?identity_id=eq.${existingIdentity.identity_id}`, {
-      method: "PATCH",
+    await supabaseRequest(env, `user_identity?identity_id=eq.${encodeFilterValue(existingIdentity.identity_id)}`, {
+      method: 'PATCH',
       body: JSON.stringify({
         email: profile.email ?? null,
         profile_image: profile.profile_image ?? null,
@@ -491,7 +564,7 @@ async function upsertNaverUser(env, profile) {
       existingIdentity.user_id,
       user?.nickname ?? fallbackNickname,
       user?.email ?? profile.email,
-      "naver",
+      'naver',
       profile.profile_image,
       env,
       user?.profile_completed_at ?? null,
@@ -499,23 +572,24 @@ async function upsertNaverUser(env, profile) {
   }
 
   const userId = crypto.randomUUID();
-  await supabaseRequest(env, "user", {
-    method: "POST",
+  const safeNickname = await buildUniqueSocialNickname(env, fallbackNickname);
+  await supabaseRequest(env, 'user', {
+    method: 'POST',
     body: JSON.stringify({
       user_id: userId,
-      nickname: fallbackNickname,
+      nickname: safeNickname,
       email: profile.email ?? null,
-      provider: "naver",
+      provider: 'naver',
       profile_completed_at: null,
       created_at: nowIso,
       updated_at: nowIso,
     }),
   });
-  await supabaseRequest(env, "user_identity", {
-    method: "POST",
+  await supabaseRequest(env, 'user_identity', {
+    method: 'POST',
     body: JSON.stringify({
       user_id: userId,
-      provider: "naver",
+      provider: 'naver',
       provider_user_id: profile.id,
       email: profile.email ?? null,
       profile_image: profile.profile_image ?? null,
@@ -524,7 +598,7 @@ async function upsertNaverUser(env, profile) {
     }),
   });
 
-  return buildSessionUser(userId, fallbackNickname, profile.email, "naver", profile.profile_image, env, null);
+  return buildSessionUser(userId, safeNickname, profile.email, 'naver', profile.profile_image, env, null);
 }
 function normalizePlaceCategory(category, slug = '') {
   const cultureSlugHints = ['museum', 'arts-center', 'art-science', 'science-museum', 'observatory'];
@@ -568,6 +642,7 @@ function mapPlace(row) {
     category: normalizePlaceCategory(row.category, row.slug),
     jamColor: getCategoryPalette(normalizePlaceCategory(row.category, row.slug), row).jamColor,
     accentColor: getCategoryPalette(normalizePlaceCategory(row.category, row.slug), row).accentColor,
+    imageUrl: row.image_url ?? null,
     latitude: row.latitude,
     longitude: row.longitude,
     summary: row.summary,
@@ -580,6 +655,29 @@ function mapPlace(row) {
   };
 }
 
+async function loadStaticBaseRows(env) {
+  const now = Date.now();
+  if (staticBaseCache.value && staticBaseCache.expiresAt > now) {
+    return staticBaseCache.value;
+  }
+
+  return rememberPending(staticBaseCache, async () => {
+    const [placeRows, courseRows, coursePlaceRows] = await Promise.all([
+      supabaseRequest(env, "map?select=position_id,slug,name,district,category,latitude,longitude,summary,description,vibe_tags,visit_time,route_hint,stamp_reward,hero_label,jam_color,accent_color,is_active&is_active=eq.true&order=position_id.asc"),
+      supabaseRequest(env, "course?select=course_id,title,mood,duration,note,color,display_order&order=display_order.asc"),
+      supabaseRequest(env, "course_place?select=course_id,position_id,stop_order&order=stop_order.asc"),
+    ]);
+    const value = { placeRows, courseRows, coursePlaceRows };
+    staticBaseCache = {
+      ...staticBaseCache,
+      value,
+      expiresAt: Date.now() + STATIC_BASE_CACHE_TTL_MS,
+      pending: null,
+    };
+    return value;
+  });
+}
+
 function countComments(comments) {
   let total = 0;
   for (const comment of comments) {
@@ -590,6 +688,7 @@ function countComments(comments) {
 
 function buildCommentTree(commentRows, usersById) {
   const commentsById = new Map();
+  const rowsById = new Map(commentRows.map((row) => [String(row.comment_id), row]));
   const roots = [];
 
   for (const row of commentRows) {
@@ -607,14 +706,39 @@ function buildCommentTree(commentRows, usersById) {
   }
 
   for (const comment of commentsById.values()) {
-    if (comment.parentId && commentsById.has(comment.parentId)) {
-      commentsById.get(comment.parentId).replies.push(comment);
+    const parentRow = comment.parentId ? rowsById.get(comment.parentId) : null;
+    const rootParentId = parentRow ? String(parentRow.parent_id ?? parentRow.comment_id) : null;
+    if (rootParentId && commentsById.has(rootParentId)) {
+      commentsById.get(rootParentId).replies.push(comment);
     } else {
       roots.push(comment);
     }
   }
 
   return roots;
+}
+
+function buildMyComments(commentRows, reviewsById) {
+  return [...commentRows]
+    .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
+    .map((row) => {
+      const review = reviewsById.get(String(row.feed_id));
+      if (!review) {
+        return null;
+      }
+      return {
+        id: String(row.comment_id),
+        reviewId: String(row.feed_id),
+        placeId: review.placeId,
+        placeName: review.placeName,
+        body: row.is_deleted ? '삭제된 댓글입니다.' : row.body,
+        isDeleted: row.is_deleted,
+        parentId: row.parent_id ? String(row.parent_id) : null,
+        createdAt: formatDateTime(row.created_at),
+        reviewBody: review.body,
+      };
+    })
+    .filter(Boolean);
 }
 
 function mapReviewRows(feedRows, commentRows, likeRows, usersById, placesByPositionId, stampRowsById, likedFeedIds = new Set()) {
@@ -727,27 +851,48 @@ function mapCommunityRoutes(routeRows, routePlaceRows, usersById, placesByPositi
   });
 }
 async function loadBaseData(env, sessionUserId = null) {
-  const requests = [
-    supabaseRequest(env, "map?select=position_id,slug,name,district,category,latitude,longitude,summary,description,vibe_tags,visit_time,route_hint,stamp_reward,hero_label,jam_color,accent_color,is_active&is_active=eq.true&order=position_id.asc"),
-    supabaseRequest(env, "course?select=course_id,title,mood,duration,note,color,display_order&order=display_order.asc"),
-    supabaseRequest(env, "course_place?select=course_id,position_id,stop_order&order=stop_order.asc"),
+  const [{ placeRows, courseRows, coursePlaceRows }, feedRows] = await Promise.all([
+    loadStaticBaseRows(env),
     supabaseRequest(env, "feed?select=feed_id,position_id,user_id,stamp_id,body,mood,badge,image_url,created_at&order=created_at.desc"),
-    supabaseRequest(env, "user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&order=created_at.asc"),
-    supabaseRequest(env, "feed_like?select=feed_id,user_id"),
-    supabaseRequest(env, "user?select=user_id,nickname"),
-    supabaseRequest(env, "user_stamp?select=stamp_id,user_id,position_id,travel_session_id,stamp_date,visit_ordinal,created_at&order=created_at.desc"),
-  ];
+  ]);
 
-  if (sessionUserId) {
-    requests.push(
-      supabaseRequest(env, `feed_like?select=feed_id&user_id=eq.${encodeFilterValue(sessionUserId)}`),
-      supabaseRequest(env, `travel_session?select=travel_session_id,user_id,started_at,ended_at,last_stamp_at,stamp_count,created_at&user_id=eq.${encodeFilterValue(sessionUserId)}&order=started_at.desc`),
-      supabaseRequest(env, `user_route?select=route_id,travel_session_id&user_id=eq.${encodeFilterValue(sessionUserId)}&order=created_at.desc`),
-    );
-  }
+  const feedIdsFilter = buildInFilter(feedRows.map((row) => row.feed_id));
+  const reviewStampIdsFilter = buildInFilter(feedRows.map((row) => row.stamp_id).filter(Boolean));
 
-  const [placeRows, courseRows, coursePlaceRows, feedRows, commentRows, likeRows, userRows, allStampRows, userFeedLikeRows = [], userSessionRows = [], ownerRouteRows = []] = await Promise.all(requests);
-  const userStampRows = sessionUserId ? (allStampRows ?? []).filter((row) => row.user_id === sessionUserId) : [];
+  const [commentRows, likeRows, reviewStampRows, userFeedLikeRows = [], userSessionRows = [], ownerRouteRows = [], userStampRows = []] = await Promise.all([
+    feedIdsFilter
+      ? supabaseRequest(env, `user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&feed_id=${feedIdsFilter}&order=created_at.asc`)
+      : Promise.resolve([]),
+    feedIdsFilter
+      ? supabaseRequest(env, `feed_like?select=feed_id,user_id&feed_id=${feedIdsFilter}`)
+      : Promise.resolve([]),
+    reviewStampIdsFilter
+      ? supabaseRequest(env, `user_stamp?select=stamp_id,user_id,position_id,travel_session_id,stamp_date,visit_ordinal,created_at&stamp_id=${reviewStampIdsFilter}`)
+      : Promise.resolve([]),
+    sessionUserId && feedIdsFilter
+      ? supabaseRequest(env, `feed_like?select=feed_id&user_id=eq.${encodeFilterValue(sessionUserId)}&feed_id=${feedIdsFilter}`)
+      : Promise.resolve([]),
+    sessionUserId
+      ? supabaseRequest(env, `travel_session?select=travel_session_id,user_id,started_at,ended_at,last_stamp_at,stamp_count,created_at&user_id=eq.${encodeFilterValue(sessionUserId)}&order=started_at.desc`)
+      : Promise.resolve([]),
+    sessionUserId
+      ? supabaseRequest(env, `user_route?select=route_id,travel_session_id&user_id=eq.${encodeFilterValue(sessionUserId)}&order=created_at.desc`)
+      : Promise.resolve([]),
+    sessionUserId
+      ? supabaseRequest(env, `user_stamp?select=stamp_id,user_id,position_id,travel_session_id,stamp_date,visit_ordinal,created_at&user_id=eq.${encodeFilterValue(sessionUserId)}&order=created_at.desc`)
+      : Promise.resolve([]),
+  ]);
+
+  const userIdsFilter = buildInFilter([
+    ...feedRows.map((row) => row.user_id),
+    ...commentRows.map((row) => row.user_id),
+    ...(sessionUserId ? [sessionUserId] : []),
+  ]);
+  const userRows = userIdsFilter
+    ? await supabaseRequest(env, `user?select=user_id,nickname&user_id=${userIdsFilter}`)
+    : [];
+
+  const allStampRows = [...reviewStampRows, ...userStampRows.filter((row) => !reviewStampRows.some((stamp) => String(stamp.stamp_id) === String(row.stamp_id)))];
   const places = placeRows.map(mapPlace);
   const placesByPositionId = new Map(places.map((place) => [place.positionId, place]));
   const usersById = new Map(userRows.map((row) => [row.user_id, row]));
@@ -773,23 +918,125 @@ async function loadCommunityRoutes(env, options = {}) {
     ? `user_id=eq.${encodeFilterValue(ownerUserId)}&order=created_at.desc`
     : `is_public=eq.true&order=${sort === "popular" ? "like_count.desc,created_at.desc" : "created_at.desc"}`;
 
-  const requests = [
-    supabaseRequest(env, `user_route?select=route_id,user_id,travel_session_id,title,description,mood,like_count,created_at,is_public,is_user_generated&${routeFilter}`),
-    supabaseRequest(env, "user_route_place?select=route_id,position_id,stop_order&order=stop_order.asc"),
-    supabaseRequest(env, "map?select=position_id,slug,name&is_active=eq.true"),
-    supabaseRequest(env, "user?select=user_id,nickname"),
-  ];
-
-  if (sessionUserId) {
-    requests.push(supabaseRequest(env, `user_route_like?select=route_id&user_id=eq.${encodeFilterValue(sessionUserId)}`));
+  const routeRows = await supabaseRequest(env, `user_route?select=route_id,user_id,travel_session_id,title,description,mood,like_count,created_at,is_public,is_user_generated&${routeFilter}`);
+  const routeIdsFilter = buildInFilter(routeRows.map((row) => row.route_id));
+  if (!routeIdsFilter) {
+    return [];
   }
 
-  const [routeRows, routePlaceRows, placeRows, userRows, userRouteLikeRows = []] = await Promise.all(requests);
-  const placesByPositionId = new Map(placeRows.map((row) => [String(row.position_id), { id: row.slug, name: row.name }]));
+  const [routePlaceRows, userRouteLikeRows = []] = await Promise.all([
+    supabaseRequest(env, `user_route_place?select=route_id,position_id,stop_order&route_id=${routeIdsFilter}&order=stop_order.asc`),
+    sessionUserId
+      ? supabaseRequest(env, `user_route_like?select=route_id&user_id=eq.${encodeFilterValue(sessionUserId)}&route_id=${routeIdsFilter}`)
+      : Promise.resolve([]),
+  ]);
+
+  const userIdsFilter = buildInFilter(routeRows.map((row) => row.user_id));
+  const [{ placeRows }, userRows] = await Promise.all([
+    loadStaticBaseRows(env),
+    userIdsFilter
+      ? supabaseRequest(env, `user?select=user_id,nickname&user_id=${userIdsFilter}`)
+      : Promise.resolve([]),
+  ]);
+
+  const neededPositionIds = new Set(routePlaceRows.map((row) => String(row.position_id)));
+  const placesByPositionId = new Map(
+    placeRows
+      .filter((row) => neededPositionIds.has(String(row.position_id)))
+      .map((row) => [String(row.position_id), { id: row.slug, name: row.name }]),
+  );
   const usersById = new Map(userRows.map((row) => [row.user_id, row]));
   const likedRouteIds = new Set(userRouteLikeRows.map((row) => String(row.route_id)));
   return mapCommunityRoutes(routeRows, routePlaceRows, usersById, placesByPositionId, likedRouteIds);
 }
+async function loadMapData(env, sessionUserId = null) {
+  const [{ placeRows }, userSessionRows = [], ownerRouteRows = [], userStampRows = []] = await Promise.all([
+    loadStaticBaseRows(env),
+    sessionUserId
+      ? supabaseRequest(env, `travel_session?select=travel_session_id,user_id,started_at,ended_at,last_stamp_at,stamp_count,created_at&user_id=eq.${encodeFilterValue(sessionUserId)}&order=started_at.desc`)
+      : Promise.resolve([]),
+    sessionUserId
+      ? supabaseRequest(env, `user_route?select=route_id,travel_session_id&user_id=eq.${encodeFilterValue(sessionUserId)}&order=created_at.desc`)
+      : Promise.resolve([]),
+    sessionUserId
+      ? supabaseRequest(env, `user_stamp?select=stamp_id,user_id,position_id,travel_session_id,stamp_date,visit_ordinal,created_at&user_id=eq.${encodeFilterValue(sessionUserId)}&order=created_at.desc`)
+      : Promise.resolve([]),
+  ]);
+
+  const places = placeRows.map(mapPlace);
+  const placesByPositionId = new Map(places.map((place) => [place.positionId, place]));
+  const collectedPlaceIds = [...new Set(userStampRows.map((row) => placesByPositionId.get(String(row.position_id))?.id).filter(Boolean))];
+  const stampLogs = buildStampLogs(userStampRows, placesByPositionId);
+  const travelSessions = buildTravelSessions(userSessionRows ?? [], userStampRows, placesByPositionId, ownerRouteRows ?? []);
+
+  return {
+    places,
+    collectedPlaceIds,
+    stampLogs,
+    travelSessions,
+  };
+}
+
+async function loadCuratedCourses(env) {
+  const { placeRows, courseRows, coursePlaceRows } = await loadStaticBaseRows(env);
+  const placesByPositionId = new Map(placeRows.map((row) => [String(row.position_id), mapPlace(row)]));
+  return mapCourses(courseRows, coursePlaceRows, placesByPositionId);
+}
+
+async function loadReviewData(env, sessionUserId = null, filters = {}) {
+  const { placeRows } = await loadStaticBaseRows(env);
+  const places = placeRows.map(mapPlace);
+  const placesByPositionId = new Map(places.map((place) => [place.positionId, place]));
+  const placeIdToPositionId = new Map(places.map((place) => [place.id, place.positionId]));
+  const reviewQuery = [
+    'select=feed_id,position_id,user_id,stamp_id,body,mood,badge,image_url,created_at',
+    'order=created_at.desc',
+  ];
+
+  if (filters.placeId) {
+    const positionId = placeIdToPositionId.get(filters.placeId);
+    if (!positionId) {
+      return [];
+    }
+    reviewQuery.push(`position_id=eq.${encodeFilterValue(positionId)}`);
+  }
+
+  if (filters.userId) {
+    reviewQuery.push(`user_id=eq.${encodeFilterValue(filters.userId)}`);
+  }
+
+  const feedRows = await supabaseRequest(env, `feed?${reviewQuery.join('&')}`);
+  const feedIdsFilter = buildInFilter(feedRows.map((row) => row.feed_id));
+  const reviewStampIdsFilter = buildInFilter(feedRows.map((row) => row.stamp_id).filter(Boolean));
+  const [commentRows, likeRows, reviewStampRows, userFeedLikeRows = []] = await Promise.all([
+    feedIdsFilter
+      ? supabaseRequest(env, `user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&feed_id=${feedIdsFilter}&order=created_at.asc`)
+      : Promise.resolve([]),
+    feedIdsFilter
+      ? supabaseRequest(env, `feed_like?select=feed_id,user_id&feed_id=${feedIdsFilter}`)
+      : Promise.resolve([]),
+    reviewStampIdsFilter
+      ? supabaseRequest(env, `user_stamp?select=stamp_id,user_id,position_id,travel_session_id,stamp_date,visit_ordinal,created_at&stamp_id=${reviewStampIdsFilter}`)
+      : Promise.resolve([]),
+    sessionUserId && feedIdsFilter
+      ? supabaseRequest(env, `feed_like?select=feed_id&user_id=eq.${encodeFilterValue(sessionUserId)}&feed_id=${feedIdsFilter}`)
+      : Promise.resolve([]),
+  ]);
+
+  const userIdsFilter = buildInFilter([
+    ...feedRows.map((row) => row.user_id),
+    ...commentRows.map((row) => row.user_id),
+  ]);
+  const userRows = userIdsFilter
+    ? await supabaseRequest(env, `user?select=user_id,nickname&user_id=${userIdsFilter}`)
+    : [];
+
+  const usersById = new Map(userRows.map((row) => [row.user_id, row]));
+  const stampRowsById = new Map((reviewStampRows ?? []).map((row) => [String(row.stamp_id), row]));
+  const likedFeedIds = new Set((userFeedLikeRows ?? []).map((row) => String(row.feed_id)));
+  return mapReviewRows(feedRows, commentRows, likeRows, usersById, placesByPositionId, stampRowsById, likedFeedIds);
+}
+
 async function handleHealth(request, env) {
   return jsonResponse(200, {
     status: 'ok',
@@ -822,16 +1069,20 @@ async function handleUpdateProfile(request, env) {
     return sessionResult.response;
   }
   const payload = await readJsonBody(request);
-  const nickname = String(payload.nickname ?? "").trim();
-  if (nickname.length < 2) {
-    return jsonResponse(400, { detail: "닉네임은 두 글자 이상으로 적어 주세요." }, env, request);
+
+  let nickname;
+  try {
+    nickname = await ensureUniqueNickname(env, payload.nickname, sessionResult.sessionUser.id);
+  } catch (error) {
+    return jsonResponse(error.status ?? 400, { detail: error.message ?? '닉네임을 저장할 수 없어요.' }, env, request);
   }
+
   const nowIso = new Date().toISOString();
   await supabaseRequest(env, `user?user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}`, {
-    method: "PATCH",
+    method: 'PATCH',
     body: JSON.stringify({
       nickname,
-      profile_completed_at: nowIso,
+      profile_completed_at: sessionResult.sessionUser.profileCompletedAt ?? nowIso,
       updated_at: nowIso,
     }),
   });
@@ -843,16 +1094,16 @@ async function handleUpdateProfile(request, env) {
     sessionResult.sessionUser.provider,
     sessionResult.sessionUser.profileImage,
     env,
-    userRow?.profile_completed_at ?? nowIso,
+    userRow?.profile_completed_at ?? sessionResult.sessionUser.profileCompletedAt ?? nowIso,
   );
   const sessionToken = await signPayload(getSigningSecret(env), { user: nextSessionUser, exp: nowSeconds() + SESSION_MAX_AGE_SECONDS });
   return jsonResponse(200, createAuthResponse(nextSessionUser, env), env, request, {
-    "set-cookie": serializeCookie(SESSION_COOKIE_NAME, sessionToken, {
+    'set-cookie': serializeCookie(SESSION_COOKIE_NAME, sessionToken, {
       maxAge: SESSION_MAX_AGE_SECONDS,
       httpOnly: true,
       secure: getSecureCookieFlag(request, env),
-      sameSite: "Lax",
-      path: "/",
+      sameSite: 'Lax',
+      path: '/',
     }),
   });
 }
@@ -921,10 +1172,30 @@ async function handleNaverCallback(request, env, url) {
   }
 }
 
+async function handleMapBootstrap(request, env) {
+  const sessionUser = await readSessionUser(request, env);
+  const mapData = await loadMapData(env, sessionUser?.id ?? null);
+  return jsonResponse(200, {
+    auth: createAuthResponse(sessionUser, env),
+    places: mapData.places.map(({ positionId, ...place }) => place),
+    stamps: {
+      collectedPlaceIds: mapData.collectedPlaceIds,
+      logs: mapData.stampLogs,
+      travelSessions: mapData.travelSessions,
+    },
+    hasRealData: mapData.places.length > 0,
+  }, env, request);
+}
+
+async function handleCuratedCourses(request, env) {
+  return jsonResponse(200, { courses: await loadCuratedCourses(env) }, env, request);
+}
+
 async function handleBootstrap(request, env) {
   const sessionUser = await readSessionUser(request, env);
   const baseData = await loadBaseData(env, sessionUser?.id ?? null);
   return jsonResponse(200, {
+    auth: createAuthResponse(sessionUser, env),
     places: baseData.places.map(({ positionId, ...place }) => place),
     reviews: baseData.reviews,
     courses: baseData.courses,
@@ -938,17 +1209,9 @@ async function handleBootstrap(request, env) {
 }
 async function handleReviews(request, env, url) {
   const sessionUser = await readSessionUser(request, env);
-  const baseData = await loadBaseData(env, sessionUser?.id ?? null);
-  const placeId = url.searchParams.get('placeId');
-  const userId = url.searchParams.get('userId');
-  const reviews = baseData.reviews.filter((review) => {
-    if (placeId && review.placeId !== placeId) {
-      return false;
-    }
-    if (userId && review.userId !== userId) {
-      return false;
-    }
-    return true;
+  const reviews = await loadReviewData(env, sessionUser?.id ?? null, {
+    placeId: url.searchParams.get('placeId') ?? undefined,
+    userId: url.searchParams.get('userId') ?? undefined,
   });
   return jsonResponse(200, reviews, env, request);
 }
@@ -968,6 +1231,25 @@ async function handleMyRoutes(request, env) {
   return jsonResponse(200, await loadCommunityRoutes(env, { ownerUserId: sessionUser.id, sessionUserId: sessionUser.id }), env, request);
 }
 
+function mapMyComments(commentRows, feedRows, placesByPositionId) {
+  const feedById = new Map(feedRows.map((row) => [String(row.feed_id), row]));
+  return commentRows.map((row) => {
+    const feed = feedById.get(String(row.feed_id));
+    const place = feed ? placesByPositionId.get(String(feed.position_id)) : null;
+    return {
+      id: String(row.comment_id),
+      reviewId: String(row.feed_id),
+      placeId: place?.id ?? String(feed?.position_id ?? ''),
+      placeName: place?.name ?? '장소 정보 없음',
+      body: row.is_deleted ? '삭제된 댓글입니다.' : row.body,
+      isDeleted: row.is_deleted,
+      parentId: row.parent_id ? String(row.parent_id) : null,
+      createdAt: formatDateTime(row.created_at),
+      reviewBody: feed?.body ?? '',
+    };
+  });
+}
+
 async function handleMySummary(request, env) {
   const sessionUser = await readSessionUser(request, env);
   if (!sessionUser) {
@@ -977,6 +1259,12 @@ async function handleMySummary(request, env) {
   const baseData = await loadBaseData(env, sessionUser.id);
   const routes = await loadCommunityRoutes(env, { ownerUserId: sessionUser.id, sessionUserId: sessionUser.id });
   const reviewItems = baseData.reviews.filter((review) => review.userId === sessionUser.id);
+  const reviewById = new Map(baseData.reviews.map((review) => [String(review.id), review]));
+  const myCommentRows = await supabaseRequest(
+    env,
+    `user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&user_id=eq.${encodeFilterValue(sessionUser.id)}&order=created_at.desc`,
+  );
+  const myComments = buildMyComments(myCommentRows ?? [], reviewById);
   const collectedSet = new Set(baseData.collectedPlaceIds);
   const visitedPlaces = baseData.places.filter((place) => collectedSet.has(place.id)).map(({ positionId, ...place }) => place);
   const unvisitedPlaces = baseData.places.filter((place) => !collectedSet.has(place.id)).map(({ positionId, ...place }) => place);
@@ -991,6 +1279,7 @@ async function handleMySummary(request, env) {
       routeCount: routes.length,
     },
     reviews: reviewItems,
+    comments: myComments,
     stampLogs: baseData.stampLogs,
     travelSessions: baseData.travelSessions,
     visitedPlaces,
@@ -1271,37 +1560,53 @@ async function syncFestivalsFromSource(env) {
 }
 
 async function handleFestivals(request, env) {
-  try {
-    if (env.APP_PUBLIC_EVENT_SERVICE_KEY) {
-      await syncFestivalsFromSource(env);
-    }
-  } catch (error) {
-    console.error('festival sync failed', error);
+  const now = Date.now();
+  if (festivalsCache.value && festivalsCache.expiresAt > now) {
+    return jsonResponse(200, festivalsCache.value, env, request);
   }
 
-  const now = Date.now();
-  const upcomingCutoff = now + 30 * 24 * 60 * 60 * 1000;
-  const nowIso = new Date(now).toISOString();
-  const rows = await supabaseRequest(env, `public_event?select=public_event_id,title,venue_name,road_address,starts_at,ends_at,source_page_url,latitude,longitude&district=eq.${encodeFilterValue('대전')}&ends_at=gte.${encodeFilterValue(nowIso)}&order=starts_at.asc&limit=40`);
-  const festivals = (rows || [])
-    .filter((row) => {
-      const startTime = new Date(row.starts_at).getTime();
-      const endTime = new Date(row.ends_at).getTime();
-      return Number.isFinite(startTime) && Number.isFinite(endTime) && endTime >= now && startTime <= upcomingCutoff;
-    })
-    .slice(0, 10)
-    .map((row) => ({
-      id: String(row.public_event_id),
-      title: row.title,
-      venueName: row.venue_name ?? null,
-      startDate: row.starts_at ? String(row.starts_at).slice(0, 10) : '',
-      endDate: row.ends_at ? String(row.ends_at).slice(0, 10) : '',
-      homepageUrl: row.source_page_url ?? null,
-      roadAddress: row.road_address ?? null,
-      latitude: Number(row.latitude),
-      longitude: Number(row.longitude),
-      isOngoing: new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() >= now,
-    }));
+  const festivals = await rememberPending(festivalsCache, async () => {
+    if (env.APP_PUBLIC_EVENT_SERVICE_KEY && festivalsCache.syncAt + FESTIVALS_CACHE_TTL_MS <= now) {
+      try {
+        await syncFestivalsFromSource(env);
+        festivalsCache.syncAt = Date.now();
+      } catch (error) {
+        console.error('festival sync failed', error);
+      }
+    }
+
+    const upcomingCutoff = now + 30 * 24 * 60 * 60 * 1000;
+    const nowIso = new Date(now).toISOString();
+    const rows = await supabaseRequest(env, `public_event?select=public_event_id,title,venue_name,road_address,starts_at,ends_at,source_page_url,latitude,longitude&district=eq.${encodeFilterValue('대전')}&ends_at=gte.${encodeFilterValue(nowIso)}&order=starts_at.asc&limit=40`);
+    const value = (rows || [])
+      .filter((row) => {
+        const startTime = new Date(row.starts_at).getTime();
+        const endTime = new Date(row.ends_at).getTime();
+        return Number.isFinite(startTime) && Number.isFinite(endTime) && endTime >= now && startTime <= upcomingCutoff;
+      })
+      .slice(0, 10)
+      .map((row) => ({
+        id: String(row.public_event_id),
+        title: row.title,
+        venueName: row.venue_name ?? null,
+        startDate: row.starts_at ? String(row.starts_at).slice(0, 10) : '',
+        endDate: row.ends_at ? String(row.ends_at).slice(0, 10) : '',
+        homepageUrl: row.source_page_url ?? null,
+        roadAddress: row.road_address ?? null,
+        latitude: Number(row.latitude),
+        longitude: Number(row.longitude),
+        isOngoing: new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() >= now,
+      }));
+
+    festivalsCache = {
+      ...festivalsCache,
+      value,
+      expiresAt: Date.now() + FESTIVALS_CACHE_TTL_MS,
+      pending: null,
+    };
+    return value;
+  });
+
   return jsonResponse(200, festivals, env, request);
 }
 async function handleBannerEvents(request, env) {
@@ -1379,7 +1684,7 @@ async function readFeedRow(env, reviewId) {
 }
 
 async function readCommentRow(env, commentId) {
-  const rows = await supabaseRequest(env, `user_comment?select=comment_id,feed_id&comment_id=eq.${encodeFilterValue(commentId)}&limit=1`);
+  const rows = await supabaseRequest(env, `user_comment?select=comment_id,feed_id,parent_id&comment_id=eq.${encodeFilterValue(commentId)}&limit=1`);
   return rows?.[0] ?? null;
 }
 
@@ -1389,8 +1694,42 @@ async function readRouteRow(env, routeId) {
 }
 
 async function loadSingleReview(env, reviewId, sessionUserId = null) {
-  const baseData = await loadBaseData(env, sessionUserId);
-  return baseData.reviews.find((review) => review.id === String(reviewId)) ?? null;
+  const reviewRows = await supabaseRequest(
+    env,
+    `feed?select=feed_id,position_id,user_id,stamp_id,body,mood,badge,image_url,created_at&feed_id=eq.${encodeFilterValue(reviewId)}&limit=1`,
+  );
+  const reviewRow = reviewRows?.[0] ?? null;
+  if (!reviewRow) {
+    return null;
+  }
+
+  const [commentRows, likeRows, placeRows, stampRows, userFeedLikeRows = []] = await Promise.all([
+    supabaseRequest(env, `user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&feed_id=eq.${encodeFilterValue(reviewId)}&order=created_at.asc`),
+    supabaseRequest(env, `feed_like?select=feed_id,user_id&feed_id=eq.${encodeFilterValue(reviewId)}`),
+    supabaseRequest(env, `map?select=position_id,slug,name,district,category,latitude,longitude,summary,description,vibe_tags,visit_time,route_hint,stamp_reward,hero_label,jam_color,accent_color,is_active&position_id=eq.${encodeFilterValue(reviewRow.position_id)}&limit=1`),
+    reviewRow.stamp_id
+      ? supabaseRequest(env, `user_stamp?select=stamp_id,user_id,position_id,travel_session_id,stamp_date,visit_ordinal,created_at&stamp_id=eq.${encodeFilterValue(reviewRow.stamp_id)}&limit=1`)
+      : Promise.resolve([]),
+    sessionUserId
+      ? supabaseRequest(env, `feed_like?select=feed_id&user_id=eq.${encodeFilterValue(sessionUserId)}&feed_id=eq.${encodeFilterValue(reviewId)}&limit=1`)
+      : Promise.resolve([]),
+  ]);
+
+  const userIdsFilter = buildInFilter([reviewRow.user_id, ...commentRows.map((row) => row.user_id)]);
+  const userRows = userIdsFilter
+    ? await supabaseRequest(env, `user?select=user_id,nickname&user_id=${userIdsFilter}`)
+    : [];
+
+  const places = placeRows.map(mapPlace);
+  const placesByPositionId = new Map(places.map((place) => [place.positionId, place]));
+  const usersById = new Map(userRows.map((row) => [row.user_id, row]));
+  const stampRowsById = new Map((stampRows ?? []).map((row) => [String(row.stamp_id), row]));
+  const likedFeedIds = new Set((userFeedLikeRows ?? []).map((row) => String(row.feed_id)));
+
+  return (
+    mapReviewRows([reviewRow], commentRows ?? [], likeRows ?? [], usersById, placesByPositionId, stampRowsById, likedFeedIds)[0] ??
+    null
+  );
 }
 
 function sanitizeFileName(fileName) {
@@ -1529,7 +1868,7 @@ async function handleCreateComment(request, env, reviewId) {
 
   const payload = await readJsonBody(request);
   const body = String(payload.body ?? '').trim();
-  const parentId = payload.parentId ? Number(payload.parentId) : null;
+  let parentId = payload.parentId ? Number(payload.parentId) : null;
   if (!body) {
     return jsonResponse(400, { detail: '댓글을 조금 더 적어 주세요.' }, env, request);
   }
@@ -1538,6 +1877,9 @@ async function handleCreateComment(request, env, reviewId) {
     const parentComment = await readCommentRow(env, parentId);
     if (!parentComment || String(parentComment.feed_id) !== String(reviewId)) {
       return jsonResponse(400, { detail: '같은 후기 안의 댓글에만 답글을 달 수 있어요.' }, env, request);
+    }
+    if (parentComment.parent_id) {
+      parentId = Number(parentComment.parent_id);
     }
   }
 
@@ -1923,6 +2265,12 @@ async function routeRequest(request, env) {
   if (request.method === "GET" && url.pathname === "/api/bootstrap") {
     return handleBootstrap(request, env);
   }
+  if (request.method === "GET" && url.pathname === "/api/map-bootstrap") {
+    return handleMapBootstrap(request, env);
+  }
+  if (request.method === "GET" && url.pathname === "/api/courses/curated") {
+    return handleCuratedCourses(request, env);
+  }
   if (request.method === "GET" && url.pathname === "/api/reviews") {
     return handleReviews(request, env, url);
   }
@@ -1983,6 +2331,7 @@ export default {
     }
   },
 };
+
 
 
 

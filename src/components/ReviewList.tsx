@@ -11,6 +11,7 @@ interface ReviewListProps {
   onSubmitComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
   onRequestLogin: () => void;
   onOpenPlace?: (placeId: string) => void;
+  onOpenComments?: (reviewId: string) => void;
   emptyTitle: string;
   emptyBody: string;
 }
@@ -25,6 +26,7 @@ export function ReviewList({
   onSubmitComment,
   onRequestLogin,
   onOpenPlace,
+  onOpenComments,
   emptyTitle,
   emptyBody,
 }: ReviewListProps) {
@@ -41,17 +43,17 @@ export function ReviewList({
     <div className="review-stack">
       {reviews.map((review) => (
         <article key={review.id} className="review-card">
-          <div className="review-card__top">
-            <div className="review-card__heading">
-              <strong>{review.placeName}</strong>
+          <div className="review-card__top review-card__top--feed">
+            <div className="review-card__title-block review-card__title-block--feed">
+              <p className="eyebrow">{review.mood}</p>
+              <strong className="review-card__title">{review.placeName}</strong>
               <p className="review-card__author-line">
                 {review.author} · {review.visitLabel} · {review.visitedAt}
               </p>
             </div>
-            <span className="mood-pill">{review.mood}</span>
           </div>
 
-          <div className="review-card__meta-line">
+          <div className="review-card__tag-row">
             <span className="review-card__visit-pill">{review.visitLabel}</span>
             {review.travelSessionId && <span className="soft-tag">연속 여행 기록</span>}
             <span className="soft-tag">{review.badge}</span>
@@ -75,30 +77,43 @@ export function ReviewList({
                 </span>
                 <span className="review-action-button__label">{likingReviewId === review.id ? '반영 중' : review.likeCount}</span>
               </button>
-              <span className="review-action-button review-action-button--static" aria-hidden="true">
-                <span className="review-action-button__icon">💬</span>
-                <span className="review-action-button__label">{review.comments.length}</span>
-              </span>
+              {onOpenComments ? (
+                <button
+                  type="button"
+                  className="review-action-button"
+                  onClick={() => onOpenComments(review.id)}
+                  aria-label={`댓글 ${review.comments.length}개`}
+                >
+                  <span className="review-action-button__icon">💬</span>
+                  <span className="review-action-button__label">{review.comments.length}</span>
+                </button>
+              ) : (
+                <span className="review-action-button review-action-button--static" aria-hidden="true">
+                  <span className="review-action-button__icon">💬</span>
+                  <span className="review-action-button__label">{review.comments.length}</span>
+                </span>
+              )}
             </div>
             {onOpenPlace && (
               <button type="button" className="review-link-button" onClick={() => onOpenPlace(review.placeId)}>
-                장소 보기
+                이 장소 보기
               </button>
             )}
           </div>
 
-          <CommentThread
-            comments={review.comments}
-            canWriteComment={canWriteComment}
-            submittingReviewId={submittingReviewId}
-            reviewId={review.id}
-            onSubmitComment={onSubmitComment}
-            onRequestLogin={onRequestLogin}
-          />
+          {!onOpenComments && (
+            <CommentThread
+              comments={review.comments}
+              canWriteComment={canWriteComment}
+              submittingReviewId={submittingReviewId}
+              highlightedCommentId={null}
+              reviewId={review.id}
+              onSubmitComment={onSubmitComment}
+              onRequestLogin={onRequestLogin}
+            />
+          )}
         </article>
       ))}
     </div>
   );
 }
-
-

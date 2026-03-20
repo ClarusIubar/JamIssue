@@ -30,6 +30,7 @@ deploy/.env.cloudflare
 
 backend/.wrangler/
 .wrangler/
+backend/python_modules/
 
 backend/.dev.vars
 
@@ -37,3 +38,5 @@ backend/.dev.vars
 backend/.venv-workers/
 
 deploy/api-worker-package/
+tmp_alias_main.js
+tmp_live_main.js

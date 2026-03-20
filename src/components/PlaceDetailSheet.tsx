@@ -1,4 +1,4 @@
-﻿import { useRef } from 'react';
+import { useRef } from 'react';
 import { categoryInfo } from '../lib/categories';
 import { ReviewComposer } from './ReviewComposer';
 import { ReviewList } from './ReviewList';
@@ -115,6 +115,12 @@ export function PlaceDetailSheet({
             ×
           </button>
         </div>
+
+        {place.imageUrl && (
+          <div className="place-drawer__hero">
+            <img src={place.imageUrl} alt={place.name} className="place-drawer__hero-image" />
+          </div>
+        )}
 
         <div className="place-drawer__badges">
           <span className="counter-pill" style={{ background: categoryMeta.color, color: '#4a3140' }}>

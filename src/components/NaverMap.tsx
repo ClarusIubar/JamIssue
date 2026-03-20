@@ -104,6 +104,9 @@ interface NaverMapProps {
   currentLocationMessage: string | null;
   focusCurrentLocationKey: number;
   onLocateCurrentPosition: () => void;
+  initialCenter?: { lat: number; lng: number };
+  initialZoom?: number;
+  onViewportChange?: (lat: number, lng: number, zoom: number) => void;
   height?: string;
 }
 
@@ -119,6 +122,9 @@ export function NaverMap({
   currentLocationMessage,
   focusCurrentLocationKey,
   onLocateCurrentPosition,
+  initialCenter,
+  initialZoom,
+  onViewportChange,
   height = '100%',
 }: NaverMapProps) {
   const mapElementRef = useRef<HTMLDivElement | null>(null);
@@ -126,9 +132,16 @@ export function NaverMap({
   const placeMarkersRef = useRef<any[]>([]);
   const festivalMarkersRef = useRef<any[]>([]);
   const currentMarkerRef = useRef<any | null>(null);
+  const onViewportChangeRef = useRef(onViewportChange);
+  const idleListenerRef = useRef<any>(null);
+  const viewportDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const clientId = getClientConfig().naverMapClientId;
+
+  useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
 
   useEffect(() => {
     if (!clientId) {
@@ -150,8 +163,11 @@ export function NaverMap({
         }
 
         mapRef.current = new maps.Map(mapElementRef.current, {
-          center: new maps.LatLng(DAEJEON_CENTER.latitude, DAEJEON_CENTER.longitude),
-          zoom: 13,
+          center: new maps.LatLng(
+            initialCenter?.lat ?? DAEJEON_CENTER.latitude,
+            initialCenter?.lng ?? DAEJEON_CENTER.longitude,
+          ),
+          zoom: initialZoom ?? 13,
           minZoom: 11,
           scaleControl: false,
           logoControl: false,
@@ -159,8 +175,30 @@ export function NaverMap({
           zoomControl: true,
         });
 
+        const idleListener = maps.Event.addListener(mapRef.current, 'idle', () => {
+          if (!mapRef.current) {
+            return;
+          }
+          const center = mapRef.current.getCenter();
+          const zoom = mapRef.current.getZoom();
+          if (viewportDebounceTimerRef.current !== null) {
+            clearTimeout(viewportDebounceTimerRef.current);
+          }
+          viewportDebounceTimerRef.current = setTimeout(() => {
+            onViewportChangeRef.current?.(center.lat(), center.lng(), zoom);
+            viewportDebounceTimerRef.current = null;
+          }, 300);
+        });
+        idleListenerRef.current = idleListener;
 
         setStatus('ready');
+
+        return () => {
+          if (viewportDebounceTimerRef.current !== null) {
+            clearTimeout(viewportDebounceTimerRef.current);
+          }
+          maps.Event.removeListener(idleListener);
+        };
       })
       .catch((error: Error) => {
         if (!isMounted) {
@@ -172,6 +210,14 @@ export function NaverMap({
 
     return () => {
       isMounted = false;
+      if (viewportDebounceTimerRef.current !== null) {
+        clearTimeout(viewportDebounceTimerRef.current);
+        viewportDebounceTimerRef.current = null;
+      }
+      if (idleListenerRef.current && window.naver?.maps) {
+        window.naver.maps.Event.removeListener(idleListenerRef.current);
+        idleListenerRef.current = null;
+      }
     };
   }, [clientId]);
 

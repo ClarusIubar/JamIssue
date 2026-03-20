@@ -4,6 +4,8 @@ import type {
   AdminSummaryResponse,
   AuthSessionResponse,
   BootstrapResponse,
+  CourseBootstrapResponse,
+  MapBootstrapResponse,
   Comment,
   CommentCreateRequest,
   CommunityRouteSort,
@@ -97,6 +99,14 @@ export function updateProfile(payload: ProfileUpdateRequest) {
 
 export function getBootstrap() {
   return fetchJson<BootstrapResponse>('/api/bootstrap');
+}
+
+export function getMapBootstrap() {
+  return fetchJson<MapBootstrapResponse>('/api/map-bootstrap');
+}
+
+export function getCuratedCourses() {
+  return fetchJson<CourseBootstrapResponse>('/api/courses/curated');
 }
 
 export function getCommunityRoutes(sort: CommunityRouteSort = 'popular') {

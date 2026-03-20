@@ -1,4 +1,5 @@
-﻿import type { CommunityRouteSort, Course, SessionUser, UserRoute } from '../types';
+﻿import { useScrollRestoration } from '../hooks/useScrollRestoration';
+import type { CommunityRouteSort, Course, SessionUser, UserRoute } from '../types';
 
 interface CourseTabProps {
   curatedCourses: Course[];
@@ -25,8 +26,10 @@ export function CourseTab({
   onOpenPlace,
   onRequestLogin,
 }: CourseTabProps) {
+  const scrollRef = useScrollRestoration<HTMLElement>('course');
+
   return (
-    <section className="page-panel page-panel--scrollable">
+    <section ref={scrollRef} className="page-panel page-panel--scrollable">
       <header className="panel-header">
         <p className="eyebrow">COURSE</p>
         <h2>코스</h2>
@@ -51,25 +54,30 @@ export function CourseTab({
         <div className="community-route-list">
           {communityRoutes.map((route) => (
             <article key={route.id} className="community-route-card">
-              <div className="community-route-card__header">
-                <div>
-                  <p className="eyebrow">{route.isUserGenerated ? 'USER ROUTE' : 'CURATED ROUTE'}</p>
+              <div className="community-route-card__header community-route-card__header--feedlike">
+                <div className="community-route-card__title-block">
+                  <div className="community-route-card__tag-row">
+                    <span className="soft-tag">{route.isUserGenerated ? '사용자 경로' : '큐레이션'}</span>
+                  </div>
                   <h4>{route.title}</h4>
+                  <p className="community-route-meta community-route-meta--inline">
+                    {route.author} · {route.createdAt}
+                  </p>
                 </div>
                 <button
                   type="button"
-                  className={route.likedByMe ? 'secondary-button community-like-button is-complete' : 'secondary-button community-like-button'}
+                  className={route.likedByMe ? 'review-action-button is-active community-like-button' : 'review-action-button community-like-button'}
                   disabled={routeLikeUpdatingId === route.id}
                   onClick={() => (sessionUser ? onToggleLike(route.id) : onRequestLogin())}
+                  aria-pressed={route.likedByMe}
                 >
-                  {routeLikeUpdatingId === route.id ? '반영 중' : `좋아요 ${route.likeCount}`}
+                  <span className="review-action-button__icon" aria-hidden="true">
+                    {route.likedByMe ? '♥' : '♡'}
+                  </span>
+                  <span className="review-action-button__label">{routeLikeUpdatingId === route.id ? '반영 중' : route.likeCount}</span>
                 </button>
               </div>
               <p>{route.description}</p>
-              <div className="community-route-meta">
-                <span>{route.author}</span>
-                <span>{route.createdAt}</span>
-              </div>
               <div className="course-card__places community-route-places">
                 {route.placeIds.map((placeId, index) => (
                   <button key={`${route.id}-${placeId}`} type="button" className="soft-tag soft-tag--button course-card__place" onClick={() => onOpenPlace(placeId)}>
@@ -93,12 +101,14 @@ export function CourseTab({
         </div>
         {curatedCourses.map((course) => (
           <article key={course.id} className="community-route-card community-route-card--curated">
-            <div className="community-route-card__header">
-              <div>
-                <p className="eyebrow">{course.mood}</p>
+            <div className="community-route-card__header community-route-card__header--feedlike">
+              <div className="community-route-card__title-block">
+                <div className="community-route-card__tag-row">
+                  <span className="soft-tag">{course.mood}</span>
+                </div>
                 <h4>{course.title}</h4>
+                <p className="community-route-meta community-route-meta--inline">추천 코스 · {course.duration}</p>
               </div>
-              <span className="counter-pill">{course.duration}</span>
             </div>
             <p>{course.note}</p>
             <div className="course-card__places community-route-places">

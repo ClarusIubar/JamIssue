@@ -41,6 +41,8 @@ interface MapTabStageProps {
   reviewLikeUpdatingId: string | null;
   commentSubmittingReviewId: string | null;
   canCreateReview: boolean;
+  initialMapCenter?: { lat: number; lng: number };
+  initialMapZoom?: number;
   onOpenPlace: (placeId: string) => void;
   onOpenFestival: (festivalId: string) => void;
   onCloseDrawer: () => void;
@@ -54,6 +56,7 @@ interface MapTabStageProps {
   onToggleReviewLike: (reviewId: string) => Promise<void>;
   onCreateComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
   onLocateCurrentPosition: () => void;
+  onMapViewportChange: (lat: number, lng: number, zoom: number) => void;
 }
 
 export function MapTabStage({
@@ -84,6 +87,8 @@ export function MapTabStage({
   reviewLikeUpdatingId,
   commentSubmittingReviewId,
   canCreateReview,
+  initialMapCenter,
+  initialMapZoom,
   onOpenPlace,
   onOpenFestival,
   onCloseDrawer,
@@ -97,17 +102,17 @@ export function MapTabStage({
   onToggleReviewLike,
   onCreateComment,
   onLocateCurrentPosition,
+  onMapViewportChange,
 }: MapTabStageProps) {
   return (
     <div className="map-stage">
-      <header className="map-stage__header">
-        <div className="map-stage__brand">
-          <p className="eyebrow">DAEJEON JAM ISSUE</p>
-          <p className="map-stage__headline">꽃 마커로 장소와 축제를 가볍게 골라보세요.</p>
-        </div>
-        <div className="map-stage__guide">
-          <strong>아래 시트에서 확인</strong>
-          <span>마커를 누르면 장소 정보와 스탬프가 바로 열려요.</span>
+      <header className="map-stage__header map-stage__header--brand-only">
+        <div className="map-stage__brand map-stage__brand--row">
+          <div className="map-stage__brand-mark" aria-hidden="true">J</div>
+          <div className="map-stage__brand-copy">
+            <p className="map-stage__brand-kicker">DAEJEON LOCAL GUIDE</p>
+            <h1 className="map-stage__brand-title">JAM ISSUE</h1>
+          </div>
         </div>
       </header>
 
@@ -156,6 +161,9 @@ export function MapTabStage({
         currentLocationMessage={drawerState === 'closed' ? mapLocationMessage : null}
         focusCurrentLocationKey={mapLocationFocusKey}
         onLocateCurrentPosition={onLocateCurrentPosition}
+        initialCenter={initialMapCenter}
+        initialZoom={initialMapZoom}
+        onViewportChange={onMapViewportChange}
         height="100%"
       />
 
