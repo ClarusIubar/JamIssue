@@ -48,6 +48,30 @@ JamIssue는 대전 장소를 지도에서 탐색하고, 스탬프를 찍은 뒤 
   - 누적 스탬프 수
 - 설정에서 닉네임 수정 가능
 
+### 6. 관리자 흐름
+- 관리자 계정은 마이페이지에 `관리` 탭이 노출됨
+- 장소 노출/비노출 토글
+- 공공데이터 다시 불러오기
+- 관리자 여부는 Worker 환경변수 `APP_ADMIN_USER_IDS` 기준
+
+## 탭별 데이터 로딩 원칙
+
+JamIssue는 전체 화면 데이터를 한 번에 모두 읽지 않고, 탭 책임에 맞게 나눠서 읽습니다.
+
+- 지도
+  - `GET /api/map-bootstrap`
+  - 지도 장소, 스탬프 상태, 로그인 세션의 최소 데이터만 로드
+- 피드
+  - `GET /api/review-feed`
+  - 첫 페이지 로드 후 추가 페이지는 점진 로드
+- 코스
+  - `GET /api/courses/curated`
+  - `GET /api/community-routes`
+- 마이
+  - `GET /api/my/summary`
+  - `GET /api/my/comments`
+  - 댓글 목록은 summary에 전부 싣지 않고 별도 페이지네이션
+
 ## 현재 구현 기능 상세
 
 ### 지도 / 장소 / 축제
@@ -81,6 +105,7 @@ JamIssue는 대전 장소를 지도에서 탐색하고, 스탬프를 찍은 뒤 
 - 프로필 설정 진입
 - 닉네임 수정
 - 닉네임 유니크 정책 적용
+- 관리자 계정이면 `관리` 탭 노출
 
 ### 인증
 - 내부 사용자 식별: `user`
@@ -102,6 +127,7 @@ JamIssue는 대전 장소를 지도에서 탐색하고, 스탬프를 찍은 뒤 
 ### 지도 / 장소 / 피드 / 코스
 - `GET /api/bootstrap`
 - `GET /api/map-bootstrap`
+- `GET /api/review-feed`
 - `GET /api/reviews`
 - `POST /api/reviews/upload`
 - `POST /api/reviews`
@@ -117,8 +143,14 @@ JamIssue는 대전 장소를 지도에서 탐색하고, 스탬프를 찍은 뒤 
 ### 마이 / 부가 데이터
 - `GET /api/my/routes`
 - `GET /api/my/summary`
+- `GET /api/my/comments`
 - `GET /api/banner/events`
 - `GET /api/festivals`
+
+### 관리자
+- `GET /api/admin/summary`
+- `PATCH /api/admin/places/:id`
+- `POST /api/admin/import/public-data`
 
 ## 데이터 구조 기준
 
@@ -141,6 +173,21 @@ JamIssue는 대전 장소를 지도에서 탐색하고, 스탬프를 찍은 뒤 
 ### 장소 이미지
 - `map.image_url` 사용
 - live DB가 과거 상태여도 worker는 null 허용으로 처리
+
+## 비기능 요구사항 대응 현황
+
+### 레이턴시
+- 탭별 API 분리로 초기 eager load 축소
+- 피드/내 댓글 페이지네이션 적용
+- 공용 GET 요청은 캐시 및 중복 요청 방지 흐름 유지
+
+### 렌더링 안정성
+- 프론트 자산은 해시 파일명으로 배포되어 브라우저 캐시 오염을 줄임
+- 비지도 탭의 백그라운드 로더 실패가 전역 배너로 새지 않도록 분리
+
+### 상호작용
+- 지도 바텀시트, 댓글 시트, 마이페이지 deep link는 브라우저 뒤로가기와 앱 내부 복귀 흐름을 함께 고려
+- 댓글 깊이는 `부모 0 / 자식 1`로 제한
 
 ## Supabase SQL 적용 순서
 
