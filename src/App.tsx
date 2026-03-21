@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import {
   claimStamp,
   createComment,
@@ -71,7 +71,7 @@ function formatErrorMessage(error: unknown) {
     return error.message;
   }
 
-  return '요청을 처리하는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.';
+  return '?붿껌??泥섎━?섎뒗 以?臾몄젣媛 ?앷꼈?댁슂. ?좎떆 ???ㅼ떆 ?쒕룄??二쇱꽭??';
 }
 
 export default function App() {
@@ -120,7 +120,7 @@ export default function App() {
     feedPlaceFilterId: string | null;
   } | null>(null);
   const [stampActionStatus, setStampActionStatus] = useState<ApiStatus>('idle');
-  const [stampActionMessage, setStampActionMessage] = useState('장소를 선택하면 오늘 방문 인증 가능 여부를 바로 확인할 수 있어요.');
+  const [stampActionMessage, setStampActionMessage] = useState('?μ냼瑜??좏깮?섎㈃ ?ㅻ뒛 諛⑸Ц ?몄쬆 媛???щ?瑜?諛붾줈 ?뺤씤?????덉뼱??');
   const [routeSubmitting, setRouteSubmitting] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [routeLikeUpdatingId, setRouteLikeUpdatingId] = useState<string | null>(null);
@@ -512,31 +512,31 @@ export default function App() {
   }, [commitRouteState, filteredPlaces, selectedPlaceId]);
   useEffect(() => {
     if (!selectedPlace) {
-      setStampActionMessage('장소를 선택하면 오늘 방문 인증 가능 여부를 바로 확인할 수 있어요.');
+      setStampActionMessage('?μ냼瑜??좏깮?섎㈃ ?ㅻ뒛 諛⑸Ц ?몄쬆 媛???щ?瑜?諛붾줈 ?뺤씤?????덉뼱??');
       return;
     }
 
     if (!sessionUser) {
-      setStampActionMessage(`${selectedPlace.name}에서 인증하려면 먼저 로그인해 주세요.`);
+      setStampActionMessage(`${selectedPlace.name}?먯꽌 ?몄쬆?섎젮硫?癒쇱? 濡쒓렇?명빐 二쇱꽭??`);
       return;
     }
 
     if (todayStamp) {
-      setStampActionMessage(`${todayStamp.visitLabel} 오늘 방문 인증을 이미 마쳤어요.`);
+      setStampActionMessage(`${todayStamp.visitLabel} ?ㅻ뒛 諛⑸Ц ?몄쬆???대? 留덉낀?댁슂.`);
       return;
     }
 
     if (typeof selectedPlaceDistanceMeters !== 'number') {
-      setStampActionMessage('현재 위치를 확인하면 오늘 방문 인증 가능 여부를 바로 안내해 드릴게요.');
+      setStampActionMessage('?꾩옱 ?꾩튂瑜??뺤씤?섎㈃ ?ㅻ뒛 諛⑸Ц ?몄쬆 媛???щ?瑜?諛붾줈 ?덈궡???쒕┫寃뚯슂.');
       return;
     }
 
     if (selectedPlaceDistanceMeters <= STAMP_UNLOCK_RADIUS_METERS) {
-      setStampActionMessage(`현장 반경 ${formatDistanceMeters(selectedPlaceDistanceMeters)} 안이에요. 지금 바로 오늘 방문 인증을 진행할 수 있어요.`);
+      setStampActionMessage(`?꾩옣 諛섍꼍 ${formatDistanceMeters(selectedPlaceDistanceMeters)} ?덉씠?먯슂. 吏湲?諛붾줈 ?ㅻ뒛 諛⑸Ц ?몄쬆??吏꾪뻾?????덉뼱??`);
       return;
     }
 
-    setStampActionMessage(`현장까지 ${formatDistanceMeters(selectedPlaceDistanceMeters)} 남았어요. ${STAMP_UNLOCK_RADIUS_METERS}m 안으로 들어오면 오늘 방문 인증을 할 수 있어요.`);
+    setStampActionMessage(`?꾩옣源뚯? ${formatDistanceMeters(selectedPlaceDistanceMeters)} ?⑥븯?댁슂. ${STAMP_UNLOCK_RADIUS_METERS}m ?덉쑝濡??ㅼ뼱?ㅻ㈃ ?ㅻ뒛 諛⑸Ц ?몄쬆???????덉뼱??`);
   }, [selectedPlace, selectedPlaceDistanceMeters, sessionUser, todayStamp]);
 
   async function loadApp(withLoading: boolean) {
@@ -575,7 +575,7 @@ export default function App() {
       setBootstrapStatus('ready');
       if (authState === 'naver-success' && bootstrap.auth.user?.profileCompletedAt === null) {
         goToTab('my');
-        setNotice('닉네임을 정하면 피드와 코스를 같은 계정 기록으로 자연스럽게 이어갈 수 있어요.');
+        setNotice('?됰꽕?꾩쓣 ?뺥븯硫??쇰뱶? 肄붿뒪瑜?媛숈? 怨꾩젙 湲곕줉?쇰줈 ?먯뿰?ㅻ읇寃??댁뼱媛????덉뼱??');
       }
     } catch (error) {
       setBootstrapError(formatErrorMessage(error));
@@ -587,13 +587,13 @@ export default function App() {
 
   async function refreshCurrentPosition(shouldFocusMap: boolean) {
     setMapLocationStatus('loading');
-    setMapLocationMessage('현재 위치를 확인하고 있어요.');
+    setMapLocationMessage('?꾩옱 ?꾩튂瑜??뺤씤?섍퀬 ?덉뼱??');
 
     try {
       const nextPosition = await getCurrentDevicePosition();
       setCurrentPosition({ latitude: nextPosition.latitude, longitude: nextPosition.longitude });
       setMapLocationStatus('ready');
-      setMapLocationMessage(`현재 위치를 확인했어요. 위치 오차는 약 ${formatDistanceMeters(nextPosition.accuracyMeters)}예요.`);
+      setMapLocationMessage(`?꾩옱 ?꾩튂瑜??뺤씤?덉뼱?? ?꾩튂 ?ㅼ감????${formatDistanceMeters(nextPosition.accuracyMeters)}?덉슂.`);
       if (shouldFocusMap) {
         setMapLocationFocusKey((current) => current + 1);
       }
@@ -611,7 +611,7 @@ export default function App() {
   async function handleClaimStamp(place: Place) {
     if (!sessionUser) {
       goToTab('my');
-      setNotice('로그인하면 현장 방문 인증을 하고 피드와 코스를 이어서 쓸 수 있어요.');
+      setNotice('濡쒓렇?명븯硫??꾩옣 諛⑸Ц ?몄쬆???섍퀬 ?쇰뱶? 肄붿뒪瑜??댁뼱???????덉뼱??');
       return;
     }
 
@@ -625,7 +625,7 @@ export default function App() {
         longitude: nextPosition.longitude,
       });
       setStampState(nextStampState);
-      setNotice(`${place.name}에서 오늘 방문 인증을 완료했어요.`);
+      setNotice(`${place.name}?먯꽌 ?ㅻ뒛 諛⑸Ц ?몄쬆???꾨즺?덉뼱??`);
       commitRouteState(
         {
           tab: 'map',
@@ -665,7 +665,7 @@ export default function App() {
       });
       upsertReviewCollections(createdReview);
       await refreshMyPageForUser(sessionUser);
-      setNotice('피드를 남겼어요. 같은 날에는 한 개의 피드만 작성할 수 있어요.');
+      setNotice('?쇰뱶瑜??④꼈?댁슂. 媛숈? ?좎뿉????媛쒖쓽 ?쇰뱶留??묒꽦?????덉뼱??');
       commitRouteState(
         {
           tab: 'map',
@@ -685,7 +685,7 @@ export default function App() {
   async function handleCreateComment(reviewId: string, body: string, parentId?: string) {
     if (!sessionUser) {
       goToTab('my');
-      setNotice('댓글을 남기려면 먼저 로그인해 주세요.');
+      setNotice('?볤????④린?ㅻ㈃ 癒쇱? 濡쒓렇?명빐 二쇱꽭??');
       return;
     }
 
@@ -707,7 +707,7 @@ export default function App() {
   async function handleUpdateComment(reviewId: string, commentId: string, body: string) {
     if (!sessionUser) {
       goToTab('my');
-      setNotice('댓글을 수정하려면 먼저 로그인해 주세요.');
+      setNotice('?볤????섏젙?섎젮硫?癒쇱? 濡쒓렇?명빐 二쇱꽭??');
       return;
     }
 
@@ -732,7 +732,7 @@ export default function App() {
   async function handleDeleteComment(reviewId: string, commentId: string) {
     if (!sessionUser) {
       goToTab('my');
-      setNotice('댓글을 삭제하려면 먼저 로그인해 주세요.');
+      setNotice('?볤?????젣?섎젮硫?癒쇱? 濡쒓렇?명빐 二쇱꽭??');
       return;
     }
 
@@ -757,7 +757,7 @@ export default function App() {
   async function handleDeleteReview(reviewId: string) {
     if (!sessionUser) {
       goToTab('my');
-      setNotice('피드를 삭제하려면 먼저 로그인해 주세요.');
+      setNotice('?쇰뱶瑜???젣?섎젮硫?癒쇱? 濡쒓렇?명빐 二쇱꽭??');
       return;
     }
 
@@ -789,7 +789,7 @@ export default function App() {
       if (highlightedReviewId === reviewId) {
         setHighlightedReviewId(null);
       }
-      setNotice('피드를 삭제했어요.');
+      setNotice('?쇰뱶瑜???젣?덉뼱??');
       if (activeTab === 'my') {
         await refreshMyPageForUser(sessionUser, true);
       }
@@ -803,7 +803,7 @@ export default function App() {
   async function handleToggleReviewLike(reviewId: string) {
     if (!sessionUser) {
       goToTab('my');
-      setNotice('좋아요를 누르려면 먼저 로그인해 주세요.');
+      setNotice('醫뗭븘?붾? ?꾨Ⅴ?ㅻ㈃ 癒쇱? 濡쒓렇?명빐 二쇱꽭??');
       return;
     }
 
@@ -825,7 +825,7 @@ export default function App() {
   async function handleToggleRouteLike(routeId: string) {
     if (!sessionUser) {
       goToTab('my');
-      setNotice('좋아요를 누르려면 먼저 로그인해 주세요.');
+      setNotice('醫뗭븘?붾? ?꾨Ⅴ?ㅻ㈃ 癒쇱? 濡쒓렇?명빐 二쇱꽭??');
       return;
     }
     setRouteLikeUpdatingId(routeId);
@@ -846,7 +846,7 @@ export default function App() {
   async function handlePublishRoute(payload: { travelSessionId: string; title: string; description: string; mood: string }) {
     if (!sessionUser) {
       goToTab('my');
-      setRouteError('로그인하면 여행 세션을 공개 코스로 발행할 수 있어요.');
+      setRouteError('濡쒓렇?명븯硫??ы뻾 ?몄뀡??怨듦컻 肄붿뒪濡?諛쒗뻾?????덉뼱??');
       return;
     }
     setRouteSubmitting(true);
@@ -881,7 +881,7 @@ export default function App() {
           },
         };
       });
-      setNotice('코스를 발행했어요. 이제 다른 사용자가 최신순과 좋아요순으로 볼 수 있어요.');
+      setNotice('肄붿뒪瑜?諛쒗뻾?덉뼱?? ?댁젣 ?ㅻⅨ ?ъ슜?먭? 理쒖떊?쒓낵 醫뗭븘?붿닚?쇰줈 蹂????덉뼱??');
       setMyPageTab('routes');
     } catch (error) {
       setRouteError(formatErrorMessage(error));
@@ -915,7 +915,7 @@ export default function App() {
 
   async function handleUpdateProfile(nextNickname: string) {
     if (!nextNickname || nextNickname.length < 2) {
-      setProfileError('닉네임은 두 글자 이상으로 입력해 주세요.');
+      setProfileError('?됰꽕?꾩? ??湲???댁긽?쇰줈 ?낅젰??二쇱꽭??');
       return;
     }
     setProfileSaving(true);
@@ -926,7 +926,7 @@ export default function App() {
       if (auth.user) {
         setMyPage((current) => (current && auth.user ? { ...current, user: auth.user } : current));
       }
-      setNotice('닉네임을 저장했어요. 이제 이 이름으로 피드와 코스가 표시돼요.');
+      setNotice('?됰꽕?꾩쓣 ??ν뻽?댁슂. ?댁젣 ???대쫫?쇰줈 ?쇰뱶? 肄붿뒪媛 ?쒖떆?쇱슂.');
     } catch (error) {
       setProfileError(formatErrorMessage(error));
     } finally {
@@ -941,7 +941,7 @@ export default function App() {
       setSessionUser(auth.user);
       setProviders(auth.providers);
       setMyPage(null);
-      setNotice('로그아웃했어요.');
+      setNotice('濡쒓렇?꾩썐?덉뼱??');
     } catch (error) {
       setNotice(formatErrorMessage(error));
     } finally {
@@ -1032,12 +1032,12 @@ export default function App() {
   }
 
   const reviewProofMessage = !sessionUser
-    ? '로그인하면 오늘 방문 인증 뒤에만 피드를 남길 수 있어요.'
+    ? '濡쒓렇?명븯硫??ㅻ뒛 諛⑸Ц ?몄쬆 ?ㅼ뿉留??쇰뱶瑜??④만 ???덉뼱??'
     : hasCreatedReviewToday
-      ? '오늘은 이미 피드를 작성했어요. 피드는 하루에 하나만 남길 수 있어요.'
+      ? '?ㅻ뒛? ?대? ?쇰뱶瑜??묒꽦?덉뼱?? ?쇰뱶???섎（???섎굹留??④만 ???덉뼱??'
       : todayStamp
-        ? `${todayStamp.visitLabel} 방문 인증이 완료됐어요. 오늘 피드 한 개를 작성할 수 있어요.`
-        : '오늘 방문 인증을 먼저 마쳐야 피드를 작성할 수 있어요.';
+        ? `${todayStamp.visitLabel} 諛⑸Ц ?몄쬆???꾨즺?먯뼱?? ?ㅻ뒛 ?쇰뱶 ??媛쒕? ?묒꽦?????덉뼱??`
+        : '?ㅻ뒛 諛⑸Ц ?몄쬆??癒쇱? 留덉퀜???쇰뱶瑜??묒꽦?????덉뼱??';
 
   return (
     <div className="map-app-shell">
@@ -1115,7 +1115,7 @@ export default function App() {
         ) : (
           <div className="page-stage">
             {notice && <div className="floating-notice">{notice}</div>}
-            {bootstrapStatus === 'loading' && <section className="floating-status">불러오는 중이에요.</section>}
+            {bootstrapStatus === 'loading' && <section className="floating-status">遺덈윭?ㅻ뒗 以묒씠?먯슂.</section>}
             {bootstrapStatus === 'error' && <section className="floating-status floating-status--error">{bootstrapError}</section>}
 
             {activeTab === 'feed' && (
@@ -1211,3 +1211,5 @@ export default function App() {
     </div>
   );
 }
+
+
