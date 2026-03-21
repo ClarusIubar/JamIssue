@@ -99,22 +99,6 @@ export function invalidateApiCache(prefixes: string[] = []) {
 
 const WORKER_FALLBACK_BASE_URL = 'https://jamissue-api.yhh4433.workers.dev';
 
-function shouldFallbackToWorker(baseUrl: string, error: unknown, init?: RequestInit) {
-  if (baseUrl === WORKER_FALLBACK_BASE_URL) {
-    return false;
-  }
-
-  if ((init?.method ?? 'GET').toUpperCase() !== 'GET') {
-    return false;
-  }
-
-  if (!(error instanceof ApiError)) {
-    return true;
-  }
-
-  return error.status === 404 || error.status === 408 || error.status === 425 || error.status === 429 || error.status === 500 || error.status === 501 || error.status === 502 || error.status === 503 || error.status === 504 || error.status === 520 || error.status === 521 || error.status === 522 || error.status === 523 || error.status === 524 || error.status >= 530;
-}
-
 async function parseJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let message = '요청을 처리하지 못했어요.';
@@ -173,7 +157,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
     try {
       return await fetchFromBase(apiBaseUrl);
     } catch (error) {
-      const shouldFallback = shouldFallbackToWorker(apiBaseUrl, error, init);
+      const shouldFallback = apiBaseUrl !== WORKER_FALLBACK_BASE_URL && !(error instanceof ApiError);
       if (!shouldFallback) {
         throw error;
       }
