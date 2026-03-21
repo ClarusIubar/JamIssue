@@ -315,12 +315,13 @@ export default function App() {
 
   function handleOpenPlaceWithReturn(placeId: string) {
     if (activeTab !== 'map') {
+      const preserveFeedFocus = activeTab !== 'feed';
       setReturnView({
         tab: activeTab,
         myPageTab,
-        activeCommentReviewId,
-        highlightedCommentId,
-        highlightedReviewId,
+        activeCommentReviewId: preserveFeedFocus ? activeCommentReviewId : null,
+        highlightedCommentId: preserveFeedFocus ? highlightedCommentId : null,
+        highlightedReviewId: preserveFeedFocus ? highlightedReviewId : null,
         placeId: selectedPlaceId,
         festivalId: selectedFestivalId,
         drawerState,
