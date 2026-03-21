@@ -1,9 +1,14 @@
-﻿import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 const scrollPositions = new Map<string, number>();
 
-export function useScrollRestoration<T extends HTMLElement>(key: string) {
+interface ScrollRestorationOptions {
+  skipRestore?: boolean;
+}
+
+export function useScrollRestoration<T extends HTMLElement>(key: string, options: ScrollRestorationOptions = {}) {
   const ref = useRef<T | null>(null);
+  const { skipRestore = false } = options;
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -12,6 +17,10 @@ export function useScrollRestoration<T extends HTMLElement>(key: string) {
     }
 
     const restoreScroll = () => {
+      if (skipRestore) {
+        return;
+      }
+
       const saved = scrollPositions.get(key);
       if (saved !== undefined) {
         el.scrollTop = saved;
@@ -36,7 +45,7 @@ export function useScrollRestoration<T extends HTMLElement>(key: string) {
       window.cancelAnimationFrame(rafA);
       window.cancelAnimationFrame(rafB);
     };
-  }, [key]);
+  }, [key, skipRestore]);
 
   return ref;
 }
