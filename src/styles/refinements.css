@@ -1273,3 +1273,13 @@ body {
   border-color: var(--role-tag-border) !important;
   color: var(--role-tag-text) !important;
 }
+
+.my-page-primary-tabs--admin {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+
+@media (max-width: 390px) {
+  .my-page-primary-tabs--admin {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+}

@@ -2,7 +2,7 @@ import type { PlaceCategory, PlaceCategoryFilter } from './lib/categories';
 
 export type Category = PlaceCategoryFilter;
 export type Tab = 'map' | 'event' | 'feed' | 'course' | 'my';
-export type MyPageTabKey = 'stamps' | 'feeds' | 'comments' | 'routes';
+export type MyPageTabKey = 'stamps' | 'feeds' | 'comments' | 'routes' | 'admin';
 export type DrawerState = 'closed' | 'partial' | 'full';
 export type ReviewMood = '\uD63C\uC790\uC11C' | '\uCE5C\uAD6C\uB791' | '\uB370\uC774\uD2B8' | '\uC57C\uACBD \uB9DB\uC9D1';
 export type CourseMood = '\uC804\uCCB4' | '\uB370\uC774\uD2B8' | '\uC0AC\uC9C4' | '\uD790\uB9C1' | '\uBE44 \uC624\uB294 \uB0A0';

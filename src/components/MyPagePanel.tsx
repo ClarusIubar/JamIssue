@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { AdminPanel } from './AdminPanel';
 import { ProviderButtons } from './ProviderButtons';
@@ -272,7 +272,7 @@ export function MyPagePanel({
           </section>
 
           <section className="sheet-card stack-gap">
-            <div className="chip-row compact-gap my-page-primary-tabs">
+            <div className={sessionUser.isAdmin ? 'chip-row compact-gap my-page-primary-tabs my-page-primary-tabs--admin' : 'chip-row compact-gap my-page-primary-tabs'}>
               <button type="button" className={activeTab === 'stamps' ? 'chip is-active' : 'chip'} onClick={() => onChangeTab('stamps')}>
                 {'\uC2A4\uD0EC\uD504'}
               </button>
@@ -285,6 +285,11 @@ export function MyPagePanel({
               <button type="button" className={activeTab === 'routes' ? 'chip is-active' : 'chip'} onClick={() => onChangeTab('routes')}>
                 {'\uCF54\uC2A4'}
               </button>
+              {sessionUser.isAdmin && (
+                <button type="button" className={activeTab === 'admin' ? 'chip is-active' : 'chip'} onClick={() => onChangeTab('admin')}>
+                  {'\uAD00\uB9AC'}
+                </button>
+              )}
             </div>
 
             {activeTab === 'stamps' && (
@@ -479,17 +484,16 @@ export function MyPagePanel({
                 </div>
               </div>
             )}
+            {activeTab === 'admin' && sessionUser.isAdmin && (
+              <AdminPanel
+                summary={adminSummary}
+                busyPlaceId={adminBusyPlaceId}
+                isImporting={adminLoading}
+                onRefreshImport={onRefreshAdmin}
+                onTogglePlace={onToggleAdminPlace}
+              />
+            )}
           </section>
-
-          {sessionUser.isAdmin && (
-            <AdminPanel
-              summary={adminSummary}
-              busyPlaceId={adminBusyPlaceId}
-              isImporting={adminLoading}
-              onRefreshImport={onRefreshAdmin}
-              onTogglePlace={onToggleAdminPlace}
-            />
-          )}
         </>
       )}
     </section>
