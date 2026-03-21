@@ -52,15 +52,6 @@ export function FeedCommentSheet({
     }
   }
 
-  async function handleDeleteReview() {
-    if (!review) {
-      return;
-    }
-    if (!window.confirm('이 피드를 삭제할까요?')) {
-      return;
-    }
-    await onDeleteReview(review.id);
-  }
 
   const sheetClassName = `feed-comment-sheet${isOpen ? ' feed-comment-sheet--open' : ' feed-comment-sheet--closed'}`;
   const isMine = review ? review.userId === currentUserId : false;
@@ -93,7 +84,7 @@ export function FeedCommentSheet({
                   <button
                     type="button"
                     className="secondary-button feed-comment-sheet__delete"
-                    onClick={() => void handleDeleteReview()}
+                    onClick={() => void onDeleteReview(review.id)}
                     disabled={deletingReviewId === review.id}
                   >
                     {deletingReviewId === review.id ? '삭제 중' : '피드 삭제'}
