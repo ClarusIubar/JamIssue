@@ -120,7 +120,7 @@ export default function App() {
     feedPlaceFilterId: string | null;
   } | null>(null);
   const [stampActionStatus, setStampActionStatus] = useState<ApiStatus>('idle');
-  const [stampActionMessage, setStampActionMessage] = useState('?μ냼瑜??좏깮?섎㈃ ?ㅻ뒛 諛⑸Ц ?몄쬆 媛???щ?瑜?諛붾줈 ?뺤씤?????덉뼱??');
+  const [stampActionMessage, setStampActionMessage] = useState('장소를 선택하면 오늘 스탬프 가능 여부를 바로 확인할 수 있어요.');
   const [routeSubmitting, setRouteSubmitting] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [routeLikeUpdatingId, setRouteLikeUpdatingId] = useState<string | null>(null);
@@ -512,31 +512,31 @@ export default function App() {
   }, [commitRouteState, filteredPlaces, selectedPlaceId]);
   useEffect(() => {
     if (!selectedPlace) {
-      setStampActionMessage('?μ냼瑜??좏깮?섎㈃ ?ㅻ뒛 諛⑸Ц ?몄쬆 媛???щ?瑜?諛붾줈 ?뺤씤?????덉뼱??');
+      setStampActionMessage('장소를 선택하면 오늘 스탬프 가능 여부를 바로 확인할 수 있어요.');
       return;
     }
 
     if (!sessionUser) {
-      setStampActionMessage(`${selectedPlace.name}?먯꽌 ?몄쬆?섎젮硫?癒쇱? 濡쒓렇?명빐 二쇱꽭??`);
+      setStampActionMessage(`${selectedPlace.name}에서 스탬프를 찍으려면 먼저 로그인해 주세요.`);
       return;
     }
 
     if (todayStamp) {
-      setStampActionMessage(`${todayStamp.visitLabel} ?ㅻ뒛 諛⑸Ц ?몄쬆???대? 留덉낀?댁슂.`);
+      setStampActionMessage(`${todayStamp.visitLabel} 오늘 스탬프를 이미 찍었어요.`);
       return;
     }
 
     if (typeof selectedPlaceDistanceMeters !== 'number') {
-      setStampActionMessage('?꾩옱 ?꾩튂瑜??뺤씤?섎㈃ ?ㅻ뒛 諛⑸Ц ?몄쬆 媛???щ?瑜?諛붾줈 ?덈궡???쒕┫寃뚯슂.');
+      setStampActionMessage('현재 위치를 확인하면 오늘 스탬프 가능 여부를 바로 안내해 드릴게요.');
       return;
     }
 
     if (selectedPlaceDistanceMeters <= STAMP_UNLOCK_RADIUS_METERS) {
-      setStampActionMessage(`?꾩옣 諛섍꼍 ${formatDistanceMeters(selectedPlaceDistanceMeters)} ?덉씠?먯슂. 吏湲?諛붾줈 ?ㅻ뒛 諛⑸Ц ?몄쬆??吏꾪뻾?????덉뼱??`);
+      setStampActionMessage(`현장 반경 ${formatDistanceMeters(selectedPlaceDistanceMeters)} 안이에요. 지금 바로 오늘 스탬프를 찍을 수 있어요.`);
       return;
     }
 
-    setStampActionMessage(`?꾩옣源뚯? ${formatDistanceMeters(selectedPlaceDistanceMeters)} ?⑥븯?댁슂. ${STAMP_UNLOCK_RADIUS_METERS}m ?덉쑝濡??ㅼ뼱?ㅻ㈃ ?ㅻ뒛 諛⑸Ц ?몄쬆???????덉뼱??`);
+    setStampActionMessage(`현장까지 ${formatDistanceMeters(selectedPlaceDistanceMeters)} 남았어요. ${STAMP_UNLOCK_RADIUS_METERS}m 안으로 들어오면 오늘 스탬프를 찍을 수 있어요.`);
   }, [selectedPlace, selectedPlaceDistanceMeters, sessionUser, todayStamp]);
 
   async function loadApp(withLoading: boolean) {
@@ -1032,12 +1032,12 @@ export default function App() {
   }
 
   const reviewProofMessage = !sessionUser
-    ? '濡쒓렇?명븯硫??ㅻ뒛 諛⑸Ц ?몄쬆 ?ㅼ뿉留??쇰뱶瑜??④만 ???덉뼱??'
+    ? '로그인하면 오늘 방문 인증 뒤에만 피드를 남길 수 있어요.'
     : hasCreatedReviewToday
-      ? '?ㅻ뒛? ?대? ?쇰뱶瑜??묒꽦?덉뼱?? ?쇰뱶???섎（???섎굹留??④만 ???덉뼱??'
+      ? '오늘은 이미 피드를 작성했어요. 피드는 하루에 하나만 남길 수 있어요.'
       : todayStamp
-        ? `${todayStamp.visitLabel} 諛⑸Ц ?몄쬆???꾨즺?먯뼱?? ?ㅻ뒛 ?쇰뱶 ??媛쒕? ?묒꽦?????덉뼱??`
-        : '?ㅻ뒛 諛⑸Ц ?몄쬆??癒쇱? 留덉퀜???쇰뱶瑜??묒꽦?????덉뼱??';
+        ? `${todayStamp.visitLabel} 방문 스탬프가 확인됐어요. 오늘 피드 한 개를 작성할 수 있어요.`
+        : '오늘 방문 스탬프를 먼저 마치면 피드를 작성할 수 있어요.';
 
   return (
     <div className="map-app-shell">
