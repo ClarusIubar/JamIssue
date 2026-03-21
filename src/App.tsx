@@ -1040,10 +1040,18 @@ export default function App() {
     }
   }
 
-  const canNavigateBack = activeCommentReviewId !== null || activeTab !== 'map' || selectedPlaceId !== null || selectedFestivalId !== null || drawerState !== 'closed' || selectedRoutePreview !== null;
+  const canNavigateBack =
+    returnView !== null ||
+    activeCommentReviewId !== null ||
+    activeTab !== 'map' ||
+    selectedPlaceId !== null ||
+    selectedFestivalId !== null ||
+    drawerState !== 'closed' ||
+    selectedRoutePreview !== null ||
+    (typeof window !== 'undefined' && window.history.length > 1);
 
   function handleNavigateBack() {
-    if (returnView && activeTab !== returnView.tab) {
+    if (returnView) {
       setMyPageTab(returnView.myPageTab);
       setActiveCommentReviewId(returnView.activeCommentReviewId);
       setHighlightedCommentId(returnView.highlightedCommentId);

@@ -221,7 +221,7 @@ export function FloatingBackButton({ onNavigateBack }: FloatingBackButtonProps) 
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
       onClick={handleClick}
-      aria-label="?? ???? ????"
+      aria-label="이전 화면으로 돌아가기"
     >
       <span aria-hidden="true">{'\u2190'}</span>
     </button>
