@@ -40,6 +40,7 @@ import {
 } from './hooks/useAppRouteState';
 import { useAppDataState } from './hooks/useAppDataState';
 import { useAppTabDataLoaders } from './hooks/useAppTabDataLoaders';
+import { useAppUIStore } from './store/app-ui-store';
 import { getCurrentDevicePosition } from './lib/geolocation';
 import {
   calculateDistanceMeters,
@@ -52,9 +53,7 @@ import type {
   ApiStatus,
   Category,
   CommunityRouteSort,
-  DrawerState,
   FestivalItem,
-  MyPageTabKey,
   Place,
   ReviewMood,
   RoutePreview,
@@ -110,9 +109,12 @@ export default function App() {
 
   const [initialMapViewport] = useState(getInitialMapViewport);
 
-  const [myPageTab, setMyPageTab] = useState<MyPageTabKey>('stamps');
-  const [feedPlaceFilterId, setFeedPlaceFilterId] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<Category>('all');
+  const myPageTab = useAppUIStore((state) => state.myPageTab);
+  const setMyPageTab = useAppUIStore((state) => state.setMyPageTab);
+  const feedPlaceFilterId = useAppUIStore((state) => state.feedPlaceFilterId);
+  const setFeedPlaceFilterId = useAppUIStore((state) => state.setFeedPlaceFilterId);
+  const activeCategory = useAppUIStore((state) => state.activeCategory);
+  const setActiveCategory = useAppUIStore((state) => state.setActiveCategory);
   const [notice, setNotice] = useState<string | null>(getInitialNotice);
   const [currentPosition, setCurrentPosition] = useState<{ latitude: number; longitude: number } | null>(null);
   const [mapLocationStatus, setMapLocationStatus] = useState<ApiStatus>('idle');
@@ -124,20 +126,14 @@ export default function App() {
   const [commentSubmittingReviewId, setCommentSubmittingReviewId] = useState<string | null>(null);
   const [commentMutatingId, setCommentMutatingId] = useState<string | null>(null);
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
-  const [activeCommentReviewId, setActiveCommentReviewId] = useState<string | null>(null);
-  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
-  const [highlightedReviewId, setHighlightedReviewId] = useState<string | null>(null);
-  const [returnView, setReturnView] = useState<{
-    tab: Tab;
-    myPageTab: MyPageTabKey;
-    activeCommentReviewId: string | null;
-    highlightedCommentId: string | null;
-    highlightedReviewId: string | null;
-    placeId: string | null;
-    festivalId: string | null;
-    drawerState: DrawerState;
-    feedPlaceFilterId: string | null;
-  } | null>(null);
+  const activeCommentReviewId = useAppUIStore((state) => state.activeCommentReviewId);
+  const setActiveCommentReviewId = useAppUIStore((state) => state.setActiveCommentReviewId);
+  const highlightedCommentId = useAppUIStore((state) => state.highlightedCommentId);
+  const setHighlightedCommentId = useAppUIStore((state) => state.setHighlightedCommentId);
+  const highlightedReviewId = useAppUIStore((state) => state.highlightedReviewId);
+  const setHighlightedReviewId = useAppUIStore((state) => state.setHighlightedReviewId);
+  const returnView = useAppUIStore((state) => state.returnView);
+  const setReturnView = useAppUIStore((state) => state.setReturnView);
   const [stampActionStatus, setStampActionStatus] = useState<ApiStatus>('idle');
   const [stampActionMessage, setStampActionMessage] = useState('장소를 선택하면 오늘 스탬프 가능 여부를 바로 확인할 수 있어요.');
   const [routeSubmitting, setRouteSubmitting] = useState(false);
