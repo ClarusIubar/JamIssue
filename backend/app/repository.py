@@ -9,6 +9,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from .config import Settings
@@ -74,6 +75,26 @@ def to_seoul_date(value: datetime | None = None) -> date:
 
 def generate_user_id() -> str:
     return f"user-{uuid4().hex[:20]}"
+
+
+def _nickname_exists(db: Session, nickname: str, *, exclude_user_id: str | None = None) -> bool:
+    stmt = select(User.user_id).where(func.lower(User.nickname) == nickname.lower())
+    if exclude_user_id:
+        stmt = stmt.where(User.user_id != exclude_user_id)
+    return db.scalar(stmt.limit(1)) is not None
+
+
+def generate_unique_nickname(db: Session, base_nickname: str) -> str:
+    """닉네임이 이미 존재하면 유일해질 때까지 숫자 접미사를 붙여 반환합니다."""
+    base = base_nickname.strip() or "이름 없음"
+    if not _nickname_exists(db, base):
+        return base
+    # nickname 컬럼은 String(100)이므로 접미사(최대 4자리)를 위해 95자로 자릅니다.
+    for suffix in range(2, 10000):
+        candidate = f"{base[:95]}{suffix}"
+        if not _nickname_exists(db, candidate):
+            return candidate
+    raise ValueError("사용 가능한 닉네임을 만들 수 없어요.")
 
 
 def format_datetime(value: datetime) -> str:
@@ -284,22 +305,31 @@ def upsert_social_user(
     now = utcnow_naive()
 
     if identity:
-        dirty = _sync_user_profile(identity.user, nickname, email=email, provider=provider)
+        user = identity.user
+        changed = False
+        if user.email != email:
+            user.email = email
+            changed = True
+        if user.provider != provider:
+            user.provider = provider
+            changed = True
         if identity.email != email:
             identity.email = email
-            dirty = True
+            changed = True
         if identity.profile_image != profile_image:
             identity.profile_image = profile_image
-            dirty = True
-        if dirty:
+            changed = True
+        if changed:
             identity.updated_at = now
-            db.commit()
-            db.refresh(identity.user)
-        return identity.user
+            user.updated_at = now
+        db.commit()
+        db.refresh(user)
+        return user
 
+    safe_nickname = generate_unique_nickname(db, nickname)
     user = User(
         user_id=generate_user_id(),
-        nickname=nickname,
+        nickname=safe_nickname,
         email=email,
         provider=provider,
         created_at=now,
@@ -319,7 +349,11 @@ def upsert_social_user(
             updated_at=now,
         )
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise ValueError("이미 사용 중인 닉네임이에요.") from error
     db.refresh(user)
     return user
 
