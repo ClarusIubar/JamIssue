@@ -193,8 +193,9 @@ API:
 1. [20260323_reset_all_app_data.sql](/D:/Code305/JamIssue/backend/sql/migrations/20260323_reset_all_app_data.sql)
 2. [20260323_add_place_images_bucket.sql](/D:/Code305/JamIssue/backend/sql/migrations/20260323_add_place_images_bucket.sql)
 3. [20260323_seed_sample_places.sql](/D:/Code305/JamIssue/backend/sql/migrations/20260323_seed_sample_places.sql)
-4. 필요 시 [20260323_fix_hanbat_yurim_coordinates.sql](/D:/Code305/JamIssue/backend/sql/migrations/20260323_fix_hanbat_yurim_coordinates.sql)
-5. 이미지 업로드 스크립트 실행
+4. 이미지 업로드 스크립트 실행
+
+좌표 보정이 포함된 최신 정본은 이미 `20260323_seed_sample_places.sql`에 반영돼 있습니다.
 
 주의:
 - 이 초기화는 사용자/스탬프/피드/댓글/코스까지 모두 비웁니다.
