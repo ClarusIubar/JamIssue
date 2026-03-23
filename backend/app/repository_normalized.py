@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 from math import asin, cos, radians, sin, sqrt
@@ -52,6 +53,8 @@ from .models import (
 from .naver_oauth import NaverProfile
 from .public_data import import_public_bundle as sync_public_bundle
 from .public_data import load_public_bundle as load_public_bundle_payload
+
+_logger = logging.getLogger(__name__)
 
 KST = ZoneInfo("Asia/Seoul")
 LEGACY_PROVIDERS = ("demo", "seed")
@@ -313,6 +316,59 @@ def build_unique_social_nickname(db: Session, nickname: str, *, exclude_user_id:
     raise ValueError("?ъ슜 媛?ν븳 ?됰꽕?꾩쓣 留뚮뱾 ???놁뼱??")
 
 
+def _sync_user_profile(
+    db: Session,
+    user: User,
+    identity: UserIdentity,
+    *,
+    nickname: str,
+    email: str | None,
+    profile_image: str | None,
+    provider: str,
+) -> None:
+    """Sync fields from a social-provider response onto an existing user row.
+
+    Nickname is updated only while the user has not explicitly completed their
+    profile (profile_completed_at is None). Race-condition IntegrityErrors during
+    the commit are caught, the transaction is rolled back, and a warning is logged
+    so that the returning login never fails with an unhandled server error.
+    """
+    now = utcnow_naive()
+    changed = False
+
+    if user.email != email:
+        user.email = email
+        changed = True
+    if user.provider != provider:
+        user.provider = provider
+        changed = True
+    if identity.email != email:
+        identity.email = email
+        changed = True
+    if identity.profile_image != profile_image:
+        identity.profile_image = profile_image
+        changed = True
+
+    if user.profile_completed_at is None and nickname:
+        candidate = build_unique_social_nickname(db, nickname, exclude_user_id=user.user_id)
+        if user.nickname != candidate:
+            user.nickname = candidate
+            changed = True
+
+    if not changed:
+        return
+
+    identity.updated_at = now
+    user.updated_at = now
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        _logger.warning(
+            "Integrity constraint violation during social profile sync for user %s; skipping update.",
+            user.user_id,
+        )
+
 def upsert_social_user(
     db: Session,
     *,
@@ -331,23 +387,13 @@ def upsert_social_user(
 
     if identity:
         user = identity.user
-        changed = False
-        if user.email != email:
-            user.email = email
-            changed = True
-        if user.provider != provider:
-            user.provider = provider
-            changed = True
-        if identity.email != email:
-            identity.email = email
-            changed = True
-        if identity.profile_image != profile_image:
-            identity.profile_image = profile_image
-            changed = True
-        if changed:
-            identity.updated_at = now
-            user.updated_at = now
-        db.commit()
+        _sync_user_profile(
+            db, user, identity,
+            nickname=nickname,
+            email=email,
+            profile_image=profile_image,
+            provider=provider,
+        )
         db.refresh(user)
         return user
 

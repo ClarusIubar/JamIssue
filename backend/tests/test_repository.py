@@ -353,3 +353,24 @@ def test_social_signup_generates_distinct_duplicate_nickname(tmp_path: Path):
     assert first.nickname == '민서'
     assert second.nickname != '민서'
     assert second.nickname.startswith('민서')
+
+def test_social_profile_sync_assigns_unique_variant_on_nickname_conflict(tmp_path: Path):
+    """A returning social user whose provider now returns a taken nickname gets a unique variant."""
+    session = build_session(tmp_path)
+
+    # User A claims '가은'
+    user_a = upsert_social_user(session, provider='naver', provider_user_id='naver-a', nickname='가은', email='a@example.com')
+    # User B registers with a different nickname '소희'
+    user_b = upsert_social_user(session, provider='kakao', provider_user_id='kakao-b', nickname='소희', email='b@example.com')
+
+    # User B's social provider now returns '가은' (already owned by user A)
+    returned_b = upsert_social_user(session, provider='kakao', provider_user_id='kakao-b', nickname='가은', email='b@example.com')
+
+    # User B is still the same account
+    assert returned_b.user_id == user_b.user_id
+    # User B receives a unique variant, not the conflicting '가은'
+    assert returned_b.nickname != '가은'
+    assert returned_b.nickname.startswith('가은')
+    # User A's nickname is unchanged
+    session.refresh(user_a)
+    assert user_a.nickname == '가은'
