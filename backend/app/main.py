@@ -50,30 +50,8 @@ from .naver_oauth import (
     generate_oauth_state,
 )
 from .public_event_api import router as public_event_router
-from .repository_normalized import (
-    create_comment,
-    create_review,
-    delete_account,
-    delete_comment,
-    delete_review,
-    get_admin_summary,
-    get_bootstrap,
-    get_my_page,
-    get_place,
-    get_review_comments,
-    get_stamps,
-    import_public_bundle,
-    list_courses,
-    list_places,
-    list_reviews,
-    to_session_user,
-    toggle_review_like,
-    update_user_profile,
-    toggle_stamp,
-    update_place_visibility,
-    upsert_naver_user,
-    link_naver_identity,
-)
+from .repositories import PlaceRepository, ReviewRepository, StampRepository, UserRepository
+from .services import PlaceService, ReviewService, StampService, UserService
 from .seed import seed_database
 from .storage import get_storage_adapter
 from .user_routes_normalized import (
@@ -119,7 +97,30 @@ PROVIDER_LABELS = {
 SUPPORTED_PROVIDERS = tuple(PROVIDER_LABELS.keys())
 
 
-@app.on_event("startup")
+# ------------------------------------------------------------------
+# 서비스 레이어 의존성 주입 팩토리
+# ------------------------------------------------------------------
+
+def get_user_service(db: Session = Depends(get_db)) -> UserService:
+    """UserService 인스턴스를 FastAPI 의존성으로 제공합니다."""
+    return UserService(UserRepository(db))
+
+
+def get_stamp_service(db: Session = Depends(get_db)) -> StampService:
+    """StampService 인스턴스를 FastAPI 의존성으로 제공합니다."""
+    return StampService(PlaceRepository(db), StampRepository(db), UserRepository(db))
+
+
+def get_review_service(db: Session = Depends(get_db)) -> ReviewService:
+    """ReviewService 인스턴스를 FastAPI 의존성으로 제공합니다."""
+    return ReviewService(ReviewRepository(db), PlaceRepository(db), StampRepository(db), UserRepository(db))
+
+
+def get_place_service(db: Session = Depends(get_db)) -> PlaceService:
+    """PlaceService 인스턴스를 FastAPI 의존성으로 제공합니다."""
+    return PlaceService(PlaceRepository(db), ReviewRepository(db), StampRepository(db), UserRepository(db), db)
+
+
 def on_startup() -> None:
     """로컬 개발환경에서는 업로드 디렉터리와 기본 DB를 준비합니다."""
 
@@ -215,16 +216,16 @@ def read_auth_session(
 def patch_auth_profile(
     payload: ProfileUpdateRequest,
     response: Response,
-    db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
     app_settings: Settings = Depends(get_settings),
+    user_svc: UserService = Depends(get_user_service),
 ) -> AuthSessionResponse:
     try:
-        user = update_user_profile(db, session_user.id, payload)
+        user = user_svc.update_profile(session_user.id, payload)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
 
-    next_session_user = to_session_user(user, app_settings.is_admin(user.user_id), provider=user.provider)
+    next_session_user = UserService.to_session_user(user, app_settings.is_admin(user.user_id), provider=user.provider)
     access_token = issue_access_token(app_settings, next_session_user)
     response.set_cookie(
         key=ACCESS_TOKEN_COOKIE,
@@ -302,12 +303,12 @@ def start_link_login(
 @app.get("/api/auth/naver/callback", tags=["auth"])
 def finish_naver_login(
     request: Request,
-    db: Session = Depends(get_db),
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
     error_description: str | None = None,
     app_settings: Settings = Depends(get_settings),
+    user_svc: UserService = Depends(get_user_service),
 ) -> RedirectResponse:
     redirect_target = get_redirect_target(request, app_settings)
     expected_state = request.session.pop("naver_oauth_state", None)
@@ -330,10 +331,10 @@ def finish_naver_login(
         token_payload = exchange_code_for_token(app_settings, code, state)
         profile = fetch_naver_profile(token_payload["access_token"])
         if link_user_id and link_provider == "naver":
-            user = link_naver_identity(db, link_user_id, profile)
+            user = user_svc.link_naver_identity(link_user_id, profile)
             success_code = "naver-linked"
         else:
-            user = upsert_naver_user(db, profile)
+            user = user_svc.upsert_naver_user(profile)
             success_code = "naver-success"
     except (HTTPException, ValueError) as oauth_error:
         detail = oauth_error.detail if isinstance(oauth_error, HTTPException) else str(oauth_error)
@@ -342,7 +343,7 @@ def finish_naver_login(
             status_code=status.HTTP_302_FOUND,
         )
 
-    session_user = to_session_user(
+    session_user = UserService.to_session_user(
         user,
         app_settings.is_admin(user.user_id),
         profile.profile_image,
@@ -377,24 +378,24 @@ def logout(
 
 @app.get("/api/bootstrap", response_model=BootstrapResponse, tags=["bootstrap"])
 def bootstrap(
-    db: Session = Depends(get_db),
     session_user: SessionUser | None = Depends(get_session_user),
+    place_svc: PlaceService = Depends(get_place_service),
 ) -> BootstrapResponse:
-    return get_bootstrap(db, session_user.id if session_user else None)
+    return place_svc.get_bootstrap(session_user.id if session_user else None)
 
 
 @app.get("/api/places", response_model=list[PlaceOut], tags=["places"])
 def read_places(
     category: CategoryFilter = Query(default="all"),
-    db: Session = Depends(get_db),
+    place_svc: PlaceService = Depends(get_place_service),
 ) -> list[PlaceOut]:
-    return list_places(db, category)
+    return place_svc.list_places(category)
 
 
 @app.get("/api/places/{place_id}", response_model=PlaceOut, tags=["places"])
-def read_place(place_id: str, db: Session = Depends(get_db)) -> PlaceOut:
+def read_place(place_id: str, place_svc: PlaceService = Depends(get_place_service)) -> PlaceOut:
     try:
-        return get_place(db, place_id)
+        return place_svc.get_place(place_id)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
@@ -402,9 +403,9 @@ def read_place(place_id: str, db: Session = Depends(get_db)) -> PlaceOut:
 @app.get("/api/courses", response_model=list[CourseOut], tags=["courses"])
 def read_courses(
     mood: CourseMood | None = Query(default=None),
-    db: Session = Depends(get_db),
+    place_svc: PlaceService = Depends(get_place_service),
 ) -> list[CourseOut]:
-    return list_courses(db, mood)
+    return place_svc.list_courses(mood)
 
 
 @app.get("/api/community-routes", response_model=list[UserRouteOut], tags=["community-routes"])
@@ -471,20 +472,20 @@ def read_my_routes(
 def read_reviews(
     place_id: str | None = Query(default=None, alias="placeId"),
     user_id: str | None = Query(default=None, alias="userId"),
-    db: Session = Depends(get_db),
     session_user: SessionUser | None = Depends(get_session_user),
+    review_svc: ReviewService = Depends(get_review_service),
 ) -> list[ReviewOut]:
-    return list_reviews(db, place_id=place_id, user_id=user_id, current_user_id=session_user.id if session_user else None)
+    return review_svc.list_reviews(place_id=place_id, user_id=user_id, current_user_id=session_user.id if session_user else None)
 
 
 @app.post("/api/reviews", response_model=ReviewOut, status_code=status.HTTP_201_CREATED, tags=["reviews"])
 def write_review(
     payload: ReviewCreate,
-    db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
+    review_svc: ReviewService = Depends(get_review_service),
 ) -> ReviewOut:
     try:
-        return create_review(db, payload, session_user.id, session_user.nickname)
+        return review_svc.create_review(payload, session_user.id, session_user.nickname)
     except ValueError as error:
         detail = str(error)
         status_code = status.HTTP_400_BAD_REQUEST
@@ -496,11 +497,11 @@ def write_review(
 @app.delete("/api/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["reviews"])
 def remove_review(
     review_id: str,
-    db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
+    review_svc: ReviewService = Depends(get_review_service),
 ) -> Response:
     try:
-        delete_review(db, review_id, session_user.id, is_admin=session_user.is_admin)
+        review_svc.delete_review(review_id, session_user.id, is_admin=session_user.is_admin)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     except PermissionError as error:
@@ -511,11 +512,11 @@ def remove_review(
 @app.post("/api/reviews/{review_id}/like", response_model=ReviewLikeResponse, tags=["reviews"])
 def like_review(
     review_id: str,
-    db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
+    review_svc: ReviewService = Depends(get_review_service),
 ) -> ReviewLikeResponse:
     try:
-        return toggle_review_like(db, review_id, session_user.id, session_user.nickname)
+        return review_svc.toggle_like(review_id, session_user.id, session_user.nickname)
     except ValueError as error:
         detail = str(error)
         status_code = status.HTTP_400_BAD_REQUEST
@@ -525,9 +526,9 @@ def like_review(
 
 
 @app.get("/api/reviews/{review_id}/comments", response_model=list[CommentOut], tags=["reviews"])
-def read_review_comments(review_id: str, db: Session = Depends(get_db)) -> list[CommentOut]:
+def read_review_comments(review_id: str, review_svc: ReviewService = Depends(get_review_service)) -> list[CommentOut]:
     try:
-        return get_review_comments(db, review_id)
+        return review_svc.get_comments(review_id)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
 
@@ -536,11 +537,11 @@ def read_review_comments(review_id: str, db: Session = Depends(get_db)) -> list[
 def write_review_comment(
     review_id: str,
     payload: CommentCreate,
-    db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
+    review_svc: ReviewService = Depends(get_review_service),
 ) -> list[CommentOut]:
     try:
-        return create_comment(db, review_id, payload, session_user.id, session_user.nickname)
+        return review_svc.create_comment(review_id, payload, session_user.id, session_user.nickname)
     except ValueError as error:
         detail = str(error)
         status_code = status.HTTP_400_BAD_REQUEST
@@ -553,11 +554,11 @@ def write_review_comment(
 def remove_review_comment(
     review_id: str,
     comment_id: str,
-    db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
+    review_svc: ReviewService = Depends(get_review_service),
 ) -> list[CommentOut]:
     try:
-        return delete_comment(db, review_id, comment_id, session_user.id, is_admin=session_user.is_admin)
+        return review_svc.delete_comment(review_id, comment_id, session_user.id, is_admin=session_user.is_admin)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     except PermissionError as error:
@@ -601,12 +602,12 @@ async def upload_review_image(
 
 @app.get("/api/my/summary", response_model=MyPageResponse, tags=["my"])
 def read_my_summary(
-    db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
     app_settings: Settings = Depends(get_settings),
+    place_svc: PlaceService = Depends(get_place_service),
 ) -> MyPageResponse:
     try:
-        return get_my_page(db, session_user.id, app_settings.is_admin(session_user.id))
+        return place_svc.get_my_page(session_user.id, app_settings.is_admin(session_user.id))
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
@@ -614,11 +615,11 @@ def read_my_summary(
 @app.delete("/api/my/account", status_code=status.HTTP_204_NO_CONTENT, tags=["my"])
 def remove_my_account(
     response: Response,
-    db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
+    user_svc: UserService = Depends(get_user_service),
 ) -> Response:
     try:
-        delete_account(db, session_user.id)
+        user_svc.delete_account(session_user.id)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     response.delete_cookie(ACCESS_TOKEN_COOKIE, path="/")
@@ -628,22 +629,21 @@ def remove_my_account(
 
 @app.get("/api/stamps", response_model=StampState, tags=["stamps"])
 def read_stamps(
-    db: Session = Depends(get_db),
     session_user: SessionUser | None = Depends(get_session_user),
+    stamp_svc: StampService = Depends(get_stamp_service),
 ) -> StampState:
-    return get_stamps(db, session_user.id if session_user else None)
+    return stamp_svc.get_stamps(session_user.id if session_user else None)
 
 
 @app.post("/api/stamps/toggle", response_model=StampState, tags=["stamps"])
 def write_stamp_toggle(
     payload: StampToggleRequest,
-    db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
     app_settings: Settings = Depends(get_settings),
+    stamp_svc: StampService = Depends(get_stamp_service),
 ) -> StampState:
     try:
-        return toggle_stamp(
-            db,
+        return stamp_svc.toggle_stamp(
             session_user.id,
             payload.place_id,
             payload.latitude,
@@ -658,31 +658,31 @@ def write_stamp_toggle(
 
 @app.get("/api/admin/summary", response_model=AdminSummaryResponse, tags=["admin"])
 def read_admin_summary(
-    db: Session = Depends(get_db),
     _: SessionUser = Depends(require_admin_user),
     app_settings: Settings = Depends(get_settings),
+    place_svc: PlaceService = Depends(get_place_service),
 ) -> AdminSummaryResponse:
-    return get_admin_summary(db, app_settings)
+    return place_svc.get_admin_summary(app_settings)
 
 
 @app.patch("/api/admin/places/{place_id}", response_model=AdminPlaceOut, tags=["admin"])
 def patch_place_visibility(
     place_id: str,
     payload: PlaceVisibilityUpdate,
-    db: Session = Depends(get_db),
     _: SessionUser = Depends(require_admin_user),
+    place_svc: PlaceService = Depends(get_place_service),
 ) -> AdminPlaceOut:
     try:
-        return update_place_visibility(db, place_id, payload.is_active)
+        return place_svc.update_place_visibility(place_id, payload.is_active)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
 
 @app.post("/api/admin/import/public-data", response_model=PublicImportResponse, tags=["admin"])
 def import_public_data(
-    db: Session = Depends(get_db),
     _: SessionUser = Depends(require_admin_user),
     app_settings: Settings = Depends(get_settings),
+    place_svc: PlaceService = Depends(get_place_service),
 ) -> PublicImportResponse:
-    return import_public_bundle(db, app_settings)
+    return place_svc.import_public_bundle(app_settings)
 
