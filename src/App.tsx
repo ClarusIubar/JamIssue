@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   getReviews,
-  getReviewDetail,
 } from './api/client';
 import { BottomNav } from './components/BottomNav';
 import { CourseTab } from './components/CourseTab';
@@ -22,6 +21,7 @@ import { useAppDataState } from './hooks/useAppDataState';
 import { useAppTabDataLoaders } from './hooks/useAppTabDataLoaders';
 import { useAppMutationActions } from './hooks/useAppMutationActions';
 import { useAppBootstrapActions } from './hooks/useAppBootstrapActions';
+import { useAppNavigationActions } from './hooks/useAppNavigationActions';
 import { useAppPaginationActions } from './hooks/useAppPaginationActions';
 import { useAppUIStore } from './store/app-ui-store';
 import { useAppRuntimeStore } from './store/app-runtime-store';
@@ -346,6 +346,48 @@ export default function App() {
   });
 
   const {
+    handleOpenReviewComments,
+    handleCloseReviewComments,
+    handleOpenRoutePreview,
+    handleOpenPlaceWithReturn,
+    handleOpenFestivalWithReturn,
+    handleOpenReviewWithReturn,
+    handleOpenPlaceFeedWithReturn,
+    handleOpenCommentWithReturn,
+    canNavigateBack,
+    handleNavigateBack,
+    handleBottomNavChange,
+  } = useAppNavigationActions({
+    activeTab,
+    myPageTab,
+    activeCommentReviewId,
+    highlightedCommentId,
+    highlightedReviewId,
+    selectedPlaceId,
+    selectedFestivalId,
+    drawerState,
+    feedPlaceFilterId,
+    selectedRoutePreview,
+    reviews,
+    selectedPlaceReviews,
+    myPageReviews: myPage?.reviews ?? [],
+    setActiveCommentReviewId,
+    setHighlightedCommentId,
+    setHighlightedReviewId,
+    setReturnView,
+    returnView,
+    setSelectedRoutePreview,
+    setFeedPlaceFilterId,
+    setMyPageTab,
+    setNotice,
+    upsertReviewCollections,
+    commitRouteState,
+    goToTab,
+    openPlace,
+    openFestival,
+  });
+
+  const {
     handleClaimStamp,
     handleCreateReview,
     handleCreateComment,
@@ -412,345 +454,6 @@ export default function App() {
     setProviders,
     setIsLoggingOut,
   });
-
-  function handleOpenReviewComments(reviewId: string, commentId: string | null = null) {
-    goToTab('feed');
-    setHighlightedReviewId(reviewId ?? null);
-    setActiveCommentReviewId(reviewId);
-    setHighlightedCommentId(commentId);
-  }
-
-  function handleCloseReviewComments() {
-    setActiveCommentReviewId(null);
-    setHighlightedCommentId(null);
-  }
-
-  function handleOpenRoutePreview(route: RoutePreview) {
-    if (activeTab !== 'map') {
-      setReturnView({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId,
-        highlightedCommentId,
-        highlightedReviewId,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      });
-    }
-    setSelectedRoutePreview(route);
-    handleCloseReviewComments();
-    commitRouteState({ tab: 'map', placeId: null, festivalId: null, drawerState: 'closed' }, activeTab === 'map' ? 'replace' : 'push');
-  }
-
-  function handleOpenPlaceWithReturn(placeId: string) {
-    if (activeTab !== 'map') {
-      const preserveFeedFocus = activeTab !== 'feed';
-      setReturnView({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId: preserveFeedFocus ? activeCommentReviewId : null,
-        highlightedCommentId: preserveFeedFocus ? highlightedCommentId : null,
-        highlightedReviewId: preserveFeedFocus ? highlightedReviewId : null,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      });
-    }
-    setSelectedRoutePreview(null);
-    openPlace(placeId);
-  }
-
-
-  function handleOpenFestivalWithReturn(festivalId: string) {
-    if (activeTab !== 'map') {
-      setReturnView({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId,
-        highlightedCommentId,
-        highlightedReviewId,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      });
-    }
-    setSelectedRoutePreview(null);
-    openFestival(festivalId);
-  }
-  async function ensureReviewLoadedById(reviewId: string | null) {
-    if (!reviewId) {
-      return null;
-    }
-
-    const existing = [...reviews, ...selectedPlaceReviews, ...(myPage?.reviews ?? [])].find((review) => review.id === reviewId) ?? null;
-    if (existing) {
-      upsertReviewCollections(existing);
-      return existing;
-    }
-
-    try {
-      const loaded = await getReviewDetail(reviewId);
-      upsertReviewCollections(loaded);
-      return loaded;
-    } catch (error) {
-      setNotice(formatErrorMessage(error));
-      return null;
-    }
-  }
-
-  async function handleOpenReviewWithReturn(reviewId: string | null) {
-    await ensureReviewLoadedById(reviewId);
-    if (activeTab !== 'feed') {
-      setReturnView({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId,
-        highlightedCommentId,
-        highlightedReviewId,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      });
-    }
-    setFeedPlaceFilterId(null);
-    setHighlightedReviewId(reviewId);
-    setHighlightedCommentId(null);
-    setActiveCommentReviewId(null);
-    goToTab('feed');
-  }
-
-  function handleOpenPlaceFeedWithReturn(placeId: string) {
-    if (activeTab !== 'feed') {
-      setReturnView({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId,
-        highlightedCommentId,
-        highlightedReviewId,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      });
-    }
-    setSelectedRoutePreview(null);
-    setSelectedRoutePreview(null);
-    setFeedPlaceFilterId(placeId);
-    setHighlightedReviewId(null);
-    setHighlightedCommentId(null);
-    setActiveCommentReviewId(null);
-    goToTab('feed');
-  }
-
-  async function handleOpenCommentWithReturn(reviewId: string, commentId: string | null = null) {
-    if (activeTab !== 'feed') {
-      setReturnView({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId,
-        highlightedCommentId,
-        highlightedReviewId,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      });
-    }
-    await ensureReviewLoadedById(reviewId);
-    handleOpenReviewComments(reviewId, commentId);
-  }
-
-  useEffect(() => {
-    if (notice === null) {
-      setNotice(getInitialNotice());
-    }
-  }, [notice, setNotice]);
-
-  useEffect(() => {
-    if (!selectedPlace) {
-      setStampActionMessage('\uC7A5\uC18C\uB97C \uC120\uD0DD\uD558\uBA74 \uC624\uB298 \uC2A4\uD0EC\uD504 \uAC00\uB2A5 \uC5EC\uBD80\uB97C \uBC14\uB85C \uD655\uC778\uD560 \uC218 \uC788\uC5B4\uC694.');
-      return;
-    }
-
-    if (!sessionUser) {
-      setStampActionMessage(`${selectedPlace.name}\uC5D0\uC11C \uC2A4\uD0EC\uD504\uB97C \uCC0D\uC73C\uB824\uBA74 \uBA3C\uC800 \uB85C\uADF8\uC778\uD574 \uC8FC\uC138\uC694.`);
-      return;
-    }
-
-    if (todayStamp) {
-      setStampActionMessage(`${todayStamp.visitLabel} \uC624\uB298 \uC2A4\uD0EC\uD504\uB97C \uC774\uBBF8 \uCC0D\uC5C8\uC5B4\uC694.`);
-      return;
-    }
-
-    if (typeof selectedPlaceDistanceMeters !== 'number') {
-      setStampActionMessage('\uD604\uC7AC \uC704\uCE58\uB97C \uD655\uC778\uD558\uBA74 \uC624\uB298 \uC2A4\uD0EC\uD504 \uAC00\uB2A5 \uC5EC\uBD80\uB97C \uBC14\uB85C \uC548\uB0B4\uD574 \uB4DC\uB9B4\uAC8C\uC694.');
-      return;
-    }
-
-    if (selectedPlaceDistanceMeters <= STAMP_UNLOCK_RADIUS_METERS) {
-      setStampActionMessage(`\uD604\uC7A5 \uBC18\uACBD ${formatDistanceMeters(selectedPlaceDistanceMeters)} \uC548\uC774\uC5D0\uC694. \uC9C0\uAE08 \uBC14\uB85C \uC624\uB298 \uC2A4\uD0EC\uD504\uB97C \uCC0D\uC744 \uC218 \uC788\uC5B4\uC694.`);
-      return;
-    }
-
-    setStampActionMessage(`\uD604\uC7A5\uAE4C\uC9C0 ${formatDistanceMeters(selectedPlaceDistanceMeters)} \uB0A8\uC544 \uC788\uC5B4\uC694. ${STAMP_UNLOCK_RADIUS_METERS}m \uC548\uC73C\uB85C \uB4E4\uC5B4\uC624\uBA74 \uC624\uB298 \uC2A4\uD0EC\uD504\uB97C \uCC0D\uC744 \uC218 \uC788\uC5B4\uC694.`);
-  }, [selectedPlace, selectedPlaceDistanceMeters, sessionUser, todayStamp]);
-
-  useEffect(() => {
-    void loadApp(true);
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'feed') {
-      void ensureFeedReviews().catch(reportBackgroundError);
-      return;
-    }
-
-    if (activeTab === 'course') {
-      void ensureCuratedCourses().catch(reportBackgroundError);
-      void fetchCommunityRoutes(communityRouteSort).catch(reportBackgroundError);
-      return;
-    }
-
-    if (activeTab === 'my') {
-      if (sessionUser && myPage === null) {
-        void refreshMyPageForUser(sessionUser, true).catch(reportBackgroundError);
-      }
-      if (sessionUser?.isAdmin && myPageTab === 'admin' && adminSummary === null) {
-        void refreshAdminSummary().catch(reportBackgroundError);
-      }
-      if (sessionUser && myPage && myPageTab === 'comments' && !myCommentsLoadedOnce) {
-        void loadMoreMyComments(true);
-      }
-    }
-  }, [
-    activeTab,
-    communityRouteSort,
-    sessionUser,
-    myPage,
-    myPageTab,
-    adminSummary,
-    myCommentsLoadedOnce,
-  ]);
-
-  useEffect(() => {
-    if (activeTab !== 'map') {
-      setSelectedPlaceReviews([]);
-      return;
-    }
-
-    if (!selectedPlaceId) {
-      setSelectedPlaceReviews([]);
-      return;
-    }
-
-    const cachedReviews = placeReviewsCacheRef.current[selectedPlaceId];
-    if (cachedReviews) {
-      setSelectedPlaceReviews(cachedReviews);
-      return;
-    }
-
-    void getReviews({ placeId: selectedPlaceId })
-      .then((nextReviews) => {
-        placeReviewsCacheRef.current[selectedPlaceId] = nextReviews;
-        setSelectedPlaceReviews(nextReviews);
-      })
-      .catch(reportBackgroundError);
-  }, [activeTab, selectedPlaceId]);
-
-  const canNavigateBack =
-    returnView !== null ||
-    activeCommentReviewId !== null ||
-    activeTab !== 'map' ||
-    selectedPlaceId !== null ||
-    selectedFestivalId !== null ||
-    drawerState !== 'closed' ||
-    selectedRoutePreview !== null ||
-    (typeof window !== 'undefined' && window.history.length > 1);
-
-  function handleNavigateBack() {
-    if (returnView) {
-      setMyPageTab(returnView.myPageTab);
-      setActiveCommentReviewId(returnView.activeCommentReviewId);
-      setHighlightedCommentId(returnView.highlightedCommentId);
-      setHighlightedReviewId(returnView.highlightedReviewId);
-      setFeedPlaceFilterId(returnView.feedPlaceFilterId);
-      setSelectedRoutePreview(null);
-      setSelectedRoutePreview(null);
-      const nextTab = returnView.tab;
-      setReturnView(null);
-      commitRouteState(
-        {
-          tab: nextTab,
-          placeId: nextTab === 'map' ? returnView.placeId : null,
-          festivalId: nextTab === 'map' ? returnView.festivalId : null,
-          drawerState: nextTab === 'map' ? returnView.drawerState : 'closed',
-        },
-        'replace',
-      );
-      return;
-    }
-
-    if (selectedRoutePreview) {
-      setSelectedRoutePreview(null);
-      return;
-    }
-
-    if (selectedRoutePreview) {
-      setSelectedRoutePreview(null);
-      return;
-    }
-
-    if (activeCommentReviewId !== null) {
-      handleCloseReviewComments();
-      return;
-    }
-
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-
-    handleCloseReviewComments();
-    goToTab('map', 'replace');
-  }
-
-  function handleBottomNavChange(nextTab: Tab) {
-    setSelectedRoutePreview(null);
-    handleCloseReviewComments();
-
-    if (nextTab !== 'feed') {
-      setFeedPlaceFilterId(null);
-      setHighlightedReviewId(null);
-    }
-
-    if (nextTab === 'map') {
-      commitRouteState(
-        {
-          tab: 'map',
-          placeId: selectedPlaceId,
-          festivalId: selectedFestivalId,
-          drawerState,
-        },
-        'replace',
-      );
-      return;
-    }
-
-    commitRouteState(
-      {
-        tab: nextTab,
-        placeId: null,
-        festivalId: null,
-        drawerState: 'closed',
-      },
-      'push',
-    );
-  }
 
   const reviewProofMessage = !sessionUser
     ? '\uB85C\uADF8\uC778\uD558\uBA74 \uC624\uB298 \uBC29\uBB38 \uC778\uC99D \uB4A4\uC5D0\uB9CC \uD53C\uB4DC\uB97C \uB0A8\uAE38 \uC218 \uC788\uC5B4\uC694.'
