@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect } from 'react';
+import { useAppUIStore } from '../store/app-ui-store';
 import type { DrawerState, Tab } from '../types';
 
 export type RouteState = {
@@ -140,18 +141,40 @@ export function updateMapViewportInUrl(lat: number, lng: number, zoom: number) {
   window.history.replaceState(window.history.state, '', nextUrl);
 }
 
+let routeStoreInitialized = false;
+
+function initializeRouteStore() {
+  if (routeStoreInitialized || typeof window === 'undefined') {
+    return;
+  }
+  const routeState = getInitialRouteState();
+  useAppUIStore.setState({
+    activeTab: routeState.tab,
+    selectedPlaceId: routeState.tab === 'map' ? routeState.placeId : null,
+    selectedFestivalId: routeState.tab === 'map' ? routeState.festivalId : null,
+    drawerState: routeState.tab === 'map' ? routeState.drawerState : 'closed',
+  });
+  routeStoreInitialized = true;
+}
+
 export function useAppRouteState() {
-  const [activeTab, setActiveTab] = useState<Tab>(() => getInitialRouteState().tab);
-  const [drawerState, setDrawerState] = useState<DrawerState>(() => getInitialRouteState().drawerState);
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(() => getInitialRouteState().placeId);
-  const [selectedFestivalId, setSelectedFestivalId] = useState<string | null>(() => getInitialRouteState().festivalId);
+  initializeRouteStore();
+
+  const activeTab = useAppUIStore((state) => state.activeTab);
+  const drawerState = useAppUIStore((state) => state.drawerState);
+  const selectedPlaceId = useAppUIStore((state) => state.selectedPlaceId);
+  const selectedFestivalId = useAppUIStore((state) => state.selectedFestivalId);
+  const setActiveTab = useAppUIStore((state) => state.setActiveTab);
+  const setDrawerState = useAppUIStore((state) => state.setDrawerState);
+  const setSelectedPlaceId = useAppUIStore((state) => state.setSelectedPlaceId);
+  const setSelectedFestivalId = useAppUIStore((state) => state.setSelectedFestivalId);
 
   const applyRouteState = useCallback((routeState: RouteState) => {
     setActiveTab(routeState.tab);
     setSelectedPlaceId(routeState.tab === 'map' ? routeState.placeId : null);
     setSelectedFestivalId(routeState.tab === 'map' ? routeState.festivalId : null);
     setDrawerState(routeState.tab === 'map' ? routeState.drawerState : 'closed');
-  }, []);
+  }, [setActiveTab, setDrawerState, setSelectedFestivalId, setSelectedPlaceId]);
 
   const commitRouteState = useCallback(
     (routeState: RouteState, mode: 'push' | 'replace' = 'push') => {

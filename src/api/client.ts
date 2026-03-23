@@ -110,6 +110,9 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
     } catch {
       message = response.statusText || message;
     }
+    if (response.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('jamissue:auth-expired', { detail: { path: response.url } }));
+    }
     throw new ApiError(message, response.status);
   }
 
@@ -426,4 +429,5 @@ export function searchDiscovery(query: string) {
 export function getPlaceRecommendations(placeId: string) {
   return fetchJson<DiscoveryRecommendationsResponse>(`/api/discovery/recommendations?placeId=${encodeURIComponent(placeId)}`);
 }
+
 

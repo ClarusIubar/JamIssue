@@ -40,3 +40,4 @@ backend/.venv-workers/
 deploy/api-worker-package/
 tmp_alias_main.js
 tmp_live_main.js
+sample/

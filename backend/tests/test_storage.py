@@ -1,8 +1,15 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 import app.storage as storage_module
 from app.config import Settings
-from app.storage import LocalStorageAdapter, SupabaseStorageAdapter, get_storage_adapter
+from app.storage import (
+    FileTooLargeError,
+    InvalidFileTypeError,
+    LocalStorageAdapter,
+    ReviewImageUploadService,
+    SupabaseStorageAdapter,
+    get_storage_adapter,
+)
 
 
 class DummyResponse:
@@ -83,3 +90,30 @@ def test_supabase_storage_adapter_posts_to_storage_api(monkeypatch):
     assert captured['headers']['X-upsert'] == 'false'
     assert captured['body'] == b'png-bytes'
     assert stored.url == 'https://project.supabase.co/storage/v1/object/public/review-images/reviews/naver_tester/sample.png'
+
+
+def test_review_image_upload_service_validates_type_and_size(tmp_path: Path):
+    settings = Settings(storage_backend='local', upload_dir=str(tmp_path / 'uploads'), max_upload_size_bytes=4)
+    service = ReviewImageUploadService(settings)
+
+    try:
+        service.save_review_image(owner_id='naver:tester', original_file_name='note.txt', content_type='text/plain', raw_bytes=b'1234')
+        assert False
+    except InvalidFileTypeError:
+        pass
+
+    try:
+        service.save_review_image(owner_id='naver:tester', original_file_name='photo.png', content_type='image/png', raw_bytes=b'12345')
+        assert False
+    except FileTooLargeError:
+        pass
+
+
+def test_review_image_upload_service_generates_unique_filename(tmp_path: Path):
+    settings = Settings(storage_backend='local', upload_dir=str(tmp_path / 'uploads'))
+    service = ReviewImageUploadService(settings)
+
+    stored = service.save_review_image(owner_id='naver:tester', original_file_name='sample.PNG', content_type='image/png', raw_bytes=b'png-bytes')
+
+    assert stored.file_name.startswith('naver_tester-')
+    assert stored.file_name.endswith('.png')

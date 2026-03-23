@@ -50,6 +50,7 @@ class PlaceOut(ApiModel):
     jam_color: str = Field(alias='jamColor')
     accent_color: str = Field(alias='accentColor')
     image_url: str | None = Field(default=None, alias='imageUrl')
+    image_storage_path: str | None = Field(default=None, alias='imageStoragePath')
     latitude: float
     longitude: float
     summary: str
@@ -234,7 +235,8 @@ class MyPageResponse(ApiModel):
 
 
 class PlaceVisibilityUpdate(ApiModel):
-    is_active: bool = Field(alias='isActive')
+    is_active: bool | None = Field(default=None, alias='isActive')
+    is_manual_override: bool | None = Field(default=None, alias='isManualOverride')
 
 
 class AdminPlaceOut(ApiModel):
@@ -243,6 +245,7 @@ class AdminPlaceOut(ApiModel):
     district: str
     category: CategoryType
     is_active: bool = Field(alias='isActive')
+    is_manual_override: bool = Field(alias='isManualOverride')
     review_count: int = Field(alias='reviewCount')
     updated_at: str = Field(alias='updatedAt')
 

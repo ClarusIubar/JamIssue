@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+﻿import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { useAutoLoadMore } from '../hooks/useAutoLoadMore';
 import { ProviderButtons } from './ProviderButtons';
@@ -33,6 +33,7 @@ interface MyPagePanelProps {
   onLoadMoreComments: (initial?: boolean) => Promise<void>;
   onRefreshAdmin: () => Promise<void>;
   onToggleAdminPlace: (placeId: string, nextValue: boolean) => Promise<void>;
+  onToggleAdminManualOverride: (placeId: string, nextValue: boolean) => Promise<void>;
 }
 
 const AdminPanel = lazy(() => import('./AdminPanel').then((module) => ({ default: module.AdminPanel })));
@@ -98,6 +99,7 @@ export function MyPagePanel({
   onLoadMoreComments,
   onRefreshAdmin,
   onToggleAdminPlace,
+  onToggleAdminManualOverride,
 }: MyPagePanelProps) {
   const [nickname, setNickname] = useState(sessionUser?.nickname ?? '');
   const [showVisitedDetail, setShowVisitedDetail] = useState(false);
@@ -501,6 +503,7 @@ export function MyPagePanel({
                 isImporting={adminLoading}
                 onRefreshImport={onRefreshAdmin}
                 onTogglePlace={onToggleAdminPlace}
+                onToggleManualOverride={onToggleAdminManualOverride}
               />
             )}
           </section>

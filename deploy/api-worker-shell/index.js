@@ -686,7 +686,7 @@ async function loadStaticBaseRows(env) {
 
   return rememberPending(staticBaseCache, async () => {
     const [placeRows, courseRows, coursePlaceRows] = await Promise.all([
-      supabaseRequest(env, "map?select=position_id,slug,name,district,category,latitude,longitude,summary,description,vibe_tags,visit_time,route_hint,stamp_reward,hero_label,jam_color,accent_color,is_active&is_active=eq.true&order=position_id.asc"),
+      supabaseRequest(env, "map?select=position_id,slug,name,district,category,latitude,longitude,summary,description,image_url,image_storage_path,vibe_tags,visit_time,route_hint,stamp_reward,hero_label,jam_color,accent_color,is_active&is_active=eq.true&order=position_id.asc"),
       supabaseRequest(env, "course?select=course_id,title,mood,duration,note,color,display_order&order=display_order.asc"),
       supabaseRequest(env, "course_place?select=course_id,position_id,stop_order&order=stop_order.asc"),
     ]);
@@ -1335,7 +1335,7 @@ async function handleReviewDetail(request, env, reviewId) {
   const sessionUser = await readSessionUser(request, env);
   const review = await loadSingleReview(env, reviewId, sessionUser?.id ?? null);
   if (!review) {
-    return jsonResponse(404, { detail: '???????? ??????.' }, env, request);
+    return jsonResponse(404, { detail: '??? ?? ? ???.' }, env, request);
   }
   return jsonResponse(200, review, env, request);
 }
@@ -1381,7 +1381,7 @@ async function buildAdminSummary(env) {
     supabaseCount(env, 'feed'),
     supabaseCount(env, 'user_comment'),
     supabaseCount(env, 'user_stamp'),
-    supabaseRequest(env, 'map?select=position_id,slug,name,district,category,is_active,updated_at&order=is_active.desc,name.asc'),
+    supabaseRequest(env, 'map?select=position_id,slug,name,district,category,is_active,is_manual_override,updated_at&order=is_active.desc,name.asc'),
     supabaseRequest(env, 'feed?select=position_id'),
   ]);
 
@@ -1404,6 +1404,7 @@ async function buildAdminSummary(env) {
       district: row.district,
       category: normalizePlaceCategory(row.category, row.slug),
       isActive: Boolean(row.is_active),
+      isManualOverride: Boolean(row.is_manual_override),
       reviewCount: reviewCountByPosition.get(String(row.position_id)) ?? 0,
       updatedAt: formatDateTime(row.updated_at),
     })),
@@ -1413,7 +1414,7 @@ async function buildAdminSummary(env) {
 async function handleAdminSummary(request, env) {
   const sessionUser = await readSessionUser(request, env);
   if (!sessionUser || !sessionUser.isAdmin) {
-    return jsonResponse(403, { detail: '???? ? ? ???.' }, env, request);
+    return jsonResponse(403, { detail: '??? ???.' }, env, request);
   }
   return jsonResponse(200, await buildAdminSummary(env), env, request);
 }
@@ -1424,11 +1425,13 @@ async function handleAdminPlaceVisibility(request, env, placeId) {
     return jsonResponse(403, { detail: '???? ??? ? ???.' }, env, request);
   }
   const payload = await request.json().catch(() => null);
-  const nextValue = Boolean(payload?.isActive);
-  const nowIso = new Date().toISOString();
+  const body = {};
+  if (typeof payload?.isActive === 'boolean') body.is_active = payload.isActive;
+  if (typeof payload?.isManualOverride === 'boolean') body.is_manual_override = payload.isManualOverride;
+  body.updated_at = new Date().toISOString();
   const updatedRows = await supabaseRequest(env, `map?slug=eq.${encodeFilterValue(placeId)}`, {
     method: 'PATCH',
-    body: JSON.stringify({ is_active: nextValue, updated_at: nowIso }),
+    body: JSON.stringify(body),
   });
   const updatedRow = Array.isArray(updatedRows) ? updatedRows[0] : null;
   if (!updatedRow) {
@@ -1441,6 +1444,7 @@ async function handleAdminPlaceVisibility(request, env, placeId) {
     district: updatedRow.district,
     category: normalizePlaceCategory(updatedRow.category, updatedRow.slug),
     isActive: Boolean(updatedRow.is_active),
+    isManualOverride: Boolean(updatedRow.is_manual_override),
     reviewCount: (reviewRows ?? []).length,
     updatedAt: formatDateTime(updatedRow.updated_at),
   }, env, request);
@@ -1944,7 +1948,7 @@ async function loadSingleReview(env, reviewId, sessionUserId = null) {
   const [commentRows, likeRows, placeRows, stampRows, userFeedLikeRows = []] = await Promise.all([
     supabaseRequest(env, `user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&feed_id=eq.${encodeFilterValue(reviewId)}&order=created_at.asc`),
     supabaseRequest(env, `feed_like?select=feed_id,user_id&feed_id=eq.${encodeFilterValue(reviewId)}`),
-    supabaseRequest(env, `map?select=position_id,slug,name,district,category,latitude,longitude,summary,description,vibe_tags,visit_time,route_hint,stamp_reward,hero_label,jam_color,accent_color,is_active&position_id=eq.${encodeFilterValue(reviewRow.position_id)}&limit=1`),
+    supabaseRequest(env, `map?select=position_id,slug,name,district,category,latitude,longitude,summary,description,image_url,image_storage_path,vibe_tags,visit_time,route_hint,stamp_reward,hero_label,jam_color,accent_color,is_active&position_id=eq.${encodeFilterValue(reviewRow.position_id)}&limit=1`),
     reviewRow.stamp_id
       ? supabaseRequest(env, `user_stamp?select=stamp_id,user_id,position_id,travel_session_id,stamp_date,visit_ordinal,created_at&stamp_id=eq.${encodeFilterValue(reviewRow.stamp_id)}&limit=1`)
       : Promise.resolve([]),

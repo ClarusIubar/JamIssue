@@ -5,14 +5,14 @@ from uuid import uuid4
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import Settings, get_settings
 from .db import Base, get_db, get_engine, get_session_factory
-from .jwt_auth import ACCESS_TOKEN_COOKIE, issue_access_token, read_access_token
+from .jwt_auth import ACCESS_TOKEN_COOKIE, clear_auth_cookie, read_access_token, set_auth_cookie
 from .models import (
     AdminPlaceOut,
     AdminSummaryResponse,
@@ -42,13 +42,7 @@ from .models import (
     UserRouteLikeResponse,
     UserRouteOut,
 )
-from .naver_oauth import (
-    build_naver_login_url,
-    build_redirect_url,
-    exchange_code_for_token,
-    fetch_naver_profile,
-    generate_oauth_state,
-)
+from .naver_oauth import build_naver_login_url, generate_oauth_state
 from .public_event_api import router as public_event_router
 from .repository_normalized import (
     create_comment,
@@ -56,26 +50,30 @@ from .repository_normalized import (
     delete_account,
     delete_comment,
     delete_review,
-    get_admin_summary,
     get_bootstrap,
     get_my_page,
     get_place,
     get_review_comments,
     get_stamps,
-    import_public_bundle,
     list_courses,
     list_places,
     list_reviews,
-    to_session_user,
     toggle_review_like,
-    update_user_profile,
     toggle_stamp,
-    update_place_visibility,
-    upsert_naver_user,
-    link_naver_identity,
 )
 from .seed import seed_database
-from .storage import get_storage_adapter
+from .storage import FileTooLargeError, InvalidFileTypeError, StorageConfigurationError, StorageUploadError
+from .services.admin_service import import_public_data_service, patch_admin_place_service, read_admin_summary_service
+from .services.auth_service import (
+    PROVIDER_LABELS,
+    SUPPORTED_PROVIDERS,
+    build_auth_providers,
+    build_auth_response,
+    complete_naver_login,
+    get_redirect_target,
+    update_profile_session_payload,
+)
+from .services.upload_service import upload_review_image_service
 from .user_routes_normalized import (
     create_user_route,
     delete_user_route,
@@ -112,6 +110,22 @@ if settings.storage_backend == "local":
 
 app.include_router(public_event_router)
 
+
+@app.exception_handler(InvalidFileTypeError)
+async def handle_invalid_file_type(_: Request, exc: InvalidFileTypeError) -> JSONResponse:
+    return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(exc)})
+
+
+@app.exception_handler(FileTooLargeError)
+async def handle_file_too_large(_: Request, exc: FileTooLargeError) -> JSONResponse:
+    return JSONResponse(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, content={"detail": str(exc)})
+
+
+@app.exception_handler(StorageConfigurationError)
+@app.exception_handler(StorageUploadError)
+async def handle_storage_errors(_: Request, exc: ValueError) -> JSONResponse:
+    return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"detail": str(exc)})
+
 PROVIDER_LABELS = {
     "naver": "네이버",
     "kakao": "카카오",
@@ -132,20 +146,6 @@ def on_startup() -> None:
     Base.metadata.create_all(bind=get_engine(settings))
     with get_session_factory(settings)() as db:
         seed_database(db, settings)
-
-
-def build_auth_providers(app_settings: Settings) -> list[AuthProviderOut]:
-    providers: list[AuthProviderOut] = []
-    for provider in SUPPORTED_PROVIDERS:
-        providers.append(
-            AuthProviderOut(
-                key=provider,
-                label=PROVIDER_LABELS[provider],
-                isEnabled=app_settings.provider_enabled(provider),
-                loginUrl=f"/api/auth/{provider}/login",
-            )
-        )
-    return providers
 
 
 def get_session_user(request: Request, app_settings: Settings = Depends(get_settings)) -> SessionUser | None:
@@ -219,23 +219,9 @@ def patch_auth_profile(
     session_user: SessionUser = Depends(require_session_user),
     app_settings: Settings = Depends(get_settings),
 ) -> AuthSessionResponse:
-    try:
-        user = update_user_profile(db, session_user.id, payload)
-    except ValueError as error:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
-
-    next_session_user = to_session_user(user, app_settings.is_admin(user.user_id), provider=user.provider)
-    access_token = issue_access_token(app_settings, next_session_user)
-    response.set_cookie(
-        key=ACCESS_TOKEN_COOKIE,
-        value=access_token,
-        httponly=True,
-        samesite="lax",
-        secure=app_settings.session_https,
-        max_age=app_settings.jwt_access_token_minutes * 60,
-        path="/",
-    )
-    return build_auth_response(next_session_user, app_settings)
+    auth_response, access_token = update_profile_session_payload(db, session_user.id, payload, app_settings)
+    set_auth_cookie(response, app_settings, access_token)
+    return auth_response
 
 
 @app.get("/api/auth/{provider}/login", tags=["auth"])
@@ -309,60 +295,17 @@ def finish_naver_login(
     error_description: str | None = None,
     app_settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
-    redirect_target = get_redirect_target(request, app_settings)
-    expected_state = request.session.pop("naver_oauth_state", None)
-    link_user_id = request.session.pop("oauth_link_user_id", None)
-    link_provider = request.session.pop("oauth_link_provider", None)
-
-    if error:
-        return RedirectResponse(
-            build_redirect_url(redirect_target, auth="naver-error", reason=error_description or error),
-            status_code=status.HTTP_302_FOUND,
-        )
-
-    if not code or not state or state != expected_state:
-        return RedirectResponse(
-            build_redirect_url(redirect_target, auth="naver-error", reason="state-mismatch"),
-            status_code=status.HTTP_302_FOUND,
-        )
-
-    try:
-        token_payload = exchange_code_for_token(app_settings, code, state)
-        profile = fetch_naver_profile(token_payload["access_token"])
-        if link_user_id and link_provider == "naver":
-            user = link_naver_identity(db, link_user_id, profile)
-            success_code = "naver-linked"
-        else:
-            user = upsert_naver_user(db, profile)
-            success_code = "naver-success"
-    except (HTTPException, ValueError) as oauth_error:
-        detail = oauth_error.detail if isinstance(oauth_error, HTTPException) else str(oauth_error)
-        return RedirectResponse(
-            build_redirect_url(redirect_target, auth="naver-error", reason=detail),
-            status_code=status.HTTP_302_FOUND,
-        )
-
-    session_user = to_session_user(
-        user,
-        app_settings.is_admin(user.user_id),
-        profile.profile_image,
-        provider="naver",
+    response, access_token = complete_naver_login(
+        request,
+        db,
+        code=code,
+        state=state,
+        error=error,
+        error_description=error_description,
+        app_settings=app_settings,
     )
-    access_token = issue_access_token(app_settings, session_user)
-
-    response = RedirectResponse(
-        build_redirect_url(redirect_target, auth=success_code),
-        status_code=status.HTTP_302_FOUND,
-    )
-    response.set_cookie(
-        key=ACCESS_TOKEN_COOKIE,
-        value=access_token,
-        httponly=True,
-        samesite="lax",
-        secure=app_settings.session_https,
-        max_age=app_settings.jwt_access_token_minutes * 60,
-        path="/",
-    )
+    if access_token:
+        set_auth_cookie(response, app_settings, access_token)
     return response
 
 
@@ -371,7 +314,7 @@ def logout(
     response: Response,
     app_settings: Settings = Depends(get_settings),
 ) -> AuthSessionResponse:
-    response.delete_cookie(ACCESS_TOKEN_COOKIE, path="/")
+    clear_auth_cookie(response)
     return build_auth_response(None, app_settings)
 
 
@@ -570,33 +513,7 @@ async def upload_review_image(
     session_user: SessionUser = Depends(require_session_user),
     app_settings: Settings = Depends(get_settings),
 ) -> UploadResponse:
-    content_type = file.content_type or "application/octet-stream"
-    if not content_type.startswith("image/"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미지 파일만 업로드할 수 있어요.")
-
-    extension = Path(file.filename or "upload.jpg").suffix.lower() or ".jpg"
-    raw_bytes = await file.read()
-    if len(raw_bytes) > app_settings.max_upload_size_bytes:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="이미지는 5MB 이하로 올려 주세요.")
-
-    filename = f"{session_user.id.replace(':', '_')}-{uuid4().hex}{extension}"
-    storage = get_storage_adapter(app_settings)
-
-    try:
-        stored_file = storage.save_review_image(
-            owner_id=session_user.id,
-            file_name=filename,
-            content_type=content_type,
-            raw_bytes=raw_bytes,
-        )
-    except ValueError as error:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
-
-    return UploadResponse(
-        url=stored_file.url,
-        fileName=stored_file.file_name,
-        contentType=stored_file.content_type,
-    )
+    return await upload_review_image_service(file, session_user, app_settings)
 
 
 @app.get("/api/my/summary", response_model=MyPageResponse, tags=["my"])
@@ -621,7 +538,7 @@ def remove_my_account(
         delete_account(db, session_user.id)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
-    response.delete_cookie(ACCESS_TOKEN_COOKIE, path="/")
+    clear_auth_cookie(response)
     response.status_code = status.HTTP_204_NO_CONTENT
     return response
 
@@ -662,7 +579,7 @@ def read_admin_summary(
     _: SessionUser = Depends(require_admin_user),
     app_settings: Settings = Depends(get_settings),
 ) -> AdminSummaryResponse:
-    return get_admin_summary(db, app_settings)
+    return read_admin_summary_service(db, app_settings)
 
 
 @app.patch("/api/admin/places/{place_id}", response_model=AdminPlaceOut, tags=["admin"])
@@ -672,10 +589,7 @@ def patch_place_visibility(
     db: Session = Depends(get_db),
     _: SessionUser = Depends(require_admin_user),
 ) -> AdminPlaceOut:
-    try:
-        return update_place_visibility(db, place_id, payload.is_active)
-    except ValueError as error:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    return patch_admin_place_service(db, place_id, payload)
 
 
 @app.post("/api/admin/import/public-data", response_model=PublicImportResponse, tags=["admin"])
@@ -684,5 +598,5 @@ def import_public_data(
     _: SessionUser = Depends(require_admin_user),
     app_settings: Settings = Depends(get_settings),
 ) -> PublicImportResponse:
-    return import_public_bundle(db, app_settings)
+    return import_public_data_service(db, app_settings)
 

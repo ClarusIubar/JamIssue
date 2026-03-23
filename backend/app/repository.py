@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from math import asin, cos, radians, sin, sqrt
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from .config import Settings
@@ -56,13 +58,43 @@ BADGE_BY_MOOD = {
     "야경픽": "야경 성공",
 }
 
+KST = ZoneInfo("Asia/Seoul")
+
 
 def utcnow_naive() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+def to_seoul_date(value: datetime | None = None) -> date:
+    if value is None:
+        return datetime.now(KST).date()
+    if value.tzinfo is None:
+        return value.date()
+    return value.astimezone(KST).date()
+
+
 def generate_user_id() -> str:
     return f"user-{uuid4().hex[:20]}"
+
+
+def _nickname_exists(db: Session, nickname: str, *, exclude_user_id: str | None = None) -> bool:
+    stmt = select(User.user_id).where(func.lower(User.nickname) == nickname.lower())
+    if exclude_user_id:
+        stmt = stmt.where(User.user_id != exclude_user_id)
+    return db.scalar(stmt.limit(1)) is not None
+
+
+def generate_unique_nickname(db: Session, base_nickname: str) -> str:
+    """닉네임이 이미 존재하면 유일해질 때까지 숫자 접미사를 붙여 반환합니다."""
+    base = base_nickname.strip() or "이름 없음"
+    if not _nickname_exists(db, base):
+        return base
+    # nickname 컬럼은 String(100)이므로 접미사(최대 4자리)를 위해 95자로 자릅니다.
+    for suffix in range(2, 10000):
+        candidate = f"{base[:95]}{suffix}"
+        if not _nickname_exists(db, candidate):
+            return candidate
+    raise ValueError("사용 가능한 닉네임을 만들 수 없어요.")
 
 
 def format_datetime(value: datetime) -> str:
@@ -130,6 +162,7 @@ def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
     comments = list(feed.comments or [])
     likes = list(feed.likes or [])
     liked_by_me = any(like.user_id == current_user_id for like in likes) if current_user_id else False
+    visit_number = feed.stamp.visit_ordinal if feed.stamp else 1
     return ReviewOut(
         id=str(feed.feed_id),
         userId=feed.user_id,
@@ -144,6 +177,10 @@ def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
         commentCount=len(comments),
         likeCount=len(likes),
         likedByMe=liked_by_me,
+        stampId=str(feed.stamp_id) if feed.stamp_id else None,
+        visitNumber=visit_number,
+        visitLabel=f"{visit_number}번째 방문",
+        travelSessionId=str(feed.stamp.travel_session_id) if feed.stamp and feed.stamp.travel_session_id else None,
         comments=build_comment_tree(comments),
     )
 
@@ -268,22 +305,31 @@ def upsert_social_user(
     now = utcnow_naive()
 
     if identity:
-        dirty = _sync_user_profile(identity.user, nickname, email=email, provider=provider)
+        user = identity.user
+        changed = False
+        if user.email != email:
+            user.email = email
+            changed = True
+        if user.provider != provider:
+            user.provider = provider
+            changed = True
         if identity.email != email:
             identity.email = email
-            dirty = True
+            changed = True
         if identity.profile_image != profile_image:
             identity.profile_image = profile_image
-            dirty = True
-        if dirty:
+            changed = True
+        if changed:
             identity.updated_at = now
-            db.commit()
-            db.refresh(identity.user)
-        return identity.user
+            user.updated_at = now
+        db.commit()
+        db.refresh(user)
+        return user
 
+    safe_nickname = generate_unique_nickname(db, nickname)
     user = User(
         user_id=generate_user_id(),
-        nickname=nickname,
+        nickname=safe_nickname,
         email=email,
         provider=provider,
         created_at=now,
@@ -303,7 +349,11 @@ def upsert_social_user(
             updated_at=now,
         )
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise ValueError("이미 사용 중인 닉네임이에요.") from error
     db.refresh(user)
     return user
 
@@ -472,6 +522,7 @@ def list_reviews(
         .options(
             joinedload(Feed.user),
             joinedload(Feed.place),
+            joinedload(Feed.stamp),
             joinedload(Feed.likes),
             joinedload(Feed.comments).joinedload(UserComment.user),
         )
@@ -510,11 +561,23 @@ def create_review(db: Session, payload: ReviewCreate, user_id: str, nickname: st
     if not place:
         raise ValueError("장소를 찾을 수 없어요.")
 
+    today = to_seoul_date()
+    today_stamp = db.scalars(
+        select(UserStamp).where(
+            UserStamp.user_id == user_id,
+            UserStamp.position_id == place.position_id,
+            UserStamp.stamp_date == today,
+        ).order_by(UserStamp.stamp_id.desc())
+    ).first()
+    if not today_stamp:
+        raise ValueError("오늘의 방문 스탬프가 확인되지 않아 리뷰를 남길 수 없어요.")
+
     user = get_or_create_user(db, user_id, nickname)
     now = utcnow_naive()
     feed = Feed(
         position_id=place.position_id,
         user_id=user.user_id,
+        stamp_id=today_stamp.stamp_id,
         body=body,
         mood=payload.mood,
         badge=BADGE_BY_MOOD.get(payload.mood, "현장 기록"),
@@ -530,6 +593,7 @@ def create_review(db: Session, payload: ReviewCreate, user_id: str, nickname: st
         .options(
             joinedload(Feed.user),
             joinedload(Feed.place),
+            joinedload(Feed.stamp),
             joinedload(Feed.likes),
             joinedload(Feed.comments).joinedload(UserComment.user),
         )
@@ -738,14 +802,19 @@ def toggle_stamp(
     if not place:
         raise ValueError("장소를 찾을 수 없어요.")
 
-    existing = db.scalars(
-        select(UserStamp).where(UserStamp.user_id == user_id, UserStamp.position_id == place.position_id)
+    today = to_seoul_date()
+    existing_today = db.scalars(
+        select(UserStamp).where(
+            UserStamp.user_id == user_id,
+            UserStamp.position_id == place.position_id,
+            UserStamp.stamp_date == today,
+        )
     ).first()
-    if existing:
-        return get_stamps(db, user_id)
+    if existing_today:
+        raise ValueError("이미 오늘 스탬프를 획득했습니다.")
 
     ensure_stamp_can_be_collected(place, latitude, longitude, radius_meters)
-    db.add(UserStamp(user_id=user_id, position_id=place.position_id, created_at=utcnow_naive()))
+    db.add(UserStamp(user_id=user_id, position_id=place.position_id, stamp_date=today, created_at=utcnow_naive()))
     db.commit()
     return get_stamps(db, user_id)
 

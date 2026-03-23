@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import {
   claimStamp,
   createComment,
@@ -985,6 +985,25 @@ export default function App() {
   }
 
 
+  async function handleToggleAdminManualOverride(placeId: string, nextValue: boolean) {
+    if (!sessionUser?.isAdmin) {
+      return;
+    }
+    setAdminBusyPlaceId(placeId);
+    try {
+      const updated = await updatePlaceVisibility(placeId, { isManualOverride: nextValue });
+      setAdminSummary((current) => current ? {
+        ...current,
+        places: current.places.map((place) => place.id === placeId ? updated : place),
+      } : current);
+      setNotice(nextValue ? '공공데이터 자동 동기화에서 보호해둘게요.' : '공공데이터 자동 동기화 보호를 해제했어요.');
+    } catch (error) {
+      setNotice(formatErrorMessage(error));
+    } finally {
+      setAdminBusyPlaceId(null);
+    }
+  }
+
   async function handleRefreshAdminImport() {
     if (!sessionUser?.isAdmin) {
       return;
@@ -1306,6 +1325,7 @@ export default function App() {
                 onLoadMoreComments={loadMoreMyComments}
                 onRefreshAdmin={handleRefreshAdminImport}
                 onToggleAdminPlace={handleToggleAdminPlace}
+                onToggleAdminManualOverride={handleToggleAdminManualOverride}
               />
             )}
           </div>

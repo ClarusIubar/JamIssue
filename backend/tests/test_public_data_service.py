@@ -66,3 +66,27 @@ def test_public_import_is_idempotent_for_source_and_links(tmp_path: Path):
     assert public_place_count == 6
     assert link_count == 6
     assert map_place_count == 6
+
+
+def test_public_import_keeps_manual_override_values(tmp_path: Path):
+    session = build_session(tmp_path)
+    settings = build_settings()
+
+    import_public_bundle(session, settings)
+
+    place = session.scalars(select(MapPlace).where(MapPlace.slug == "hanbat-forest")).one()
+    original_name = place.name
+    place.latitude = 36.9999
+    place.longitude = 127.9999
+    place.name = "수동보정 장소"
+    place.is_manual_override = True
+    session.commit()
+
+    import_public_bundle(session, settings)
+
+    refreshed = session.scalars(select(MapPlace).where(MapPlace.slug == "hanbat-forest")).one()
+    assert refreshed.name == "수동보정 장소"
+    assert refreshed.latitude == 36.9999
+    assert refreshed.longitude == 127.9999
+    assert refreshed.is_manual_override is True
+    assert refreshed.name != original_name

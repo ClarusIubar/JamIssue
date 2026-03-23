@@ -249,6 +249,22 @@ class Settings(BaseSettings):
         }
         return mapping.get(provider, False)
 
+    @property
+    def access_token_expires_delta(self):
+        from datetime import timedelta
+        return timedelta(minutes=self.jwt_access_token_minutes)
+
+    @property
+    def access_token_max_age_seconds(self) -> int:
+        return int(self.access_token_expires_delta.total_seconds())
+
+    @property
+    def auth_cookie_secure(self) -> bool:
+        lowered = self.env.strip().lower()
+        if lowered in {"development", "dev", "local", "test"}:
+            return False
+        return bool(self.session_https or lowered in {"production", "prod", "staging"})
+
 
 @lru_cache
 def get_settings() -> Settings:

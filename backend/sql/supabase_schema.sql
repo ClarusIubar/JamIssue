@@ -43,6 +43,7 @@ create table if not exists public.map (
   summary varchar(255) not null,
   description text not null,
   image_url varchar(255),
+  image_storage_path varchar(255),
   vibe_tags jsonb not null default '[]'::jsonb,
   visit_time varchar(50) not null,
   route_hint varchar(255) not null,

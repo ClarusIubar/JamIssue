@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS `map` (
     `longitude` DOUBLE NOT NULL,
     `summary` VARCHAR(255) NOT NULL,
     `description` TEXT NOT NULL,
+    `image_url` VARCHAR(255) NULL,
+    `image_storage_path` VARCHAR(255) NULL,
     `vibe_tags` JSON NOT NULL,
     `visit_time` VARCHAR(50) NOT NULL,
     `route_hint` VARCHAR(255) NOT NULL,

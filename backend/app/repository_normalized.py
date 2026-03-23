@@ -208,6 +208,7 @@ def to_admin_place_out(place: MapPlace, review_count: int) -> AdminPlaceOut:
         district=place.district,
         category=place.category,
         isActive=place.is_active,
+        isManualOverride=place.is_manual_override,
         reviewCount=review_count,
         updatedAt=format_datetime(place.updated_at),
     )
@@ -1032,13 +1033,29 @@ def get_admin_summary(db: Session, settings: Settings) -> AdminSummaryResponse:
     )
 
 
-def update_place_visibility(db: Session, place_id: str, is_active: bool) -> AdminPlaceOut:
+def update_place_visibility(
+    db: Session,
+    place_id: str,
+    is_active: bool | None = None,
+    is_manual_override: bool | None = None,
+) -> AdminPlaceOut:
+    """?μ냼 노출 여부와 공공데이터 동기화 보호 여부를 변경합니다."""
+
     place = db.scalars(select(MapPlace).where(MapPlace.slug == place_id)).first()
     if not place:
         raise ValueError("?μ냼瑜?李얠쓣 ???놁뼱??")
-    place.is_active = is_active
-    place.updated_at = utcnow_naive()
-    db.commit()
+
+    changed = False
+    if is_active is not None and place.is_active != is_active:
+        place.is_active = is_active
+        changed = True
+    if is_manual_override is not None and place.is_manual_override != is_manual_override:
+        place.is_manual_override = is_manual_override
+        changed = True
+    if changed:
+        place.updated_at = utcnow_naive()
+        db.commit()
+
     review_count = db.scalar(select(func.count()).select_from(Feed).where(Feed.position_id == place.position_id)) or 0
     return to_admin_place_out(place, int(review_count))
 

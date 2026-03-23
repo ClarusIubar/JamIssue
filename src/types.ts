@@ -277,6 +277,7 @@ export interface AdminPlace {
   district: string;
   category: PlaceCategory;
   isActive: boolean;
+  isManualOverride: boolean;
   reviewCount: number;
   updatedAt: string;
 }
@@ -292,7 +293,8 @@ export interface AdminSummaryResponse {
 }
 
 export interface PlaceVisibilityRequest {
-  isActive: boolean;
+  isActive?: boolean;
+  isManualOverride?: boolean;
 }
 
 export interface UploadResponse {

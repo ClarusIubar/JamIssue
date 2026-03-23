@@ -48,20 +48,21 @@ def upsert_map_place(db: Session, map_payload: dict, now: datetime) -> tuple[Map
         db.add(place)
         created = True
 
-    place.name = map_payload["name"]
-    place.district = map_payload["district"]
-    place.category = map_payload["category"]
-    place.latitude = map_payload["latitude"]
-    place.longitude = map_payload["longitude"]
-    place.summary = map_payload["summary"]
-    place.description = map_payload["description"]
-    place.vibe_tags = map_payload["vibe_tags"]
-    place.visit_time = map_payload["visit_time"]
-    place.route_hint = map_payload["route_hint"]
-    place.stamp_reward = map_payload["stamp_reward"]
-    place.hero_label = map_payload["hero_label"]
-    place.jam_color = map_payload["jam_color"]
-    place.accent_color = map_payload["accent_color"]
+    if not place.is_manual_override:
+        place.name = map_payload["name"]
+        place.district = map_payload["district"]
+        place.category = map_payload["category"]
+        place.latitude = map_payload["latitude"]
+        place.longitude = map_payload["longitude"]
+        place.summary = map_payload["summary"]
+        place.description = map_payload["description"]
+        place.vibe_tags = map_payload["vibe_tags"]
+        place.visit_time = map_payload["visit_time"]
+        place.route_hint = map_payload["route_hint"]
+        place.stamp_reward = map_payload["stamp_reward"]
+        place.hero_label = map_payload["hero_label"]
+        place.jam_color = map_payload["jam_color"]
+        place.accent_color = map_payload["accent_color"]
     place.is_active = map_payload["is_active"]
     place.updated_at = now
     db.flush()

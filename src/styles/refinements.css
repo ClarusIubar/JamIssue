@@ -371,8 +371,9 @@ input.visually-hidden[type='file'] {
 .place-drawer__hero-image {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: rgba(255, 250, 252, 0.95);
 }
 /* 2026-03-19 map brand header refinement */
 .map-stage__header--brand-only {

@@ -6,9 +6,10 @@ interface AdminPanelProps {
   isImporting: boolean;
   onRefreshImport: () => Promise<void>;
   onTogglePlace: (placeId: string, nextValue: boolean) => Promise<void>;
+  onToggleManualOverride: (placeId: string, nextValue: boolean) => Promise<void>;
 }
 
-export function AdminPanel({ summary, busyPlaceId, isImporting, onRefreshImport, onTogglePlace }: AdminPanelProps) {
+export function AdminPanel({ summary, busyPlaceId, isImporting, onRefreshImport, onTogglePlace, onToggleManualOverride }: AdminPanelProps) {
   if (!summary) {
     return null;
   }
@@ -39,14 +40,24 @@ export function AdminPanel({ summary, busyPlaceId, isImporting, onRefreshImport,
               <strong>{place.name}</strong>
               <p>{place.district} / 피드 {place.reviewCount}개 / {place.updatedAt}</p>
             </div>
-            <button
-              type="button"
-              className={place.isActive ? 'secondary-button is-complete' : 'secondary-button'}
-              onClick={() => void onTogglePlace(place.id, !place.isActive)}
-              disabled={busyPlaceId === place.id}
-            >
-              {busyPlaceId === place.id ? '적용 중' : place.isActive ? '노출 중' : '숨김'}
-            </button>
+            <div className="chip-row compact-gap">
+              <button
+                type="button"
+                className={place.isManualOverride ? 'secondary-button is-complete' : 'secondary-button'}
+                onClick={() => void onToggleManualOverride(place.id, !place.isManualOverride)}
+                disabled={busyPlaceId === place.id}
+              >
+                {busyPlaceId === place.id ? '적용 중' : place.isManualOverride ? '수동 보호' : '자동 동기화'}
+              </button>
+              <button
+                type="button"
+                className={place.isActive ? 'secondary-button is-complete' : 'secondary-button'}
+                onClick={() => void onTogglePlace(place.id, !place.isActive)}
+                disabled={busyPlaceId === place.id}
+              >
+                {busyPlaceId === place.id ? '적용 중' : place.isActive ? '노출 중' : '숨김'}
+              </button>
+            </div>
           </article>
         ))}
       </div>
