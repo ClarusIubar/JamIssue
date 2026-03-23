@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from math import asin, cos, radians, sin, sqrt
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, joinedload
@@ -56,9 +57,19 @@ BADGE_BY_MOOD = {
     "야경픽": "야경 성공",
 }
 
+KST = ZoneInfo("Asia/Seoul")
+
 
 def utcnow_naive() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def to_seoul_date(value: datetime | None = None) -> date:
+    if value is None:
+        return datetime.now(KST).date()
+    if value.tzinfo is None:
+        return value.date()
+    return value.astimezone(KST).date()
 
 
 def generate_user_id() -> str:
@@ -130,6 +141,7 @@ def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
     comments = list(feed.comments or [])
     likes = list(feed.likes or [])
     liked_by_me = any(like.user_id == current_user_id for like in likes) if current_user_id else False
+    visit_number = feed.stamp.visit_ordinal if feed.stamp else 1
     return ReviewOut(
         id=str(feed.feed_id),
         userId=feed.user_id,
@@ -144,6 +156,10 @@ def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
         commentCount=len(comments),
         likeCount=len(likes),
         likedByMe=liked_by_me,
+        stampId=str(feed.stamp_id) if feed.stamp_id else None,
+        visitNumber=visit_number,
+        visitLabel=f"{visit_number}번째 방문",
+        travelSessionId=str(feed.stamp.travel_session_id) if feed.stamp and feed.stamp.travel_session_id else None,
         comments=build_comment_tree(comments),
     )
 
@@ -472,6 +488,7 @@ def list_reviews(
         .options(
             joinedload(Feed.user),
             joinedload(Feed.place),
+            joinedload(Feed.stamp),
             joinedload(Feed.likes),
             joinedload(Feed.comments).joinedload(UserComment.user),
         )
@@ -510,11 +527,23 @@ def create_review(db: Session, payload: ReviewCreate, user_id: str, nickname: st
     if not place:
         raise ValueError("장소를 찾을 수 없어요.")
 
+    today = to_seoul_date()
+    today_stamp = db.scalars(
+        select(UserStamp).where(
+            UserStamp.user_id == user_id,
+            UserStamp.position_id == place.position_id,
+            UserStamp.stamp_date == today,
+        ).order_by(UserStamp.stamp_id.desc())
+    ).first()
+    if not today_stamp:
+        raise ValueError("오늘의 방문 스탬프가 확인되지 않아 리뷰를 남길 수 없어요.")
+
     user = get_or_create_user(db, user_id, nickname)
     now = utcnow_naive()
     feed = Feed(
         position_id=place.position_id,
         user_id=user.user_id,
+        stamp_id=today_stamp.stamp_id,
         body=body,
         mood=payload.mood,
         badge=BADGE_BY_MOOD.get(payload.mood, "현장 기록"),
@@ -530,6 +559,7 @@ def create_review(db: Session, payload: ReviewCreate, user_id: str, nickname: st
         .options(
             joinedload(Feed.user),
             joinedload(Feed.place),
+            joinedload(Feed.stamp),
             joinedload(Feed.likes),
             joinedload(Feed.comments).joinedload(UserComment.user),
         )
