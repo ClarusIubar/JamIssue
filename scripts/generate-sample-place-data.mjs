@@ -182,7 +182,7 @@ for (const match of rowMatches) {
   const imageFileName = getImageFileName(number);
   const localImagePath = path.join(sampleDir, imageFileName);
   const imageExists = fs.existsSync(localImagePath);
-  const imageStoragePath = `places/${slug}/hero.png`;
+  const imageStoragePath = `places/${String(number).padStart(3, '0')}/hero.png`;
 
   places.push({
     number,

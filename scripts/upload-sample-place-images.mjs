@@ -95,6 +95,7 @@ if (!Array.isArray(places) || places.length === 0) {
 }
 
 for (const place of places) {
+  place.imageStoragePath = `places/${String(place.number).padStart(3, '0')}/hero.png`;
   await uploadImage(place);
   console.log(`uploaded ${place.slug}`);
 }
