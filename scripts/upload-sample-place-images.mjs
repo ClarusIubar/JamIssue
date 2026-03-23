@@ -4,13 +4,24 @@ import path from 'node:path';
 const projectRoot = process.cwd();
 const sampleDir = path.join(projectRoot, 'sample');
 const placesJsonPath = path.join(sampleDir, 'places.generated.json');
+const wranglerTomlPath = path.join(projectRoot, 'deploy', 'api-worker-shell', 'wrangler.toml');
 
-const SUPABASE_URL = process.env.APP_SUPABASE_URL;
+function readSupabaseUrlFromWrangler() {
+  try {
+    const toml = fs.readFileSync(wranglerTomlPath, 'utf8');
+    const match = toml.match(/APP_SUPABASE_URL\s*=\s*"([^"]+)"/);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const SUPABASE_URL = process.env.APP_SUPABASE_URL || readSupabaseUrlFromWrangler();
 const SUPABASE_KEY = process.env.APP_SUPABASE_SERVICE_ROLE_KEY;
 const BUCKET = process.env.APP_SUPABASE_PLACE_IMAGE_BUCKET || 'place-images';
 
 if (!SUPABASE_URL) {
-  throw new Error('APP_SUPABASE_URL 환경변수가 필요합니다.');
+  throw new Error('APP_SUPABASE_URL 환경변수가 없고 wrangler.toml에서도 찾지 못했습니다.');
 }
 
 if (!SUPABASE_KEY) {
