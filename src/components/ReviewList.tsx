@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { CommentThread } from './CommentThread';
 import type { Review } from '../types';
 
@@ -49,6 +49,123 @@ function CommentIcon() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+function ReviewImageFrame({ src, alt }: { src: string; alt: string }) {
+  const [rotatedSrc, setRotatedSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let previousObjectUrl: string | null = null;
+    const image = new window.Image();
+
+    image.onload = () => {
+      if (cancelled) {
+        return;
+      }
+
+      const shouldRotate = image.naturalHeight > image.naturalWidth * 1.12;
+      if (!shouldRotate) {
+        setRotatedSrc((current) => {
+          if (current && current !== previousObjectUrl) {
+            URL.revokeObjectURL(current);
+          }
+          return null;
+        });
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalHeight;
+      canvas.height = image.naturalWidth;
+
+      const context = canvas.getContext('2d');
+      if (!context) {
+        setRotatedSrc(null);
+        return;
+      }
+
+      context.translate(canvas.width / 2, canvas.height / 2);
+      context.rotate(Math.PI / 2);
+      context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2);
+
+      canvas.toBlob(
+        (blob) => {
+          if (cancelled || !blob) {
+            return;
+          }
+
+          const nextUrl = URL.createObjectURL(blob);
+          setRotatedSrc((current) => {
+            if (current) {
+              URL.revokeObjectURL(current);
+            }
+            previousObjectUrl = nextUrl;
+            return nextUrl;
+          });
+        },
+        'image/jpeg',
+        0.92,
+      );
+    };
+
+    image.onerror = () => {
+      if (!cancelled) {
+        setRotatedSrc((current) => {
+          if (current) {
+            URL.revokeObjectURL(current);
+          }
+          return null;
+        });
+      }
+    };
+
+    image.src = src;
+
+    return () => {
+      cancelled = true;
+      setRotatedSrc((current) => {
+        if (current) {
+          URL.revokeObjectURL(current);
+        }
+        return null;
+      });
+    };
+  }, [src]);
+
+  const displaySrc = useMemo(() => rotatedSrc ?? src, [rotatedSrc, src]);
+
+  return (
+    <div
+      className="review-card__image-frame"
+      style={{
+        width: '100%',
+        height: 'min(280px, 64vw)',
+        maxHeight: '280px',
+        borderRadius: '20px',
+        overflow: 'hidden',
+        background: 'rgba(255, 250, 252, 0.96)',
+        border: '1px solid rgba(255, 176, 201, 0.16)',
+        padding: '6px',
+      }}
+    >
+      <img
+        className="review-card__image"
+        src={displaySrc}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          borderRadius: '14px',
+          display: 'block',
+          margin: 0,
+        }}
+      />
+    </div>
   );
 }
 
@@ -139,37 +256,7 @@ export function ReviewList({
 
           <p className="review-card__body">{review.body}</p>
 
-          {review.imageUrl && (
-            <div
-              className="review-card__image-frame"
-              style={{
-                width: '100%',
-                height: 'min(280px, 64vw)',
-                maxHeight: '280px',
-                borderRadius: '20px',
-                overflow: 'hidden',
-                background: 'rgba(255, 250, 252, 0.96)',
-                border: '1px solid rgba(255, 176, 201, 0.16)',
-                padding: '6px',
-              }}
-            >
-              <img
-                className="review-card__image"
-                src={review.imageUrl}
-                alt={`${review.placeName} 후기 이미지`}
-                loading="lazy"
-                decoding="async"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                  borderRadius: '14px',
-                  display: 'block',
-                  margin: 0,
-                }}
-              />
-            </div>
-          )}
+          {review.imageUrl && <ReviewImageFrame src={review.imageUrl} alt={`${review.placeName} 후기 이미지`} />}
 
           <div className="review-card__actions">
             <div className="review-card__action-group">
@@ -233,4 +320,3 @@ export function ReviewList({
     </div>
   );
 }
-
