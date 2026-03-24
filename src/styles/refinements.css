@@ -1399,3 +1399,17 @@ body {
     width: 72px !important;
   }
 }
+
+/* 2026-03-24 review image frame normalization */
+.review-card__image {
+  display: block !important;
+  width: 100% !important;
+  aspect-ratio: 4 / 3 !important;
+  min-height: 0 !important;
+  max-height: 280px !important;
+  border-radius: 20px !important;
+  object-fit: contain !important;
+  background: rgba(255, 250, 252, 0.96) !important;
+  border: 1px solid rgba(255, 176, 201, 0.16) !important;
+  padding: 6px !important;
+}
