@@ -1,4 +1,4 @@
-﻿import { categoryInfo, categoryItems } from '../lib/categories';
+import { categoryInfo, categoryItems } from '../lib/categories';
 import { FestivalDetailSheet } from './FestivalDetailSheet';
 import { NaverMap } from './NaverMap';
 import { PlaceDetailSheet } from './PlaceDetailSheet';
@@ -148,9 +148,10 @@ export function MapTabStage({
       </div>
 
       {notice && <div className="floating-notice">{notice}</div>}
-      {bootstrapStatus === 'loading' && <section className="floating-status">대전 지도를 불러오고 있어요.</section>}
+      {bootstrapStatus === 'loading' && <section className="floating-status">???吏?꾨? 遺덈윭?ㅺ퀬 ?덉뼱??</section>}
       {bootstrapStatus === 'error' && <section className="floating-status floating-status--error">{bootstrapError}</section>}
 
+      {drawerState === 'closed' && mapLocationMessage && <section className="map-inline-status">{mapLocationMessage}</section>}
       <NaverMap
         places={filteredPlaces}
         festivals={festivals}
@@ -160,7 +161,7 @@ export function MapTabStage({
         onSelectFestival={onOpenFestival}
         currentPosition={currentPosition}
         currentLocationStatus={mapLocationStatus}
-        currentLocationMessage={drawerState === 'closed' ? mapLocationMessage : null}
+        currentLocationMessage={null}
         focusCurrentLocationKey={mapLocationFocusKey}
         onLocateCurrentPosition={onLocateCurrentPosition}
         initialCenter={initialMapCenter}
@@ -178,7 +179,7 @@ export function MapTabStage({
               <h3>{routePreview.title}</h3>
               <p className="section-copy">{routePreview.subtitle}</p>
             </div>
-            <button type="button" className="map-route-preview-card__close" onClick={onClearRoutePreview} aria-label="경로 미리보기 닫기">
+            <button type="button" className="map-route-preview-card__close" onClick={onClearRoutePreview} aria-label="寃쎈줈 誘몃━蹂닿린 ?リ린">
               <span aria-hidden="true">{'\u00D7'}</span>
             </button>
           </div>
