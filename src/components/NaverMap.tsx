@@ -395,7 +395,28 @@ export function NaverMap({
       return;
     }
 
-    mapRef.current.panTo(new window.naver.maps.LatLng(target.latitude, target.longitude));
+    const map = mapRef.current;
+    const targetLatLng = new window.naver.maps.LatLng(target.latitude, target.longitude);
+    const currentZoom = typeof map.getZoom === 'function' ? Number(map.getZoom()) : 13;
+    const nextZoom = Number.isFinite(currentZoom) ? Math.max(currentZoom, 15) : 15;
+
+    if (typeof map.setZoom === 'function' && currentZoom < nextZoom) {
+      map.setZoom(nextZoom, false);
+    }
+
+    if (typeof map.panTo === 'function') {
+      map.panTo(targetLatLng);
+    } else if (typeof map.setCenter === 'function') {
+      map.setCenter(targetLatLng);
+    }
+
+    if (typeof map.panBy === 'function') {
+      window.setTimeout(() => {
+        if (mapRef.current === map) {
+          map.panBy(0, -110);
+        }
+      }, 180);
+    }
   }, [festivals, places, selectedFestivalId, selectedPlaceId, status]);
 
   useEffect(() => {
@@ -483,6 +504,7 @@ export function NaverMap({
     </div>
   );
 }
+
 
 
 

@@ -861,6 +861,21 @@ export default function App() {
       return;
     }
 
+    const targetReview = reviews.find((review) => review.id === reviewId)
+      ?? selectedPlaceReviews.find((review) => review.id === reviewId)
+      ?? myPage?.reviews.find((review) => review.id === reviewId)
+      ?? null;
+    const previousLikedByMe = targetReview?.likedByMe ?? false;
+    const previousLikeCount = targetReview?.likeCount ?? 0;
+    const optimisticLikedByMe = !previousLikedByMe;
+    const optimisticLikeCount = Math.max(0, previousLikeCount + (optimisticLikedByMe ? 1 : -1));
+
+    patchReviewCollections(reviewId, (review) => ({
+      ...review,
+      likeCount: optimisticLikeCount,
+      likedByMe: optimisticLikedByMe,
+    }));
+
     setReviewLikeUpdatingId(reviewId);
     try {
       const result = await toggleReviewLike(reviewId);
@@ -870,6 +885,11 @@ export default function App() {
         likedByMe: result.likedByMe,
       }));
     } catch (error) {
+      patchReviewCollections(reviewId, (review) => ({
+        ...review,
+        likeCount: previousLikeCount,
+        likedByMe: previousLikedByMe,
+      }));
       setNotice(formatErrorMessage(error));
     } finally {
       setReviewLikeUpdatingId(null);
@@ -1338,4 +1358,5 @@ export default function App() {
     </div>
   );
 }
+
 
