@@ -167,6 +167,10 @@ def on_startup() -> None:
 
 
 def get_session_user(request: Request, app_settings: Settings = Depends(get_settings)) -> SessionUser | None:
+    """
+    현재 HTTP 요청에서 쿠키 혹은 헤더를 확인해 JWT 토큰을 복호화하고, 유효한 로그인 사용자(SessionUser) 객체를 반환합니다.
+    토큰이 없거나 만료되었으면 None을 반환합니다.
+    """
     auth_header = request.headers.get("Authorization", "")
     header_token = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else None
     cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE)
@@ -177,6 +181,10 @@ def get_session_user(request: Request, app_settings: Settings = Depends(get_sett
 
 
 def require_session_user(session_user: SessionUser | None = Depends(get_session_user)) -> SessionUser:
+    """
+    인증이 필수적인 엔드포인트에서 의존성(Depends)으로 사용됩니다.
+    로그인되지 않은 경우 401 UNAUTHORIZED 에러를 발생시킵니다.
+    """
     if not session_user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="濡쒓렇?몄씠 ?꾩슂?댁슂.")
     return session_user
@@ -186,6 +194,10 @@ def require_admin_user(
     session_user: SessionUser = Depends(require_session_user),
     app_settings: Settings = Depends(get_settings),
 ) -> SessionUser:
+    """
+    관리자 권한이 필수적인 엔드포인트에서 의존성으로 사용됩니다.
+    일반 사용자일 경우 403 FORBIDDEN 에러를 발생시킵니다.
+    """
     if not app_settings.is_admin(session_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="愿由ъ옄 沅뚰븳???꾩슂?댁슂.")
     return session_user.model_copy(update={"is_admin": True})
@@ -205,6 +217,7 @@ def get_redirect_target(request: Request, app_settings: Settings) -> str:
 
 @app.get("/api/health", response_model=HealthResponse, tags=["system"])
 def health_check(app_settings: Settings = Depends(get_settings)) -> HealthResponse:
+    """서버가 정상적으로 구동되고 있는지 확인하고, 주요 환경 설정 상태를 반환합니다."""
     return HealthResponse(
         status="ok",
         env=app_settings.env,
@@ -218,6 +231,7 @@ def health_check(app_settings: Settings = Depends(get_settings)) -> HealthRespon
 
 @app.get("/api/auth/providers", response_model=list[AuthProviderOut], tags=["auth"])
 def read_auth_providers(app_settings: Settings = Depends(get_settings)) -> list[AuthProviderOut]:
+    """사용 가능한 소셜 로그인 제공자 목록을 반환합니다."""
     return build_auth_providers(app_settings)
 
 
@@ -226,6 +240,7 @@ def read_auth_session(
     session_user: SessionUser | None = Depends(get_session_user),
     app_settings: Settings = Depends(get_settings),
 ) -> AuthSessionResponse:
+    """클라이언트가 현재 로그인 상태를 확인할 수 있도록 세션 정보를 반환합니다."""
     return build_auth_response(session_user, app_settings)
 
 
@@ -249,6 +264,9 @@ def start_login(
     next: str | None = None,
     app_settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
+    """
+    선택한 OAuth 제공자(예: naver)의 로그인 페이지로 사용자를 리다이렉트합니다.
+    """
     if provider not in SUPPORTED_PROVIDERS:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="吏?먰븯吏 ?딅뒗 濡쒓렇???쒓났?먯삁??")
 
@@ -280,6 +298,9 @@ def start_link_login(
     session_user: SessionUser = Depends(require_session_user),
     app_settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
+    """
+    현재 로그인된 계정에 새로운 외부 소셜 로그인을 추가 연동하기 위한 승인 페이지로 리다이렉트합니다.
+    """
     if provider not in SUPPORTED_PROVIDERS:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="吏?먰븯吏 ?딅뒗 濡쒓렇???쒓났?먯삁??")
 
@@ -313,6 +334,7 @@ def finish_naver_login(
     error_description: str | None = None,
     app_settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
+    """네이버 로그인 콜백 엔드포인트입니다. 토큰을 발급받아 쿠키에 굽고 앱으로 돌려보냅니다."""
     response, access_token = complete_naver_login(
         request,
         db,
@@ -332,6 +354,7 @@ def logout(
     response: Response,
     app_settings: Settings = Depends(get_settings),
 ) -> AuthSessionResponse:
+    """클라이언트 쿠키를 삭제하여 로그아웃 처리합니다."""
     clear_auth_cookie(response)
     return build_auth_response(None, app_settings)
 
@@ -341,6 +364,7 @@ def bootstrap(
     db: Session = Depends(get_db),
     session_user: SessionUser | None = Depends(get_session_user),
 ) -> BootstrapResponse:
+    """앱 최초 구동에 필요한 모든 기초 데이터(장소, 후기, 코스, 스탬프 등)를 반환합니다."""
     return read_bootstrap_service(db, session_user)
 
 
@@ -349,6 +373,7 @@ def read_places(
     category: CategoryFilter = Query(default="all"),
     db: Session = Depends(get_db),
 ) -> list[PlaceOut]:
+    """카테고리 필터가 적용된 전체 장소 목록을 반환합니다."""
     return read_places_service(db, category)
 
 
@@ -361,6 +386,7 @@ def read_courses(
     mood: CourseMood | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> list[CourseOut]:
+    """운영자가 큐레이션한 코스 목록을 반환합니다."""
     return read_courses_service(db, mood)
 
 
@@ -370,6 +396,7 @@ def read_community_routes(
     db: Session = Depends(get_db),
     session_user: SessionUser | None = Depends(get_session_user),
 ) -> list[UserRouteOut]:
+    """다른 사용자들이 만든 공개 루트(코스) 목록을 조회합니다."""
     return read_community_routes_service(db, sort, session_user)
 
 
@@ -416,6 +443,7 @@ def read_reviews(
     db: Session = Depends(get_db),
     session_user: SessionUser | None = Depends(get_session_user),
 ) -> list[ReviewOut]:
+    """선택한 장소 혹은 특정 사용자의 리뷰(피드) 목록을 조회합니다."""
     return read_reviews_service(db, place_id, user_id, session_user)
 
 
@@ -425,6 +453,7 @@ def write_review(
     db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
 ) -> ReviewOut:
+    """스탬프 획득을 증명하여 새 리뷰를 작성합니다."""
     return create_review_service(db, payload, session_user)
 
 @app.delete("/api/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["reviews"])
@@ -472,6 +501,7 @@ async def upload_review_image(
     session_user: SessionUser = Depends(require_session_user),
     app_settings: Settings = Depends(get_settings),
 ) -> UploadResponse:
+    """리뷰에 첨부할 이미지를 스토리지에 업로드하고 외부 접근 가능 URL을 반환합니다."""
     return await upload_review_image_service(file, session_user, app_settings)
 
 
@@ -481,6 +511,7 @@ def read_my_summary(
     session_user: SessionUser = Depends(require_session_user),
     app_settings: Settings = Depends(get_settings),
 ) -> MyPageResponse:
+    """마이페이지에 표시할 사용자 통계, 스탬프 로그, 피드 내역 등을 반환합니다."""
     return read_my_page_service(db, session_user, app_settings)
 
 @app.delete("/api/my/account", status_code=status.HTTP_204_NO_CONTENT, tags=["my"])
@@ -500,6 +531,7 @@ def read_stamps(
     db: Session = Depends(get_db),
     session_user: SessionUser | None = Depends(get_session_user),
 ) -> StampState:
+    """현재 사용자가 모은 전체 스탬프 정보(여행 세션 포함)를 반환합니다."""
     return read_stamps_service(db, session_user)
 
 
@@ -510,6 +542,7 @@ def write_stamp_toggle(
     session_user: SessionUser = Depends(require_session_user),
     app_settings: Settings = Depends(get_settings),
 ) -> StampState:
+    """사용자의 현재 GPS 좌표를 바탕으로 장소의 반경 안에 있을 경우 스탬프를 적립합니다."""
     return toggle_stamp_service(db, payload, session_user, app_settings)
 
 @app.get("/api/admin/summary", response_model=AdminSummaryResponse, tags=["admin"])
@@ -518,6 +551,7 @@ def read_admin_summary(
     _: SessionUser = Depends(require_admin_user),
     app_settings: Settings = Depends(get_settings),
 ) -> AdminSummaryResponse:
+    """관리자 대시보드 화면용 운영 지표 요약 및 장소 목록을 반환합니다."""
     return read_admin_summary_service(db, app_settings)
 
 

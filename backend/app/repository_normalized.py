@@ -77,6 +77,7 @@ def get_or_create_user(
     email: str | None = None,
     provider: str = "demo",
 ) -> User:
+    """주어진 사용자 ID로 계정을 찾고 없으면 새로 생성하며, 필요 시 프로필 정보를 동기화합니다."""
     user = db.get(User, user_id)
     if not user:
         user = User(
@@ -117,6 +118,7 @@ def _nickname_exists(db: Session, nickname: str, *, exclude_user_id: str | None 
 
 
 def ensure_unique_nickname(db: Session, nickname: str, *, exclude_user_id: str | None = None) -> str:
+    """새로 설정할 닉네임이 기존 데이터와 충돌하지 않는지 검증합니다."""
     normalized = nickname.strip()
     if len(normalized) < 2:
         raise ValueError("닉네임은 두 글자 이상으로 적어 주세요.")
@@ -126,6 +128,7 @@ def ensure_unique_nickname(db: Session, nickname: str, *, exclude_user_id: str |
 
 
 def build_unique_social_nickname(db: Session, nickname: str, *, exclude_user_id: str | None = None) -> str:
+    """소셜 계정 연동 시 중복되지 않는 고유 닉네임을 생성해 반환합니다."""
     base = nickname.strip() or "이름 없음"
     if not _nickname_exists(db, base, exclude_user_id=exclude_user_id):
         return base
@@ -282,6 +285,7 @@ def link_naver_identity(db: Session, user_id: str, profile: NaverProfile) -> Use
 
 
 def update_user_profile(db: Session, user_id: str, payload: ProfileUpdateRequest) -> User:
+    """사용자가 마이페이지 등에서 수정한 프로필(닉네임 등)을 반영합니다."""
     user = db.get(User, user_id)
     if not user:
         raise ValueError("사용자 정보를 찾을 수 없어요.")
@@ -301,6 +305,7 @@ def update_user_profile(db: Session, user_id: str, payload: ProfileUpdateRequest
     return user
 
 def build_stamp_logs(stamps: list[UserStamp]) -> list[StampLogOut]:
+    """사용자가 획득한 스탬프들을 화면 표시용 StampLogOut 모델 리스트로 변환합니다."""
     today_key = to_seoul_date().isoformat()
     ordered_stamps = sorted(stamps, key=lambda item: (item.created_at, item.stamp_id), reverse=True)
     return [
@@ -321,6 +326,7 @@ def build_stamp_logs(stamps: list[UserStamp]) -> list[StampLogOut]:
 
 
 def build_travel_sessions(sessions: list[TravelSession], user_stamps: list[UserStamp], owner_routes: list[UserRoute]) -> list[TravelSessionOut]:
+    """사용자의 24시간 여행 세션(TravelSession)과 스탬프를 엮어 TravelSessionOut 리스트를 구성합니다."""
     stamps_by_session_id: dict[int, list[UserStamp]] = defaultdict(list)
     for stamp in user_stamps:
         if stamp.travel_session_id:
@@ -365,6 +371,7 @@ def build_travel_sessions(sessions: list[TravelSession], user_stamps: list[UserS
 
 
 def _build_stamp_state(db: Session, user_id: str | None) -> StampState:
+    """사용자의 전체 스탬프 및 여행 세션 묶음 상태(StampState)를 생성합니다."""
     if not user_id:
         return StampState(collectedPlaceIds=[], logs=[], travelSessions=[])
 
@@ -403,6 +410,7 @@ def _build_stamp_state(db: Session, user_id: str | None) -> StampState:
 
 
 def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
+    """Feed ORM 객체를 화면 표시용 ReviewOut 모델로 변환합니다."""
     comments = list(feed.comments or [])
     likes = list(feed.likes or [])
     liked_by_me = any(like.user_id == current_user_id for like in likes) if current_user_id else False
@@ -430,6 +438,7 @@ def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
 
 
 def to_course_out(course: Course) -> CourseOut:
+    """코스(Course) ORM 객체를 API 응답용 CourseOut 모델로 변환합니다."""
     ordered_places = sorted(course.course_places, key=lambda item: item.stop_order)
     return CourseOut(
         id=course.slug,
@@ -669,6 +678,7 @@ def list_courses(db: Session, mood: CourseMood | None = None) -> list[CourseOut]
 
 
 def _find_or_create_travel_session(db: Session, user_id: str, now: datetime, last_stamp: UserStamp | None) -> TravelSession:
+    """마지막 스탬프를 기준으로 24시간 이내면 동일 세션을 반환하고, 아니면 새 세션을 생성합니다."""
     if last_stamp and now - last_stamp.created_at <= timedelta(hours=24):
         if last_stamp.travel_session_id:
             session = db.get(TravelSession, last_stamp.travel_session_id)
@@ -763,6 +773,7 @@ def toggle_stamp(
 
 
 def build_my_comments(db: Session, user_id: str) -> list[MyCommentOut]:
+    """마이페이지 표시용으로 내가 쓴 댓글들을 불러옵니다."""
     comment_rows = db.scalars(
         select(UserComment)
         .options(joinedload(UserComment.feed).joinedload(Feed.place))

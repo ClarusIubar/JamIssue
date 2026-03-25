@@ -251,15 +251,28 @@ class Settings(BaseSettings):
 
     @property
     def access_token_expires_delta(self):
+        """
+        액세스 토큰의 만료 시간을 timedelta 객체로 반환합니다.
+
+        의존성:
+        - jwt_auth.py: 토큰 생성 시 사용됨.
+        """
         from datetime import timedelta
         return timedelta(minutes=self.jwt_access_token_minutes)
 
     @property
     def access_token_max_age_seconds(self) -> int:
+        """
+        액세스 토큰의 최대 수명(초 단위)을 반환합니다. 쿠키 만료 설정 등에 쓰입니다.
+        """
         return int(self.access_token_expires_delta.total_seconds())
 
     @property
     def auth_cookie_secure(self) -> bool:
+        """
+        인증 쿠키에 Secure 속성을 적용할지 여부를 반환합니다.
+        배포 환경(production, staging)에서는 True로 설정됩니다.
+        """
         lowered = self.env.strip().lower()
         if lowered in {"development", "dev", "local", "test"}:
             return False
@@ -268,7 +281,10 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """환경 설정 객체를 캐싱해서 반환합니다."""
+    """
+    환경 설정(Settings) 객체를 캐싱하여 반환하는 싱글톤 패턴 형태의 함수입니다.
+    의존성 주입(Depends) 시 주로 사용됩니다.
+    """
 
     return Settings()
 

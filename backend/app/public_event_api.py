@@ -18,6 +18,9 @@ def read_public_event_banner(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> PublicEventBannerResponse:
-    """배너 프리뷰에 들어갈 최신 공공 행사 일정 목록을 반환합니다."""
+    """
+    홈 화면 등의 배너 영역에서 노출될 최신 공공 행사(축제 등) 목록을 조회하여 반환합니다.
+    데이터가 만료(stale)되었을 경우 자동으로 동기화 후 반환합니다.
+    """
 
     return build_public_event_banner_response(db, settings)

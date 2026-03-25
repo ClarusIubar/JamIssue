@@ -17,7 +17,10 @@ from .service import upsert_public_source, utc_now
 
 
 def extract_event_items(payload: Any) -> list[dict[str, Any]]:
-    """여러 OpenAPI 응답 포맷에서 행사 리스트를 추출합니다."""
+    """
+    공공 API가 반환하는 다양한 형태(JSON, dict, list)의 응답 페이로드에서
+    실제 행사 정보가 담긴 목록(리스트) 부분을 추출하여 반환합니다.
+    """
 
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
@@ -45,7 +48,10 @@ def extract_event_items(payload: Any) -> list[dict[str, Any]]:
 
 
 def normalize_match_text(value: str | None) -> str:
-    """행사장명과 장소명을 비교하기 위한 정규화 문자열입니다."""
+    """
+    행사장 이름과 앱 내 장소 이름이 일치하는지 비교(매칭)하기 위해,
+    공백이나 특수문자를 제거하고 한글과 영문 숫자만 남긴 정규화된 문자열을 만듭니다.
+    """
 
     if not value:
         return ""
@@ -53,7 +59,11 @@ def normalize_match_text(value: str | None) -> str:
 
 
 def find_primary_map_place(db: Session, event: PublicEvent) -> tuple[MapPlace | None, str | None, float]:
-    """행사와 가장 확정적으로 연결할 수 있는 map 장소를 찾습니다."""
+    """
+    가져온 공공 행사(event)와 가장 밀접하게 관련된 내부 지도 장소(MapPlace)를 찾아 반환합니다.
+    매칭은 행사장명(venue_name)이나 행사제목(title)과 내부 장소명을 기반으로 합니다.
+    반환 튜플: (찾은 MapPlace 모델, 매칭 방식, 확신도 스코어)
+    """
 
     venue_key = normalize_match_text(event.venue_name)
     title_key = normalize_match_text(event.title)
@@ -70,7 +80,10 @@ def find_primary_map_place(db: Session, event: PublicEvent) -> tuple[MapPlace | 
 
 
 def upsert_event_map_link(db: Session, event: PublicEvent, place: MapPlace, match_method: str, confidence: float, now: datetime) -> None:
-    """행사와 map 장소의 연결 정보를 저장합니다."""
+    """
+    공공 행사(PublicEvent)와 매칭된 지도 장소(MapPlace) 간의 관계 정보(PublicEventMapLink)를 DB에 저장/갱신합니다.
+    새로 발견된 연결 정보는 주(Primary) 연결로 설정됩니다.
+    """
 
     for existing_link in event.map_links:
         existing_link.is_primary = existing_link.position_id == place.position_id
@@ -98,7 +111,11 @@ def upsert_event_map_link(db: Session, event: PublicEvent, place: MapPlace, matc
 
 
 def import_public_events(db: Session, settings: Settings) -> int:
-    """행사 원본을 읽어 public_event 테이블에 적재합니다."""
+    """
+    외부 API 혹은 로컬에서 공공 행사 원본을 읽어들인 후(read_public_event_payload),
+    데이터 정규화(normalize_public_event)를 거쳐 DB의 public_event 테이블에 저장 및 갱신합니다.
+    새로 추가된 행사 개수를 반환합니다.
+    """
 
     raw_payload = read_public_event_payload(settings)
     source_payload = default_event_source_payload(settings)
@@ -172,7 +189,10 @@ def import_public_events(db: Session, settings: Settings) -> int:
 
 
 def should_refresh_events(source: PublicDataSource | None, settings: Settings) -> bool:
-    """행사 원본을 다시 가져와야 하는지 판단합니다."""
+    """
+    마지막 가져온 시간(last_imported_at)과 설정된 만료 시간(refresh_minutes)을 비교하여,
+    다시 API를 호출해 동기화를 진행할 시점인지 판단합니다.
+    """
 
     if not (settings.public_event_source_url or settings.public_event_file_path.exists()):
         return False
@@ -183,7 +203,10 @@ def should_refresh_events(source: PublicDataSource | None, settings: Settings) -
 
 
 def format_date_label(starts_at: datetime, ends_at: datetime) -> str:
-    """배너 카드용 날짜 문구를 만듭니다."""
+    """
+    배너에 표시될 행사 기간을 포맷팅하여 "M월 D일 - M월 D일" 형태의 문자열을 반환합니다.
+    시작일과 종료일이 같으면 하루만 표시합니다.
+    """
 
     if starts_at.date() == ends_at.date():
         return f"{starts_at.month}월 {starts_at.day}일"
@@ -191,7 +214,11 @@ def format_date_label(starts_at: datetime, ends_at: datetime) -> str:
 
 
 def build_public_event_banner_response(db: Session, settings: Settings) -> PublicEventBannerResponse:
-    """배너 프리뷰에서 사용하는 행사 일정 응답을 만듭니다."""
+    """
+    앱의 홈 화면 등에서 행사(배너) 목록을 보여주기 위한 종합 응답(PublicEventBannerResponse)을 조립합니다.
+    필요한 경우 `import_public_events`를 호출해 즉시 데이터를 갱신합니다.
+    현재 진행 중이거나 예정된 행사만 제한된 개수(limit)만큼 응답에 포함시킵니다.
+    """
 
     source = db.scalars(
         select(PublicDataSource).where(PublicDataSource.source_key == "jamissue-public-event-feed")

@@ -28,7 +28,10 @@ UPDATED_KEYS = ("sourceUpdatedAt", "modifiedtime", "수정일시", "lastUpdatedA
 
 
 def first_value(payload: Mapping[str, Any], keys: tuple[str, ...]) -> Any:
-    """후보 키 순서대로 첫 값을 꺼냅니다."""
+    """
+    여러 이름의 키(후보군)가 존재할 수 있는 딕셔너리에서,
+    해당 키 목록을 순회하며 빈 값이 아닌 첫 번째 값을 반환합니다.
+    """
 
     for key in keys:
         value = payload.get(key)
@@ -38,7 +41,10 @@ def first_value(payload: Mapping[str, Any], keys: tuple[str, ...]) -> Any:
 
 
 def text_value(payload: Mapping[str, Any], keys: tuple[str, ...]) -> str | None:
-    """첫 문자열 값을 정리해서 반환합니다."""
+    """
+    `first_value`를 통해 찾은 값을 앞뒤 공백을 제거한 순수 문자열(str)로 반환합니다.
+    값이 없거나 빈 문자열이면 None을 반환합니다.
+    """
 
     value = first_value(payload, keys)
     if value in (None, ""):
@@ -48,7 +54,10 @@ def text_value(payload: Mapping[str, Any], keys: tuple[str, ...]) -> str | None:
 
 
 def float_value(payload: Mapping[str, Any], keys: tuple[str, ...]) -> float | None:
-    """첫 좌표 값을 float으로 변환합니다."""
+    """
+    `first_value`를 통해 찾은 값을 부동소수점(float) 숫자로 형변환하여 반환합니다.
+    위도/경도 값 변환 등에 사용되며 변환 실패 시 None을 반환합니다.
+    """
 
     value = first_value(payload, keys)
     if value in (None, ""):
@@ -60,7 +69,10 @@ def float_value(payload: Mapping[str, Any], keys: tuple[str, ...]) -> float | No
 
 
 def parse_datetime(value: Any, *, end_of_day: bool = False) -> datetime | None:
-    """여러 날짜 문자열 형식을 datetime으로 변환합니다."""
+    """
+    다양한 포맷의 날짜/시간 문자열(YYYYMMDD, YYYY-MM-DD 등)을 파싱하여
+    naive datetime 객체로 변환합니다. end_of_day가 참이면 해당 일의 23:59:59로 조정합니다.
+    """
 
     if value in (None, ""):
         return None
@@ -95,7 +107,10 @@ def parse_datetime(value: Any, *, end_of_day: bool = False) -> datetime | None:
 
 
 def derive_district(payload: Mapping[str, Any], city_keyword: str) -> str:
-    """행사 레코드에서 자치구를 추출합니다."""
+    """
+    행사 원본 페이로드 내 여러 주소 필드를 조합하여 자치구(예: '서구', '유성구') 문자열을 추출합니다.
+    추출 실패 시 전달된 기본 도시(city_keyword) 이름을 반환합니다.
+    """
 
     explicit = text_value(payload, DISTRICT_KEYS)
     if explicit:
@@ -118,7 +133,10 @@ def derive_district(payload: Mapping[str, Any], city_keyword: str) -> str:
 
 
 def build_external_id(payload: Mapping[str, Any], title: str, starts_at: datetime) -> str:
-    """원본 ID가 없을 때 안정적인 대체 ID를 만듭니다."""
+    """
+    공공데이터에서 고유 ID가 명시적으로 제공되지 않은 경우,
+    제목, 시작일, 장소, 주소 등을 조합하여 일관된 대체 식별자(External ID)를 해싱 생성합니다.
+    """
 
     explicit = text_value(payload, ID_KEYS)
     if explicit:
@@ -137,7 +155,10 @@ def build_external_id(payload: Mapping[str, Any], title: str, starts_at: datetim
 
 
 def is_target_city(payload: Mapping[str, Any], city_keyword: str) -> bool:
-    """대상 도시 키워드가 포함된 행사만 통과시킵니다."""
+    """
+    주소나 행사장명 등 원본 데이터 내에 대상 도시 키워드(예: '대전')가
+    포함되어 있는지 여부를 boolean 값으로 판단합니다.
+    """
 
     haystack = " ".join(
         str(value)
@@ -154,7 +175,11 @@ def is_target_city(payload: Mapping[str, Any], city_keyword: str) -> bool:
 
 
 def normalize_public_event(payload: Mapping[str, Any], city_keyword: str = "대전") -> NormalizedPublicEvent | None:
-    """원본 행사 레코드를 배너/DB 저장용으로 정규화합니다."""
+    """
+    원본 행사 데이터를 읽고, 대상 도시에 맞는지 검사(is_target_city)한 후,
+    날짜/위치/텍스트 등의 값을 통일된 NormalizedPublicEvent 객체로 가공해 반환합니다.
+    필수 정보(제목, 시작일 등) 부족 시 None을 반환합니다.
+    """
 
     if not is_target_city(payload, city_keyword):
         return None

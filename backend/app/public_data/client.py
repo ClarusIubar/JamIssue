@@ -14,7 +14,9 @@ DEFAULT_SOURCE_KEY = "jamissue-public-bundle"
 
 
 def default_source_payload(settings: Settings) -> PublicSourcePayload:
-    """Build default source metadata from current settings."""
+    """
+    현재 설정(Settings)을 바탕으로 공공데이터 소스의 기본 메타데이터(PublicSourcePayload)를 생성합니다.
+    """
 
     source_url = settings.public_data_source_url or str(settings.public_data_file_path)
     provider = "public-api" if settings.public_data_source_url else "public-json"
@@ -27,7 +29,10 @@ def default_source_payload(settings: Settings) -> PublicSourcePayload:
 
 
 def read_public_payload(settings: Settings) -> dict:
-    """Read raw JSON from a configured URL or local file."""
+    """
+    설정된 URL이나 로컬 파일에서 공공데이터 원본 JSON을 읽어와 딕셔너리로 반환합니다.
+    URL 호출 실패 시 로컬 파일을 우선 시도합니다.
+    """
 
     if settings.public_data_source_url:
         request = Request(settings.public_data_source_url, headers={"Accept": "application/json"})
@@ -44,7 +49,10 @@ def read_public_payload(settings: Settings) -> dict:
 
 
 def load_public_bundle(settings: Settings) -> PublicDataBundle:
-    """Validate raw JSON into the shared public-data bundle schema."""
+    """
+    읽어온 원본 JSON 데이터를 Pydantic 스키마(PublicDataBundle)를 통해 검증하고 변환하여 반환합니다.
+    소스 메타데이터가 누락된 경우 기본값을 채워넣습니다.
+    """
 
     raw_payload = read_public_payload(settings)
     bundle = PublicDataBundle.model_validate(raw_payload)

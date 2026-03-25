@@ -13,6 +13,9 @@ MIN_ROUTE_PLACE_COUNT = 2
 
 
 def _to_user_route_out(route: UserRoute, current_user_id: str | None) -> UserRouteOut:
+    """
+    UserRoute 모델(DB 데이터)을 화면 표시용 UserRouteOut 스키마로 변환합니다.
+    """
     ordered_places = sorted(route.route_places, key=lambda item: item.stop_order)
     liked_by_me = any(like.user_id == current_user_id for like in route.likes) if current_user_id else False
     return UserRouteOut(
@@ -33,6 +36,10 @@ def _to_user_route_out(route: UserRoute, current_user_id: str | None) -> UserRou
 
 
 def _load_route_or_raise(db: Session, route_id: str) -> UserRoute:
+    """
+    route_id(경로 식별자)를 기반으로 해당 사용자 경로 레코드를 조회합니다.
+    존재하지 않거나 파싱할 수 없는 형식이면 ValueError를 발생시킵니다.
+    """
     try:
         route_key = int(route_id)
     except ValueError as error:
@@ -53,6 +60,9 @@ def _load_route_or_raise(db: Session, route_id: str) -> UserRoute:
 
 
 def list_public_user_routes(db: Session, sort: RouteSort, current_user_id: str | None = None) -> list[UserRouteOut]:
+    """
+    공개된 사용자 루트 목록(커뮤니티 루트 목록)을 지정된 정렬 조건(최신순, 인기순)에 따라 반환합니다.
+    """
     stmt = (
         select(UserRoute)
         .options(
@@ -71,6 +81,9 @@ def list_public_user_routes(db: Session, sort: RouteSort, current_user_id: str |
 
 
 def list_user_routes_for_owner(db: Session, user_id: str) -> list[UserRouteOut]:
+    """
+    특정 사용자가 작성한 루트 목록 전체를 반환합니다. (마이페이지용)
+    """
     routes = db.scalars(
         select(UserRoute)
         .options(
@@ -85,6 +98,12 @@ def list_user_routes_for_owner(db: Session, user_id: str) -> list[UserRouteOut]:
 
 
 def create_user_route(db: Session, payload: UserRouteCreate, user_id: str, nickname: str) -> UserRouteOut:
+    """
+    특정 여행 세션(TravelSession)을 바탕으로 사용자 작성 루트(UserRoute)를 생성합니다.
+    - 해당 세션이 존재하고 소유자가 맞는지
+    - 세션에 포함된 스탬프가 최소 개수 기준을 넘는지
+    등을 검증 후 저장합니다.
+    """
     title = payload.title.strip()
     description = payload.description.strip()
     if len(title) < 2:
@@ -159,6 +178,10 @@ def create_user_route(db: Session, payload: UserRouteCreate, user_id: str, nickn
 
 
 def toggle_user_route_like(db: Session, route_id: str, user_id: str, nickname: str) -> UserRouteLikeResponse:
+    """
+    특정 사용자 경로(UserRoute)에 대해 좋아요 상태를 토글(추가/삭제)합니다.
+    내가 작성한 경로나 비공개 경로인 경우 에러를 반환합니다.
+    """
     route = _load_route_or_raise(db, route_id)
     if not route.is_public:
         raise ValueError("비공개 경로에는 좋아요를 누를 수 없어요.")
@@ -184,6 +207,9 @@ def toggle_user_route_like(db: Session, route_id: str, user_id: str, nickname: s
 
 
 def delete_user_route(db: Session, route_id: str, user_id: str, *, is_admin: bool = False) -> None:
+    """
+    특정 사용자 경로를 영구적으로 삭제(Delete) 처리합니다.
+    """
     route = _load_route_or_raise(db, route_id)
     if route.user_id != user_id and not is_admin:
         raise PermissionError("내가 만든 경로만 삭제할 수 있어요.")

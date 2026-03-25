@@ -16,13 +16,15 @@ from .schemas import PublicDataBundle, PublicSourcePayload
 
 
 def utc_now() -> datetime:
-    """Return a naive UTC timestamp for DB writes."""
+    """DB 기록용으로 시간대 정보가 없는(naive) UTC 현재 시각을 반환합니다."""
 
     return datetime.now(UTC).replace(tzinfo=None)
 
 
 def upsert_public_source(db: Session, source_payload: PublicSourcePayload, now: datetime) -> PublicDataSource:
-    """Create or update a public source metadata row."""
+    """
+    제공된 소스 페이로드를 바탕으로 PublicDataSource 레코드를 생성하거나 기존 레코드를 업데이트합니다.
+    """
 
     source = db.scalars(
         select(PublicDataSource).where(PublicDataSource.source_key == source_payload.source_key)
@@ -39,7 +41,11 @@ def upsert_public_source(db: Session, source_payload: PublicSourcePayload, now: 
 
 
 def upsert_map_place(db: Session, map_payload: dict, now: datetime) -> tuple[MapPlace, bool]:
-    """Create or update a map place from normalized public data."""
+    """
+    정규화된 공공데이터(map_payload)를 이용해 내부 MapPlace 레코드를 생성하거나 갱신합니다.
+    수동 덮어쓰기(is_manual_override)가 설정된 경우 일부 정보 업데이트는 건너뜁니다.
+    반환값은 (MapPlace 객체, 생성 여부 bool) 튜플입니다.
+    """
 
     place = db.scalars(select(MapPlace).where(MapPlace.slug == map_payload["slug"])).first()
     created = False
@@ -75,7 +81,10 @@ def upsert_public_place_link(
     map_place: MapPlace,
     now: datetime,
 ) -> None:
-    """Link a normalized public place to a JamIssue map place."""
+    """
+    공공 장소(PublicPlace)와 내부 지도 장소(MapPlace)를 연결(Link)합니다.
+    기존 링크가 있다면 갱신하고, 없다면 새 링크를 생성합니다.
+    """
 
     for existing_link in public_place.map_links:
         existing_link.is_primary = existing_link.position_id == map_place.position_id
@@ -103,7 +112,9 @@ def upsert_public_place_link(
 
 
 def mark_stale_public_places(db: Session, source_id: int, seen_external_ids: set[str], now: datetime) -> None:
-    """Mark missing records from the last import as stale."""
+    """
+    이번 동기화에서 누락된 이전 장소들의 상태를 'stale(기한 지남)'로 표시합니다.
+    """
 
     stale_places = db.scalars(select(PublicPlace).where(PublicPlace.source_id == source_id)).all()
     for place in stale_places:
@@ -114,7 +125,11 @@ def mark_stale_public_places(db: Session, source_id: int, seen_external_ids: set
 
 
 def sync_courses(db: Session, bundle: PublicDataBundle) -> int:
-    """Sync course definitions using current map-place rows."""
+    """
+    번들에 포함된 큐레이션 코스 정보(Course)를 동기화합니다.
+    기존에 있는 코스는 업데이트하고, 매핑된 장소 정보(CoursePlace)를 갱신합니다.
+    추가된 코스의 개수를 반환합니다.
+    """
 
     imported_courses = 0
     place_by_slug = {place.slug: place for place in db.scalars(select(MapPlace)).all()}
@@ -153,7 +168,11 @@ def sync_courses(db: Session, bundle: PublicDataBundle) -> int:
 
 
 def import_public_bundle(db: Session, settings: Settings) -> PublicImportResponse:
-    """Import the configured public tourism bundle into source and map tables."""
+    """
+    공공 관광 데이터를 가져오고(read_public_payload), 유효성 검증(load_public_bundle),
+    정규화(normalize_public_place)를 거친 후 소스와 장소(MapPlace), 그리고 코스를 DB에 동기화합니다.
+    작업 결과를 PublicImportResponse 객체로 반환합니다.
+    """
 
     bundle = load_public_bundle(settings)
     if not bundle.source:
