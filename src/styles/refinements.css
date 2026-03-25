@@ -1420,6 +1420,7 @@ body {
   width: 100% !important;
   height: min(280px, 64vw) !important;
   max-height: 280px !important;
+  margin: 4px 0 14px !important;
   border-radius: 20px !important;
   overflow: hidden !important;
   background: rgba(255, 250, 252, 0.96) !important;
