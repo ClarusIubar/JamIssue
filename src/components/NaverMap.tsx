@@ -152,6 +152,7 @@ export function NaverMap({
   const onViewportChangeRef = useRef(onViewportChange);
   const idleListenerRef = useRef<any>(null);
   const viewportDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastHandledCurrentLocationFocusKeyRef = useRef(0);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const clientId = getClientConfig().naverMapClientId;
@@ -434,8 +435,20 @@ export function NaverMap({
       return;
     }
 
+    if (focusCurrentLocationKey === lastHandledCurrentLocationFocusKeyRef.current) {
+      return;
+    }
+
+    // A direct place/festival selection is a newer intent than an old
+    // "show my location" focus request, so consume and discard it here.
+    if (selectedPlaceId || selectedFestivalId) {
+      lastHandledCurrentLocationFocusKeyRef.current = focusCurrentLocationKey;
+      return;
+    }
+
+    lastHandledCurrentLocationFocusKeyRef.current = focusCurrentLocationKey;
     mapRef.current.panTo(new window.naver.maps.LatLng(currentPosition.latitude, currentPosition.longitude));
-  }, [currentPosition, focusCurrentLocationKey, status]);
+  }, [currentPosition, focusCurrentLocationKey, selectedFestivalId, selectedPlaceId, status]);
 
   useEffect(() => {
     if (status !== 'ready' || !window.naver?.maps || !mapRef.current) {
