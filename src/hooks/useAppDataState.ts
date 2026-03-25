@@ -16,6 +16,11 @@ const emptyProviders: AuthProvider[] = [
   { key: 'kakao', label: '\uCE74\uCE74\uC624', isEnabled: false, loginUrl: null },
 ];
 
+/**
+ * 애플리케이션 전반에서 사용하는 도메인 데이터(장소, 행사, 리뷰, 코스 등)를 React 로컬 상태(useState)로
+ * 관리하고 공유하기 위한 커스텀 훅입니다. 데이터 캐싱과 부분 갱신을 위한 유틸리티 함수들을 제공합니다.
+ * @param selectedPlaceId 현재 지도에서 선택되어 바텀시트가 열려있는 장소의 ID
+ */
 export function useAppDataState(selectedPlaceId: string | null) {
   const [bootstrapStatus, setBootstrapStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
@@ -45,11 +50,17 @@ export function useAppDataState(selectedPlaceId: string | null) {
   const feedLoadedRef = useRef(false);
   const coursesLoadedRef = useRef(false);
 
+  /**
+   * 커뮤니티 루트 목록을 새 데이터로 덮어쓰고, 해당 정렬 기준의 캐시를 갱신합니다.
+   */
   function replaceCommunityRoutes(nextRoutes: UserRoute[], sort: CommunityRouteSort = communityRouteSort) {
     communityRoutesCacheRef.current[sort] = nextRoutes;
     setCommunityRoutes(nextRoutes);
   }
 
+  /**
+   * 특정 커뮤니티 루트 하나(예: 좋아요 갱신)에 대해서만 상태와 캐시를 부분 수정합니다.
+   */
   function patchCommunityRoutes(routeId: string, updater: (route: UserRoute) => UserRoute) {
     const nextCache: Partial<Record<CommunityRouteSort, UserRoute[]>> = {};
     for (const sortKey of Object.keys(communityRoutesCacheRef.current) as CommunityRouteSort[]) {
@@ -63,6 +74,10 @@ export function useAppDataState(selectedPlaceId: string | null) {
     setCommunityRoutes((current) => current.map((route) => (route.id === routeId ? updater(route) : route)));
   }
 
+  /**
+   * 특정 리뷰 하나(예: 좋아요, 댓글 수 갱신)에 대해서 피드 목록, 장소 상세 목록, 캐시 등
+   * 관련된 모든 컬렉션에서 상태를 일관되게 동기화(업데이트)합니다.
+   */
   function patchReviewCollections(reviewId: string, updater: (review: BootstrapResponse['reviews'][number]) => BootstrapResponse['reviews'][number]) {
     setReviews((current) => current.map((review) => (review.id === reviewId ? updater(review) : review)));
     setSelectedPlaceReviews((current) => current.map((review) => (review.id === reviewId ? updater(review) : review)));
@@ -73,6 +88,9 @@ export function useAppDataState(selectedPlaceId: string | null) {
     }
   }
 
+  /**
+   * 새로운 리뷰를 목록 맨 앞에 추가하거나, 기존 리뷰의 상태 전체를 덮어씁니다(Upsert).
+   */
   function upsertReviewCollections(review: BootstrapResponse['reviews'][number]) {
     setReviews((current) => [review, ...current.filter((currentReview) => currentReview.id !== review.id)]);
     if (selectedPlaceId === review.placeId) {
@@ -82,6 +100,9 @@ export function useAppDataState(selectedPlaceId: string | null) {
     placeReviewsCacheRef.current[review.placeId] = [review, ...cachedPlaceReviews.filter((currentReview) => currentReview.id !== review.id)];
   }
 
+  /**
+   * 로그인 변경 혹은 앱 초기화 시 캐시된 리뷰 목록을 모두 비웁니다.
+   */
   function resetReviewCaches() {
     placeReviewsCacheRef.current = {};
     feedLoadedRef.current = false;

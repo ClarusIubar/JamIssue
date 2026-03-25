@@ -37,6 +37,10 @@ type SetState<T> = Dispatch<SetStateAction<T>>;
 type HistoryMode = 'push' | 'replace';
 type CommunityRoutesCache = Partial<Record<'popular' | 'latest', UserRoute[]>>;
 
+/**
+ * useAppMutationActions 훅에서 사용하는 의존성 주입용 파라미터 인터페이스입니다.
+ * 앱 전반의 상태값, Setter, 캐시 Ref 등을 포함합니다.
+ */
 interface UseAppMutationActionsParams {
   activeTab: Tab;
   sessionUser: SessionUser | null;
@@ -93,6 +97,10 @@ interface UseAppMutationActionsParams {
   setIsLoggingOut: SetState<boolean>;
 }
 
+/**
+ * 리뷰 작성, 스탬프 적립, 코스 발행 등 사용자 액션에 의해 데이터가 변경(Mutation)되는
+ * API 요청 로직 및 이에 따른 UI 상태/캐시 업데이트를 처리하는 훅입니다.
+ */
 export function useAppMutationActions({
   activeTab,
   sessionUser,
@@ -145,6 +153,9 @@ export function useAppMutationActions({
   setProviders,
   setIsLoggingOut,
 }: UseAppMutationActionsParams) {
+  /**
+   * 에러 객체에서 사용자 친화적인 메시지를 추출하는 헬퍼 함수입니다.
+   */
   function formatErrorMessage(error: unknown) {
     if (error instanceof Error) {
       return error.message;
@@ -152,6 +163,10 @@ export function useAppMutationActions({
     return '요청을 처리하지 못했어요. 잠시 뒤에 다시 시도해 주세요.';
   }
 
+  /**
+   * 지도나 장소 상세 시트에서 '도착 인증' (스탬프 획득) 버튼을 눌렀을 때 호출됩니다.
+   * 현재 위치를 가져와 서버에 전송하고 스탬프를 적립합니다.
+   */
   async function handleClaimStamp(place: Place) {
     if (!sessionUser) {
       goToTab('my');
@@ -187,6 +202,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * 새로운 피드(리뷰)를 작성합니다. 이미지가 포함된 경우 먼저 업로드 후 서버에 생성 요청을 보냅니다.
+   */
   async function handleCreateReview(payload: { stampId: string; body: string; mood: ReviewMood; file: File | null }) {
     if (!sessionUser || !selectedPlace) {
       goToTab('my');
@@ -227,6 +245,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * 특정 피드(리뷰)에 새 댓글이나 대댓글을 작성합니다.
+   */
   async function handleCreateComment(reviewId: string, body: string, parentId?: string) {
     if (!sessionUser) {
       goToTab('my');
@@ -249,6 +270,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * 사용자가 작성한 기존 댓글의 내용을 수정합니다.
+   */
   async function handleUpdateComment(reviewId: string, commentId: string, body: string) {
     if (!sessionUser) {
       goToTab('my');
@@ -274,6 +298,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * 사용자가 작성한 댓글을 삭제 처리(소프트 삭제)합니다.
+   */
   async function handleDeleteComment(reviewId: string, commentId: string) {
     if (!sessionUser) {
       goToTab('my');
@@ -299,6 +326,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * 사용자가 작성한 피드(리뷰) 전체를 삭제합니다. 삭제 후 연관된 캐시도 함께 갱신합니다.
+   */
   async function handleDeleteReview(reviewId: string) {
     if (!sessionUser) {
       goToTab('my');
@@ -348,6 +378,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * 특정 피드의 좋아요 상태를 토글(추가/해제)합니다.
+   */
   async function handleToggleReviewLike(reviewId: string) {
     if (!sessionUser) {
       goToTab('my');
@@ -370,6 +403,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * 특정 커뮤니티 코스의 좋아요 상태를 토글(추가/해제)합니다.
+   */
   async function handleToggleRouteLike(routeId: string) {
     if (!sessionUser) {
       goToTab('my');
@@ -408,6 +444,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * 마이페이지에서 사용자의 스탬프 여행 세션 기록을 커뮤니티 경로로 공개 발행(Publish)합니다.
+   */
   async function handlePublishRoute(payload: { travelSessionId: string; title: string; description: string; mood: string }) {
     if (!sessionUser) {
       goToTab('my');
@@ -455,6 +494,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * [관리자] 개별 장소의 전체 목록 노출 여부를 토글합니다.
+   */
   async function handleToggleAdminPlace(placeId: string, nextValue: boolean) {
     if (!sessionUser?.isAdmin) {
       return;
@@ -482,6 +524,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * [관리자] 공공데이터 자동 동기화로부터 이 장소 데이터의 덮어쓰기 방지 여부를 토글합니다.
+   */
   async function handleToggleAdminManualOverride(placeId: string, nextValue: boolean) {
     if (!sessionUser?.isAdmin) {
       return;
@@ -505,6 +550,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * [관리자] 외부 공공데이터(장소/행사) API를 즉시 다시 호출하여 DB 동기화를 수행합니다.
+   */
   async function handleRefreshAdminImport() {
     if (!sessionUser?.isAdmin) {
       return;
@@ -533,6 +581,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * 내 프로필 정보(주로 닉네임)를 업데이트합니다.
+   */
   async function handleUpdateProfile(nextNickname: string) {
     if (!nextNickname || nextNickname.length < 2) {
       setProfileError('닉네임은 두 글자 이상으로 입력해 주세요.');
@@ -554,6 +605,9 @@ export function useAppMutationActions({
     }
   }
 
+  /**
+   * 현재 세션을 무효화하고 로그아웃 처리합니다.
+   */
   async function handleLogout() {
     setIsLoggingOut(true);
     try {

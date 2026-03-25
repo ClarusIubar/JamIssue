@@ -1,6 +1,10 @@
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 
+/**
+ * useAutoLoadMore 훅에서 사용하는 설정 인터페이스입니다.
+ * 활성화 상태, 로딩 여부, 센티널(관찰 대상) 교차 시 실행할 함수, 기준 요소와 마진 등을 지정합니다.
+ */
 interface UseAutoLoadMoreOptions {
   enabled: boolean;
   loading: boolean;
@@ -9,6 +13,10 @@ interface UseAutoLoadMoreOptions {
   rootMargin?: string;
 }
 
+/**
+ * 리스트의 가장 밑바닥(Sentinel) 요소가 화면에 나타날 때(IntersectionObserver),
+ * 다음 데이터를 자동으로 불러오는(Load More) 무한 스크롤 커스텀 훅입니다.
+ */
 export function useAutoLoadMore({
   enabled,
   loading,

@@ -4,6 +4,10 @@ import { useAutoLoadMore } from '../hooks/useAutoLoadMore';
 import { ProviderButtons } from './ProviderButtons';
 import type { AdminSummaryResponse, AuthProvider, CourseMood, MyPageResponse, MyPageTabKey, SessionUser, TravelSession } from '../types';
 
+/**
+ * MyPagePanel 컴포넌트가 부모(App)로부터 전달받는 프롭스(Props) 인터페이스입니다.
+ * 내 스탬프, 피드, 댓글, 발행된 경로 등 사용자 데이터와 각종 조작 액션 핸들러를 포함합니다.
+ */
 interface MyPagePanelProps {
   sessionUser: SessionUser | null;
   myPage: MyPageResponse | null;
@@ -40,6 +44,9 @@ const AdminPanel = lazy(() => import('./AdminPanel').then((module) => ({ default
 
 const routeMoodOptions: CourseMood[] = ['데이트', '사진', '힐링', '비 오는 날'];
 
+/**
+ * 코스(루트) 발행 전에 작성 중인 초안 상태를 담는 인터페이스입니다.
+ */
 interface DraftState {
   title: string;
   description: string;
@@ -60,6 +67,9 @@ function HeartIcon({ filled }: { filled: boolean }) {
     </svg>
   );
 }
+/**
+ * 사용자의 여행 세션 데이터를 바탕으로 코스 발행 시 제공될 기본 초안(DraftState)을 생성합니다.
+ */
 function buildDefaultDraft(session: TravelSession): DraftState {
   const firstPlaceName = session.placeNames[0] ?? '하루 코스';
   const lastPlaceName = session.placeNames[session.placeNames.length - 1] ?? firstPlaceName;
@@ -70,6 +80,15 @@ function buildDefaultDraft(session: TravelSession): DraftState {
   };
 }
 
+/**
+ * 로그인한 사용자의 정보를 요약해 보여주는 마이페이지 탭 컴포넌트입니다.
+ * 아직 로그인을 안 했거나 닉네임을 설정하지 않은 경우 로그인/프로필 수정 화면을 보여줍니다.
+ *
+ * 주요 기능:
+ * - 내 통계 및 진행률 시각화
+ * - 하위 탭 분기 (스탬프 로그, 내 피드, 내 댓글, 코스 발행/관리, 관리자 모드)
+ * - 여행 세션(24시간 내 스탬프)을 코스(루트)로 묶어서 발행하는 Draft 기능
+ */
 export function MyPagePanel({
   sessionUser,
   myPage,

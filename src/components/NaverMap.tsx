@@ -17,6 +17,10 @@ const DAEJEON_BOUNDS = {
 
 let naverScriptPromise: Promise<any> | null = null;
 
+/**
+ * 네이버 지도 자바스크립트 SDK를 동적으로 로드하고 준비 완료를 기다리는 프로미스를 반환합니다.
+ * @param clientId 네이버 클라우드 플랫폼에서 발급받은 Client ID
+ */
 function loadNaverMaps(clientId: string) {
   if (window.naver?.maps) {
     return Promise.resolve(window.naver.maps);
@@ -44,6 +48,10 @@ function loadNaverMaps(clientId: string) {
   return naverScriptPromise;
 }
 
+/**
+ * 네이버 지도 상에 표시될 커스텀 장소(Place) 마커의 HTML 문자열을 생성합니다.
+ * 활성화(isActive) 여부에 따라 크기와 그림자가 다르게 표현됩니다.
+ */
 function placeMarkerContent(place: Place, isActive: boolean) {
   const info = categoryInfo[place.category];
   const ring = isActive ? '#5f4660' : 'rgba(95, 70, 96, 0.18)';
@@ -65,6 +73,9 @@ function placeMarkerContent(place: Place, isActive: boolean) {
   `;
 }
 
+/**
+ * 네이버 지도 상에 표시될 커스텀 행사(Festival) 마커의 HTML 문자열을 생성합니다.
+ */
 function festivalMarkerContent(festival: FestivalItem, isActive: boolean) {
   const ring = isActive ? '#ff4f93' : 'rgba(255, 79, 147, 0.22)';
   const scale = isActive ? 'scale(1.06)' : 'scale(1)';
@@ -84,6 +95,9 @@ function festivalMarkerContent(festival: FestivalItem, isActive: boolean) {
   `;
 }
 
+/**
+ * 사용자 현재 위치(GPS)를 나타내는 펄스 형태의 파란 점 마커 HTML 문자열을 생성합니다.
+ */
 function currentLocationMarkerContent() {
   return `
     <div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:rgba(255,255,255,0.92);box-shadow:0 6px 18px rgba(95,70,96,0.18);border:1px solid rgba(95,70,96,0.12);">
@@ -92,12 +106,20 @@ function currentLocationMarkerContent() {
   `;
 }
 
+/**
+ * 경로 미리보기 시 장소 위에 표시될 순서(번호) 마커의 HTML 문자열을 생성합니다.
+ */
 function routeStepMarkerContent(step: number) {
   return `
     <div style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;background:#5f4660;color:#fff;font-size:11px;font-weight:800;box-shadow:0 10px 24px rgba(95,70,96,0.22);border:2px solid rgba(255,255,255,0.9);">${step}</div>
   `;
 }
 
+/**
+ * NaverMap 컴포넌트의 Props 인터페이스입니다.
+ * 마커 렌더링에 필요한 데이터(places, festivals, routePreviewPlaces 등)와
+ * 지도 상호작용 관련 콜백들(onSelectPlace, onViewportChange 등)을 전달받습니다.
+ */
 interface NaverMapProps {
   places: Place[];
   festivals: FestivalItem[];
@@ -117,6 +139,11 @@ interface NaverMapProps {
   height?: string;
 }
 
+/**
+ * 네이버 지도 API를 React 렌더링 사이클에 맞춰 통합한 지도 뷰어 컴포넌트입니다.
+ * 장소 마커, 행사 마커, 유저의 현재 위치, 경로 미리보기 선 그리기 등
+ * 앱 내 모든 지도 그리기 기능을 총괄합니다.
+ */
 export function NaverMap({
   places,
   festivals,

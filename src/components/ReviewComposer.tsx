@@ -1,8 +1,15 @@
 ﻿import { useState } from 'react';
 import type { ReviewMood } from '../types';
 
+/**
+ * 리뷰 작성기가 가질 수 있는 상태값 타입입니다.
+ */
 type ReviewComposerStatus = 'login' | 'claim' | 'ready' | 'daily-limit';
 
+/**
+ * ReviewComposer 컴포넌트의 Props 인터페이스입니다.
+ * 작성기 상태 제어값과 제출, 인증 요청 등의 이벤트 핸들러를 포함합니다.
+ */
 interface ReviewComposerProps {
   placeName: string;
   loggedIn: boolean;
@@ -18,6 +25,11 @@ interface ReviewComposerProps {
 
 const moodOptions: ReviewMood[] = ['혼자서', '친구랑', '데이트', '야경 맛집'];
 
+/**
+ * 장소 상세 바텀시트 하단에 노출되는 피드(리뷰) 작성 컴포넌트입니다.
+ * 사진 첨부, 기분(mood) 선택, 본문 입력을 지원하며 권한(스탬프 획득 여부)에 따라
+ * 입력창을 비활성화하거나 인증/로그인 버튼을 대신 보여줍니다.
+ */
 export function ReviewComposer({
   placeName,
   loggedIn,

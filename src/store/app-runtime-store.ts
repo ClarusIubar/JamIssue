@@ -3,12 +3,22 @@ import type { ApiStatus } from '../types';
 
 type SetterValue<T> = T | ((current: T) => T);
 
+/**
+ * 상태 갱신 시 최신 값을 기반으로 연산하는 함수형 업데이트를 지원하는 유틸리티입니다.
+ */
 function resolveValue<T>(value: SetterValue<T>, current: T): T {
   return typeof value === 'function' ? (value as (current: T) => T)(current) : value;
 }
 
+/**
+ * 사용자 디바이스의 위치 좌표(위도, 경도)를 보관하는 타입입니다.
+ */
 type Position = { latitude: number; longitude: number } | null;
 
+/**
+ * 앱 구동 중 발생하는 API 통신 상태(로딩/에러), 사용자 알림 메시지,
+ * 현재 내 위치 등의 동적 런타임 상태를 통합 관리하는 Zustand 상태 인터페이스입니다.
+ */
 type AppRuntimeState = {
   notice: string | null;
   currentPosition: Position;
@@ -66,6 +76,10 @@ type AppRuntimeState = {
   setMyCommentsLoadedOnce: (value: SetterValue<boolean>) => void;
 };
 
+/**
+ * 리뷰 등록, 로그인/로그아웃, 로딩 및 페이지네이션 커서 상태 등
+ * 일시적이고 런타임에 국한되는 상태 정보를 담은 전역 스토어(Zustand) 훅입니다.
+ */
 export const useAppRuntimeStore = create<AppRuntimeState>((set) => ({
   notice: null,
   currentPosition: null,

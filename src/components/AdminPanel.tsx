@@ -1,5 +1,9 @@
 ﻿import type { AdminSummaryResponse } from '../types';
 
+/**
+ * AdminPanel 컴포넌트가 부모(MyPagePanel)로부터 전달받는 프롭스(Props) 인터페이스입니다.
+ * 운영 요약 데이터 및 장소 설정 토글 핸들러를 포함합니다.
+ */
 interface AdminPanelProps {
   summary: AdminSummaryResponse | null;
   busyPlaceId: string | null;
@@ -9,6 +13,11 @@ interface AdminPanelProps {
   onToggleManualOverride: (placeId: string, nextValue: boolean) => Promise<void>;
 }
 
+/**
+ * 관리자 권한을 가진 사용자에게만 마이페이지의 한 탭으로 노출되는 관리자 패널 컴포넌트입니다.
+ * 앱 전체의 가입자 수, 생성된 피드 및 댓글 개수 등의 통계를 보여주고,
+ * 장소 데이터를 수동으로 노출/숨김하거나 공공데이터 동기화 보호를 걸 수 있는 권한을 제공합니다.
+ */
 export function AdminPanel({ summary, busyPlaceId, isImporting, onRefreshImport, onTogglePlace, onToggleManualOverride }: AdminPanelProps) {
   if (!summary) {
     return null;

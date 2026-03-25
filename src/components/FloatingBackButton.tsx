@@ -5,11 +5,17 @@ const EDGE_PADDING = 12;
 const BOTTOM_PADDING = 110;
 const TOUCH_DRAG_DELAY_MS = 260;
 
+/**
+ * 플로팅 버튼의 현재 렌더링 위치를 나타내는 좌표 객체입니다.
+ */
 interface Position {
   x: number;
   y: number;
 }
 
+/**
+ * 플로팅 버튼이 화면 가장자리(여백 고려) 밖으로 나가지 않도록 위치를 조정(Clamp)합니다.
+ */
 function clampPosition(position: Position) {
   if (typeof window === 'undefined') {
     return position;
@@ -24,10 +30,18 @@ function clampPosition(position: Position) {
   };
 }
 
+/**
+ * FloatingBackButton 컴포넌트의 Props 인터페이스입니다.
+ * 클릭(혹은 탭) 시 이전 화면으로 돌아가기 위한 이벤트 핸들러를 받습니다.
+ */
 interface FloatingBackButtonProps {
   onNavigateBack: () => void;
 }
 
+/**
+ * 화면 위에 떠 있으며 드래그로 위치를 자유롭게 이동할 수 있는 뒤로가기 버튼 컴포넌트입니다.
+ * 드래그와 클릭 이벤트를 분리하여 모바일/데스크톱 모두에서 부드러운 상호작용을 지원합니다.
+ */
 export function FloatingBackButton({ onNavigateBack }: FloatingBackButtonProps) {
   const [position, setPosition] = useState<Position | null>(null);
   const [isDragging, setIsDragging] = useState(false);

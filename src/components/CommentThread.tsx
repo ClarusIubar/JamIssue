@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Comment } from '../types';
 
+/**
+ * 전체 댓글 트리(CommentThread) 컴포넌트가 받는 Props 인터페이스입니다.
+ * 보여줄 댓글 목록과 권한 여부, 작성/수정 핸들러 등을 포함합니다.
+ */
 interface CommentThreadProps {
   comments: Comment[];
   canWriteComment: boolean;
@@ -15,6 +19,11 @@ interface CommentThreadProps {
   onRequestLogin: () => void;
 }
 
+/**
+ * 개별 댓글 아이템을 렌더링하기 위한 Props 인터페이스입니다.
+ * 이 아이템 컴포넌트는 자신이 대댓글인지(isReply) 판단하는 플래그를 가지며,
+ * 자기 자신을 재귀적으로 호출해 자식 대댓글 트리를 구성할 수 있습니다.
+ */
 interface CommentItemProps {
   comment: Comment;
   reviewId: string;
@@ -30,6 +39,11 @@ interface CommentItemProps {
   isReply?: boolean;
 }
 
+/**
+ * 단일 댓글 혹은 대댓글을 화면에 렌더링하는 컴포넌트입니다.
+ * 내 댓글인 경우 수정/삭제 폼으로 전환되는 상태를 관리합니다.
+ * 자식 댓글(replies)이 있을 경우 재귀적으로 렌더링합니다.
+ */
 function CommentItem({
   comment,
   reviewId,
@@ -205,6 +219,10 @@ function CommentItem({
   );
 }
 
+/**
+ * 피드 카드 하단에 노출되는 전체 댓글 쓰기 및 목록 렌더링 컨테이너입니다.
+ * 댓글 작성 폼을 먼저 표시하고, 하단에 `CommentItem`을 이용해 전체 트리를 그립니다.
+ */
 export function CommentThread({
   comments,
   canWriteComment,

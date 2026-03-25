@@ -3,6 +3,11 @@ import { categoryInfo } from '../lib/categories';
 import { ReviewComposer } from './ReviewComposer';
 import type { ApiStatus, DrawerState, Place, Review, ReviewMood, StampLog } from '../types';
 
+/**
+ * PlaceDetailSheet 컴포넌트의 Props 인터페이스입니다.
+ * 장소 정보, 해당 장소의 리뷰 목록, 로그인 상태, 사용자의 스탬프 이력 및
+ * 스탬프 획득/리뷰 작성/시트 닫기 등 각종 상호작용 액션들을 묶어 전달받습니다.
+ */
 interface PlaceDetailSheetProps {
   place: Place | null;
   reviews: Review[];
@@ -28,6 +33,10 @@ interface PlaceDetailSheetProps {
   onCreateReview: (payload: { stampId: string; body: string; mood: ReviewMood; file: File | null }) => Promise<void>;
 }
 
+/**
+ * ISO 형식의 날짜/시간 문자열(visitedAt)을 화면 표시용 문자열(MM.DD HH:mm)로 파싱합니다.
+ * 에러 시 원본 문자열을 반환합니다.
+ */
 function formatVisitedAt(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -43,6 +52,15 @@ function formatVisitedAt(value: string) {
   }).format(date);
 }
 
+/**
+ * 지도나 피드 등에서 특정 장소를 선택했을 때 노출되는 장소 상세 바텀 시트입니다.
+ *
+ * 주요 기능:
+ * - 장소 기본 정보(이름, 카테고리, 썸네일, 태그) 및 방문 회차 표시
+ * - 현장 스탬프 획득 액션 버튼
+ * - 당일 스탬프 획득 시 노출되는 리뷰(피드) 작성기(`ReviewComposer`)
+ * - 이 장소에 달린 최근 리뷰 미리보기(최대 2개) 표시
+ */
 export function PlaceDetailSheet({
   place,
   reviews,
@@ -73,10 +91,12 @@ export function PlaceDetailSheet({
     return null;
   }
 
+  /** 핸들 부분을 누르기 시작했을 때의 Y좌표를 저장합니다. */
   function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
     dragStartYRef.current = event.clientY;
   }
 
+  /** 핸들을 놓았을 때 드래그 거리를 계산해 시트를 닫거나 위로 확장합니다. */
   function handlePointerUp(event: React.PointerEvent<HTMLButtonElement>) {
     if (dragStartYRef.current === null) {
       return;

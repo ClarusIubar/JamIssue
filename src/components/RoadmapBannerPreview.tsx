@@ -2,6 +2,9 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { getPublicEventBanner } from '../api/client';
 import type { PublicEventBannerResponse } from '../publicEventTypes';
 
+/**
+ * 행사 API 요청 전 초기 로딩 상태로 사용할 빈 껍데기 응답 객체입니다.
+ */
 const INITIAL_DATA: PublicEventBannerResponse = {
   sourceReady: false,
   sourceName: null,
@@ -9,6 +12,10 @@ const INITIAL_DATA: PublicEventBannerResponse = {
   items: [],
 };
 
+/**
+ * 대전 행사 일정 데이터를 가져와(Live API) 전용 독립 페이지나 배너 프리뷰로 보여주는 화면 컴포넌트입니다.
+ * 관리자 패널의 연동 테스트 혹은 홈 화면 배너 확장 뷰 등으로 쓰입니다.
+ */
 export function RoadmapBannerPreview() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [data, setData] = useState<PublicEventBannerResponse>(INITIAL_DATA);

@@ -18,6 +18,11 @@ interface UseAppDerivedStateParams {
   myPageReviews: Review[];
 }
 
+/**
+ * 앱에 로드된 원본 도메인 데이터를 기반으로 파생되는 부가적인 상태(선택된 장소 객체,
+ * 필터링된 장소 목록, 오늘 스탬프 적립 여부, 사용자 리뷰 작성 권한 등)를 계산하고
+ * 성능 최적화를 위해 메모이제이션(useMemo)하여 제공하는 훅입니다.
+ */
 export function useAppDerivedState({
   places,
   festivals,

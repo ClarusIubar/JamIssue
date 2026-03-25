@@ -1,3 +1,6 @@
+/**
+ * 로드맵(업데이트 일정) 배너를 구성하는 데 필요한 정적 데이터(Schema)의 구조입니다.
+ */
 export interface RoadmapBannerSchema {
   eyebrow: string;
   title: string;
@@ -18,6 +21,9 @@ export interface RoadmapBannerSchema {
   closingNote: string;
 }
 
+/**
+ * 앱의 진척 상황, 개발 로드맵, 목표 일정 등의 하드코딩된 예시 데이터를 담은 상수 객체입니다.
+ */
 export const roadmapBannerSchema: RoadmapBannerSchema = {
   eyebrow: 'MARCH BUILD SCHEDULE',
   title: '3월 16일 - 3월 19일 작업 일정 배너',

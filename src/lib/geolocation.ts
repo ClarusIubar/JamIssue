@@ -1,5 +1,8 @@
 ﻿import { calculateDistanceMeters, formatDistanceMeters } from './visits';
 
+/**
+ * 사용자 디바이스의 측정된 위치 좌표 및 정확도 정보를 담는 인터페이스입니다.
+ */
 export interface CurrentDeviceLocation {
   latitude: number;
   longitude: number;
@@ -11,6 +14,10 @@ const DAEJEON_VALID_RADIUS_METERS = 45_000;
 const MAX_ACCEPTABLE_LOCATION_ACCURACY_METERS = 5_000;
 const EARLY_SUCCESS_LOCATION_ACCURACY_METERS = 150;
 
+/**
+ * 브라우저 Geolocation API가 측정한 위치 객체가 요구하는 기준(오차 범위, 대전 지역 내 여부)을 만족하는지 검증합니다.
+ * 조건에 맞지 않으면 오류(Error)를 발생시킵니다.
+ */
 function validateCurrentDevicePosition(position: GeolocationPosition): CurrentDeviceLocation {
   const nextPosition = {
     latitude: position.coords.latitude,
@@ -36,6 +43,11 @@ function validateCurrentDevicePosition(position: GeolocationPosition): CurrentDe
   return nextPosition;
 }
 
+/**
+ * 브라우저의 Geolocation API를 사용하여 현재 디바이스의 최적 위치(위도, 경도, 정확도)를 획득하고,
+ * 서비스 제약(반경/오차) 조건을 확인한 뒤 CurrentDeviceLocation 객체로 반환하는 Promise 함수입니다.
+ * 타임아웃, 에러 핸들링, 조기 성공 로직 등을 내장합니다.
+ */
 export function getCurrentDevicePosition() {
   return new Promise<CurrentDeviceLocation>((resolve, reject) => {
     if (typeof window === 'undefined' || !('geolocation' in navigator)) {

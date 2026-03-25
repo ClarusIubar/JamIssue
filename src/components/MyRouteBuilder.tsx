@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import type { Place, UserRoute } from '../types';
 
+/**
+ * MyRouteBuilder 컴포넌트의 Props 인터페이스입니다.
+ * 사용자가 보유한 스탬프 장소 목록(collectedPlaces), 이미 생성한 경로 목록(routes) 및 생성 요청 핸들러 등을 전달받습니다.
+ */
 interface MyRouteBuilderProps {
   collectedPlaces: Place[];
   routes: UserRoute[];
@@ -12,6 +16,10 @@ interface MyRouteBuilderProps {
 
 const moodOptions = ['데이트', '사진', '힐링', '비 오는 날'];
 
+/**
+ * 마이페이지의 코스 탭 하단에서, 사용자가 찍은 스탬프들을 자유롭게 선택하여
+ * 나만의 커뮤니티 경로(Course)를 직접 생성하고 관리하는 빌더 폼 컴포넌트입니다.
+ */
 export function MyRouteBuilder({ collectedPlaces, routes, submitting, errorMessage, onSubmit, onOpenPlace }: MyRouteBuilderProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');

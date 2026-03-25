@@ -1,5 +1,9 @@
 import type { CommunityRouteSort, SessionUser, UserRoute } from '../types';
 
+/**
+ * CommunityRouteSection 컴포넌트가 부모(코스 탭)로부터 전달받는 프롭스 인터페이스입니다.
+ * 사용할 커뮤니티 루트 배열, 정렬 상태, 좋아요 이벤트 핸들러 등을 포함합니다.
+ */
 interface CommunityRouteSectionProps {
   routes: UserRoute[];
   sort: CommunityRouteSort;
@@ -15,6 +19,10 @@ const sortLabels: Array<{ key: CommunityRouteSort; label: string }> = [
   { key: 'latest', label: '최신순' },
 ];
 
+/**
+ * 사용자(커뮤니티)가 작성한 경로(루트) 목록을 렌더링하는 전용 섹션 컴포넌트입니다.
+ * 정렬 버튼 렌더링과 개별 경로 카드 목록, 좋아요 버튼 등을 표시합니다.
+ */
 export function CommunityRouteSection({ routes, sort, sessionUser, likingRouteId, onChangeSort, onToggleLike, onOpenPlace }: CommunityRouteSectionProps) {
   return (
     <section className="card-block community-route-block">

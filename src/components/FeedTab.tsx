@@ -5,6 +5,10 @@ import { FeedCommentSheet } from './FeedCommentSheet';
 import { ReviewList } from './ReviewList';
 import type { Review, SessionUser } from '../types';
 
+/**
+ * FeedTab 컴포넌트가 부모(App)로부터 전달받는 프롭스(Props) 인터페이스입니다.
+ * 보여줄 리뷰 배열과 상태, 그리고 리뷰 상호작용 관련 액션 함수들을 정의합니다.
+ */
 interface FeedTabProps {
   reviews: Review[];
   sessionUser: SessionUser | null;
@@ -32,6 +36,11 @@ interface FeedTabProps {
   onCloseComments: () => void;
 }
 
+/**
+ * 모든 사용자가 작성한 피드(리뷰)를 최신순으로 볼 수 있는 피드 탭 컴포넌트입니다.
+ * 무한 스크롤(useAutoLoadMore) 기능과 스크롤 복원(useScrollRestoration) 기능을 포함하며,
+ * 선택된 리뷰의 댓글 바텀시트(FeedCommentSheet)를 렌더링합니다.
+ */
 export function FeedTab({
   reviews,
   sessionUser,

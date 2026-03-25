@@ -14,6 +14,10 @@ import type {
   SessionUser,
 } from '../types';
 
+/**
+ * MapTabStage 컴포넌트가 부모(App)로부터 전달받는 프롭스(Props) 인터페이스입니다.
+ * 앱의 상태, 장소/행사 데이터, 바텀 시트 열림 상태, 그리고 각종 UI 액션 핸들러를 포함합니다.
+ */
 interface MapTabStageProps {
   activeCategory: Category;
   setActiveCategory: (category: Category) => void;
@@ -61,6 +65,11 @@ interface MapTabStageProps {
   onMapViewportChange: (lat: number, lng: number, zoom: number) => void;
 }
 
+/**
+ * 지도(Map) 탭의 메인 화면을 담당하는 컨테이너 컴포넌트입니다.
+ * 네이버 지도 컴포넌트(NaverMap), 카테고리 필터 영역, 상단 알림(Notice),
+ * 그리고 장소 및 축제 상세 바텀시트(PlaceDetailSheet, FestivalDetailSheet) 등을 조합하여 렌더링합니다.
+ */
 export function MapTabStage({
   activeCategory,
   setActiveCategory,

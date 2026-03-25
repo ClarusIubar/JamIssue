@@ -2,6 +2,10 @@
 import { CommentThread } from './CommentThread';
 import type { Review } from '../types';
 
+/**
+ * FeedCommentSheet 컴포넌트가 사용하는 프롭스 인터페이스입니다.
+ * 리뷰 원문 데이터, 모달의 열림 상태, 댓글 권한 및 작성/수정/삭제 이벤트 핸들러를 포함합니다.
+ */
 interface FeedCommentSheetProps {
   review: Review | null;
   isOpen: boolean;
@@ -19,6 +23,11 @@ interface FeedCommentSheetProps {
   onRequestLogin: () => void;
 }
 
+/**
+ * 피드 탭에서 리뷰 카드를 클릭했을 때 나타나는 하단 댓글 바텀시트 컴포넌트입니다.
+ * 선택된 리뷰 본문을 위에 고정시키고, 아래에 해당 리뷰에 달린 댓글 트리(CommentThread)를 보여줍니다.
+ * 드래그하여 시트를 닫을 수 있는 핸들 인터랙션을 지원합니다.
+ */
 export function FeedCommentSheet({
   review,
   isOpen,
@@ -37,10 +46,12 @@ export function FeedCommentSheet({
 }: FeedCommentSheetProps) {
   const dragStartYRef = useRef<number | null>(null);
 
+  /** 포인터 다운 시 시작 Y 좌표를 기록합니다. */
   function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
     dragStartYRef.current = event.clientY;
   }
 
+  /** 포인터 업 시 Y 좌표의 차이를 계산해 일정 픽셀 이상 드래그했으면 닫기(onClose)를 호출합니다. */
   function handlePointerUp(event: React.PointerEvent<HTMLButtonElement>) {
     if (dragStartYRef.current === null) {
       return;

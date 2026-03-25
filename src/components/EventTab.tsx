@@ -1,11 +1,19 @@
 import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import type { FestivalItem } from '../types';
 
+/**
+ * EventTab 컴포넌트가 부모(App)로부터 전달받는 프롭스(Props) 인터페이스입니다.
+ * 보여줄 축제(행사) 데이터 배열과 선택 액션 핸들러를 포함합니다.
+ */
 interface EventTabProps {
   festivals: FestivalItem[];
   onOpenFestival: (festivalId: string) => void;
 }
 
+/**
+ * 시작일과 종료일 데이터를 기반으로 행사 기간을 문자열로 포맷팅합니다.
+ * (예: 하루만 진행 시 시작일만 표시, 여러 날 진행 시 '시작일 - 종료일' 표시)
+ */
 function formatFestivalPeriod(festival: FestivalItem) {
   if (!festival.startDate && !festival.endDate) {
     return '일정 정보가 아직 없어요.';
@@ -16,6 +24,10 @@ function formatFestivalPeriod(festival: FestivalItem) {
   return `${festival.startDate} - ${festival.endDate}`;
 }
 
+/**
+ * 공공데이터 기반 행사(축제) 목록을 보여주는 이벤트 탭 컴포넌트입니다.
+ * 리스트 아이템을 클릭하면 지도 탭의 해당 행사 마커 위치로 이동합니다.
+ */
 export function EventTab({ festivals, onOpenFestival }: EventTabProps) {
   const scrollRef = useScrollRestoration<HTMLElement>('event');
 

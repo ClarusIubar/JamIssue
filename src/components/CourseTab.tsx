@@ -16,6 +16,10 @@ function HeartIcon({ filled }: { filled: boolean }) {
   );
 }
 
+/**
+ * CourseTab 컴포넌트가 부모로부터 전달받는 프롭스(Props) 인터페이스입니다.
+ * 공식 큐레이션 코스 배열, 커뮤니티 경로 배열과 이를 조작하기 위한 액션 함수들을 정의합니다.
+ */
 interface CourseTabProps {
   curatedCourses: Course[];
   communityRoutes: UserRoute[];
@@ -30,6 +34,11 @@ interface CourseTabProps {
   onRequestLogin: () => void;
 }
 
+/**
+ * 코스 탭 화면을 렌더링하는 컴포넌트입니다.
+ * 운영자가 큐레이션한 공식 코스(Curated)와 사용자가 직접 만든 코스(Community) 목록을 보여주고
+ * 필터/정렬 옵션, 좋아요, 지도에서 미리보기 기능 등을 제공합니다.
+ */
 export function CourseTab({
   curatedCourses,
   communityRoutes,

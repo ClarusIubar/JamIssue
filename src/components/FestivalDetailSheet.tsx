@@ -1,5 +1,9 @@
 import type { DrawerState, FestivalItem } from '../types';
 
+/**
+ * FestivalDetailSheet 컴포넌트의 Props 인터페이스입니다.
+ * 축제 데이터, 바텀 시트 열림 상태 및 높이 조절 액션 핸들러를 포함합니다.
+ */
 interface FestivalDetailSheetProps {
   festival: FestivalItem | null;
   isOpen: boolean;
@@ -9,6 +13,10 @@ interface FestivalDetailSheetProps {
   onCollapse: () => void;
 }
 
+/**
+ * 지도 탭이나 행사 탭에서 축제 마커를 선택했을 때 하단에서 올라오는 상세 바텀 시트 컴포넌트입니다.
+ * 축제명, 장소, 행사 일정, 홈페이지 링크 등 공공데이터 기반 축제 상세 정보를 제공합니다.
+ */
 export function FestivalDetailSheet({
   festival,
   isOpen,

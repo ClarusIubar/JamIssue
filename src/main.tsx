@@ -9,6 +9,10 @@ if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
   window.history.scrollRestoration = 'manual';
 }
 
+/**
+ * 모바일 브라우저(특히 사파리 등)의 동적인 주소표시줄 영역을 고려하여
+ * 실제 가시 영역(Viewport) 크기 변수를 CSS 변수(`--app-height`, `--app-width`)로 지속 업데이트하는 함수입니다.
+ */
 function syncViewportMetrics() {
   if (typeof window === 'undefined') {
     return;
@@ -34,6 +38,10 @@ if (!rootElement) {
   throw new Error('루트 노드를 찾을 수 없어요.');
 }
 
+/**
+ * URL에 포함된 특별한 매개변수(`preview=roadmap-banner`)를 감지하여
+ * 일반적인 App 진입점이 아닌, 독립된 로드맵 배너 프리뷰 화면으로 컴포넌트를 분기하여 렌더링합니다.
+ */
 function resolveEntry() {
   if (typeof window === 'undefined') {
     return <App />;

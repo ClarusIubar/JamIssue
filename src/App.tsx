@@ -64,16 +64,19 @@ import type {
 
 const STAMP_UNLOCK_RADIUS_METERS = 120;
 
-
-
+/**
+ * 카테고리(category)에 맞춰 장소(Place) 목록을 필터링하는 헬퍼 함수입니다.
+ */
 function filterPlacesByCategory(places: Place[], category: Category) {
   if (category === 'all') {
     return places;
   }
-
   return places.filter((place) => place.category === category);
 }
 
+/**
+ * 백엔드 API 에러 등을 사용자 친화적인 문자열로 변환하는 함수입니다.
+ */
 function formatErrorMessage(error: unknown) {
   if (error instanceof Error) {
     return error.message;
@@ -81,10 +84,16 @@ function formatErrorMessage(error: unknown) {
   return '\uC694\uCCAD\uC744 \uCC98\uB9AC\uD558\uC9C0 \uBABB\uD588\uC5B4\uC694. \uC7A0\uC2DC \uB4A4\uC5D0 \uB2E4\uC2DC \uC2DC\uB3C4\uD574 \uC8FC\uC138\uC694.';
 }
 
+/**
+ * 백그라운드 데이터 갱신 중 발생하는 오류를 기록하는 로깅 함수입니다.
+ */
 function reportBackgroundError(error: unknown) {
   console.error(error);
 }
 
+/**
+ * 탭을 전환하거나 초기 로딩 시 화면에 보여줄 로딩 스켈레톤 컴포넌트입니다.
+ */
 function TabPanelFallback() {
   return (
     <section className="page-panel page-panel--scrollable page-panel--loading">
@@ -93,6 +102,12 @@ function TabPanelFallback() {
   );
 }
 
+/**
+ * JamIssue 프론트엔드의 최상위 루트(Root) 애플리케이션 컴포넌트입니다.
+ *
+ * 각종 커스텀 훅(`useAppRouteState`, `useAppDataState`, `useAppMutationActions` 등)을
+ * 한곳으로 모아(Controller 역할) 글로벌 상태를 관리하고 하위 탭 컴포넌트들에게 프롭스로 주입합니다.
+ */
 export default function App() {
   const {
     activeTab,

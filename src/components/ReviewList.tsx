@@ -2,6 +2,11 @@
 import { CommentThread } from './CommentThread';
 import type { Review } from '../types';
 
+/**
+ * ReviewList 컴포넌트의 Props 인터페이스입니다.
+ * 렌더링할 리뷰 배열, 로그인 사용자 상태(ID, 권한 등), 리뷰 관련 각종 핸들러
+ * 그리고 리뷰가 없을 때 표시할 빈 상태(Empty State) 텍스트를 전달받습니다.
+ */
 interface ReviewListProps {
   reviews: Review[];
   canWriteComment: boolean;
@@ -22,6 +27,9 @@ interface ReviewListProps {
   emptyBody: string;
 }
 
+/**
+ * 리뷰 좋아요 버튼 내부에 렌더링되는 하트 아이콘 컴포넌트입니다.
+ */
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
     <svg viewBox="0 0 24 24" className="review-action-button__svg" aria-hidden="true">
@@ -37,6 +45,9 @@ function HeartIcon({ filled }: { filled: boolean }) {
   );
 }
 
+/**
+ * 댓글 바텀시트를 여는 버튼에 표시되는 말풍선 아이콘 컴포넌트입니다.
+ */
 function CommentIcon() {
   return (
     <svg viewBox="0 0 24 24" className="review-action-button__svg" aria-hidden="true">
@@ -52,6 +63,10 @@ function CommentIcon() {
   );
 }
 
+/**
+ * 피드 카드에 첨부된 이미지의 비율을 감지하여 적절한 형태로 잘라서(Crop) 보여주는 프레임 컴포넌트입니다.
+ * 특히 세로로 너무 긴 이미지(Tall)는 90도 회전시켜서 가로 폭에 맞추도록 자동 변환합니다.
+ */
 function ReviewImageFrame({ src, alt }: { src: string; alt: string }) {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [isTall, setIsTall] = useState(false);
@@ -161,6 +176,11 @@ function ReviewImageFrame({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+/**
+ * 탭(피드 탭, 장소 상세 리뷰 등)에서 제공받은 리뷰(피드) 목록을 리스트업하는 컨테이너 컴포넌트입니다.
+ * 리뷰에 첨부된 이미지를 `ReviewImageFrame`으로 렌더링하고, 좋아요 및 댓글 버튼 등 액션 바를 구성합니다.
+ * 특정 리뷰 ID(highlightedReviewId)가 지정되면 해당 위치로 화면 스크롤을 부드럽게 이동시킵니다.
+ */
 export function ReviewList({
   reviews,
   canWriteComment,
