@@ -1,0 +1,28 @@
+name: public-event-sync
+
+on:
+  schedule:
+    - cron: "0 18 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-event-sync
+  cancel-in-progress: false
+
+jobs:
+  sync-public-events:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Import Daejeon public events
+        env:
+          PUBLIC_EVENT_IMPORT_URL: https://api.daegeon.jamissue.com/api/internal/public-events/import
+          EVENT_IMPORT_TOKEN: ${{ secrets.EVENT_IMPORT_TOKEN }}
+          FESTIVAL_SYNC_RANGE_DAYS: "90"
+        run: node scripts/sync-daejeon-events.mjs

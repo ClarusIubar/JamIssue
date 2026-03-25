@@ -175,6 +175,7 @@ node scripts/upload-sample-place-images.mjs
 
 API:
 - `POST /api/admin/import/public-data`
+- `POST /api/internal/public-events/import`
 
 동기화 대상:
 - `public_place`

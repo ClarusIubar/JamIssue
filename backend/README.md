@@ -86,6 +86,7 @@ powershell -ExecutionPolicy Bypass -File D:/Code305/JamIssue/scripts/dev.ps1 sta
 - `GET /api/admin/summary`
 - `PATCH /api/admin/places/{place_id}`
 - `POST /api/admin/import/public-data`
+- `POST /api/internal/public-events/import`
 
 ## 테스트
 
