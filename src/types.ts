@@ -171,8 +171,8 @@ export interface FestivalItem {
   endDate: string;
   homepageUrl: string | null;
   roadAddress: string | null;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   isOngoing: boolean;
 }
 

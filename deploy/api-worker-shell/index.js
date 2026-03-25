@@ -412,9 +412,6 @@ async function readSessionUser(request, env) {
 }
 function buildRedirectUrl(baseUrl, params = {}) {
   const url = new URL(baseUrl);
-  if (url.hostname === 'api.data.go.kr' && url.protocol === 'https:') {
-    url.protocol = 'http:';
-  }
   for (const [key, value] of Object.entries(params)) {
     if (value) {
       url.searchParams.set(key, value);
@@ -1526,9 +1523,6 @@ function getFestivalSourceUrl(env) {
   }
 
   const url = new URL(baseUrl);
-  if (url.hostname === 'api.data.go.kr' && url.protocol === 'https:') {
-    url.protocol = 'http:';
-  }
   if (!url.searchParams.get('serviceKey') && env.APP_PUBLIC_EVENT_SERVICE_KEY) {
     url.searchParams.set('serviceKey', env.APP_PUBLIC_EVENT_SERVICE_KEY);
   }
@@ -1635,8 +1629,25 @@ function getFestivalWindowEnd(now) {
   return new Date(now + 30 * 24 * 60 * 60 * 1000);
 }
 
-function isDaejeonFestival(payload) {
+function getFestivalCityKeyword(env) {
+  const cityKeyword = String(env.APP_PUBLIC_EVENT_CITY_KEYWORD || '대전').trim();
+  return cityKeyword || '대전';
+}
+
+function getFestivalAreaKeywords(cityKeyword) {
+  const normalized = String(cityKeyword || '').trim();
+  const keywords = new Set(normalized ? [normalized] : []);
+
+  if (normalized.includes('대전')) {
+    ['대전광역시', '동구', '중구', '서구', '유성구', '대덕구'].forEach((keyword) => keywords.add(keyword));
+  }
+
+  return [...keywords];
+}
+
+function isFestivalInTargetArea(payload, cityKeyword) {
   const haystack = [
+    readFestivalText(payload, ['district', 'signguNm']),
     readFestivalText(payload, ['축제명', 'fstvlNm', 'eventNm', 'eventTitle']),
     readFestivalText(payload, ['개최장소', 'opar', 'venueName', 'fstvlCo']),
     readFestivalText(payload, ['소재지도로명주소', '소재지 도로명주소', 'rdnmadr', 'roadAddress']),
@@ -1645,44 +1656,69 @@ function isDaejeonFestival(payload) {
     .filter(Boolean)
     .join(' ');
 
-  return haystack.includes('대전');
+  return getFestivalAreaKeywords(cityKeyword).some((keyword) => haystack.includes(keyword));
 }
 
-function normalizeFestival(payload) {
-  if (!isDaejeonFestival(payload)) {
+function deriveFestivalDistrict(payload, cityKeyword) {
+  const explicit = readFestivalText(payload, ['district', 'signguNm']);
+  if (explicit) {
+    return explicit;
+  }
+
+  const combined = [
+    readFestivalText(payload, ['rdnmadr', 'roadAddress']),
+    readFestivalText(payload, ['lnmadr', 'address']),
+    readFestivalText(payload, ['opar', 'venueName', 'fstvlCo']),
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const districtMatch = combined.match(/([가-힣]+구)/);
+  return districtMatch?.[1] || cityKeyword;
+}
+
+function parseFestivalCoordinate(value) {
+  if (value === undefined || value === null || String(value).trim() === '') {
     return null;
   }
 
-  const title = readFestivalText(payload, ['축제명', 'fstvlNm', 'eventNm', 'eventTitle']);
-  const venueName = readFestivalText(payload, ['개최장소', 'opar', 'venueName', 'fstvlCo']);
-  const startDate = parseFestivalDate(readFestivalText(payload, ['축제시작일자', '축제 시작일자', 'fstvlStartDate', 'eventStartDate', 'startDate']));
-  const endDate = parseFestivalDate(readFestivalText(payload, ['축제종료일자', '축제 종료일자', 'fstvlEndDate', 'eventEndDate', 'endDate']), true);
-  const homepageUrl = readFestivalText(payload, ['홈페이지주소', '홈페이지 주소', 'homepageUrl', 'homepage']);
-  const roadAddress = readFestivalText(payload, ['소재지도로명주소', '소재지 도로명주소', 'rdnmadr', 'roadAddress']);
-  const latitude = readFestivalNumber(payload, ['위도', 'latitude', 'lat']);
-  const longitude = readFestivalNumber(payload, ['경도', 'longitude', 'lng']);
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
 
-  if (!title || !startDate || !endDate || latitude === null || longitude === null) {
+function normalizeFestival(payload, cityKeyword) {
+  if (!isFestivalInTargetArea(payload, cityKeyword)) {
     return null;
   }
 
-  const now = Date.now();
-  if (endDate.getTime() < now) {
+  const title = readFestivalText(payload, ['fstvlNm', 'eventNm', 'eventTitle']);
+  const venueName = readFestivalText(payload, ['opar', 'venueName', 'fstvlCo']);
+  const startDate = parseFestivalDate(readFestivalText(payload, ['fstvlStartDate', 'eventStartDate', 'startDate']));
+  const endDate = parseFestivalDate(readFestivalText(payload, ['fstvlEndDate', 'eventEndDate', 'endDate']), true);
+  const homepageUrl = readFestivalText(payload, ['homepageUrl', 'homepage']);
+  const roadAddress = readFestivalText(payload, ['rdnmadr', 'roadAddress']);
+  const latitude = parseFestivalCoordinate(readFestivalText(payload, ['latitude', 'lat', 'mapY', 'y']));
+  const longitude = parseFestivalCoordinate(readFestivalText(payload, ['longitude', 'lng', 'mapX', 'x']));
+
+  if (!title || !startDate || !endDate) {
+    return null;
+  }
+
+  if (endDate.getTime() < Date.now()) {
     return null;
   }
 
   return {
-    externalId: readFestivalText(payload, ['축제일련번호', 'eventId', 'id']) || createFestivalExternalId(title, startDate, venueName, roadAddress),
+    externalId: readFestivalText(payload, ['eventId', 'id']) || createFestivalExternalId(title, startDate, venueName, roadAddress),
     title,
     venueName,
-    district: '대전',
+    district: deriveFestivalDistrict(payload, cityKeyword),
     roadAddress,
     startsAt: startDate.toISOString(),
     endsAt: endDate.toISOString(),
     homepageUrl,
     latitude,
     longitude,
-    summary: venueName ? `${venueName}에서 열리는 대전 축제예요.` : '대전에서 열리는 축제예요.',
+    summary: venueName ? `${venueName}에서 열리는 ${cityKeyword} 축제예요.` : `${cityKeyword}에서 열리는 축제예요.`,
     rawPayload: payload,
   };
 }
@@ -1712,6 +1748,7 @@ async function syncFestivalsFromSource(env) {
   if (!requestUrl) {
     return [];
   }
+  const cityKeyword = getFestivalCityKeyword(env);
 
   const response = await fetch(requestUrl, { headers: { Accept: 'application/json' } });
   if (!response.ok) {
@@ -1720,10 +1757,10 @@ async function syncFestivalsFromSource(env) {
 
   const payload = await response.json();
   const items = extractFestivalItems(payload)
-    .map(normalizeFestival)
+    .map((item) => normalizeFestival(item, cityKeyword))
     .filter(Boolean)
     .sort((left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime())
-    .slice(0, 10);
+    .slice(0, 40);
 
   const source = await ensureFestivalSource(env, requestUrl);
   const sourceId = source.source_id;
@@ -1815,15 +1852,29 @@ async function handleFestivals(request, env) {
 
     const nowIso = new Date(now).toISOString();
     const windowEndIso = getFestivalWindowEnd(now).toISOString();
-    const rows = await supabaseRequest(
+    const cityKeyword = getFestivalCityKeyword(env);
+    const districtRows = await supabaseRequest(
       env,
       `public_event?select=public_event_id,title,venue_name,road_address,starts_at,ends_at,source_page_url,latitude,longitude&district=eq.${encodeFilterValue('대전')}&ends_at=gte.${encodeFilterValue(nowIso)}&starts_at=lte.${encodeFilterValue(windowEndIso)}&order=starts_at.asc&limit=40`,
+    );
+    const fallbackRows = await supabaseRequest(
+      env,
+      `public_event?select=public_event_id,title,venue_name,district,road_address,starts_at,ends_at,source_page_url,latitude,longitude&ends_at=gte.${encodeFilterValue(nowIso)}&starts_at=lte.${encodeFilterValue(windowEndIso)}&order=starts_at.asc&limit=100`,
+    );
+    const rows = [...(districtRows || []), ...(fallbackRows || [])].filter(
+      (row, index, allRows) => allRows.findIndex((candidate) => candidate.public_event_id === row.public_event_id) === index,
     );
     const value = (rows || [])
       .filter((row) => {
         const startTime = new Date(row.starts_at).getTime();
         const endTime = new Date(row.ends_at).getTime();
-        return Number.isFinite(startTime) && Number.isFinite(endTime) && endTime >= now && startTime <= getFestivalWindowEnd(now).getTime();
+        return (
+          Number.isFinite(startTime) &&
+          Number.isFinite(endTime) &&
+          endTime >= now &&
+          startTime <= getFestivalWindowEnd(now).getTime() &&
+          isFestivalInTargetArea(row, cityKeyword)
+        );
       })
       .slice(0, 10)
       .map((row) => ({
@@ -1834,8 +1885,8 @@ async function handleFestivals(request, env) {
         endDate: row.ends_at ? String(row.ends_at).slice(0, 10) : '',
         homepageUrl: row.source_page_url ?? null,
         roadAddress: row.road_address ?? null,
-        latitude: Number(row.latitude),
-        longitude: Number(row.longitude),
+        latitude: parseFestivalCoordinate(row.latitude),
+        longitude: parseFestivalCoordinate(row.longitude),
         isOngoing: new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() >= now,
       }));
 
@@ -1855,7 +1906,8 @@ async function handleBannerEvents(request, env) {
   const now = Date.now();
   const nowIso = new Date(now).toISOString();
   const windowEndIso = getFestivalWindowEnd(now).toISOString();
-  const [eventRows, sourceRows] = await Promise.all([
+  const cityKeyword = getFestivalCityKeyword(env);
+  const [districtEventRows, sourceRows] = await Promise.all([
     supabaseRequest(
       env,
       `public_event?select=public_event_id,title,venue_name,district,starts_at,ends_at,summary,source_page_url&district=eq.${encodeFilterValue('대전')}&ends_at=gte.${encodeFilterValue(nowIso)}&starts_at=lte.${encodeFilterValue(windowEndIso)}&order=starts_at.asc&limit=4`,
@@ -1863,9 +1915,19 @@ async function handleBannerEvents(request, env) {
     supabaseRequest(env, 'public_data_source?select=name,last_imported_at&provider=eq.public-event&limit=1'),
   ]);
 
+  const fallbackEventRows = await supabaseRequest(
+    env,
+    `public_event?select=public_event_id,title,venue_name,district,road_address,starts_at,ends_at,summary,source_page_url&ends_at=gte.${encodeFilterValue(nowIso)}&starts_at=lte.${encodeFilterValue(windowEndIso)}&order=starts_at.asc&limit=20`,
+  );
+  const eventRows = [...(districtEventRows || []), ...(fallbackEventRows || [])].filter(
+    (row, index, allRows) => allRows.findIndex((candidate) => candidate.public_event_id === row.public_event_id) === index,
+  );
   const source = sourceRows[0] ?? null;
   const items = eventRows.length > 0
-    ? eventRows.map((row) => ({
+    ? eventRows
+      .filter((row) => isFestivalInTargetArea(row, cityKeyword))
+      .slice(0, 4)
+      .map((row) => ({
         id: String(row.public_event_id),
         title: row.title,
         venueName: row.venue_name ?? null,

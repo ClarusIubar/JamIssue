@@ -84,6 +84,13 @@ function festivalMarkerContent(festival: FestivalItem, isActive: boolean) {
   `;
 }
 
+function hasFestivalCoordinates(festival: FestivalItem) {
+  return typeof festival.latitude === 'number'
+    && Number.isFinite(festival.latitude)
+    && typeof festival.longitude === 'number'
+    && Number.isFinite(festival.longitude);
+}
+
 function currentLocationMarkerContent() {
   return `
     <div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:rgba(255,255,255,0.92);box-shadow:0 6px 18px rgba(95,70,96,0.18);border:1px solid rgba(95,70,96,0.12);">
@@ -293,7 +300,7 @@ export function NaverMap({
     }
 
     const maps = window.naver.maps;
-    const nextIds = new Set(festivals.map((festival) => festival.id));
+    const nextIds = new Set(festivals.filter(hasFestivalCoordinates).map((festival) => festival.id));
 
     for (const [festivalId, marker] of festivalMarkersRef.current.entries()) {
       if (!nextIds.has(festivalId)) {
@@ -303,6 +310,9 @@ export function NaverMap({
     }
 
     festivals.forEach((festival) => {
+      if (!hasFestivalCoordinates(festival)) {
+        return;
+      }
       const existing = festivalMarkersRef.current.get(festival.id);
       const position = new maps.LatLng(festival.latitude, festival.longitude);
       if (existing) {
@@ -387,7 +397,7 @@ export function NaverMap({
     const selectedFestival = selectedFestivalId ? festivals.find((festival) => festival.id === selectedFestivalId) : null;
     const target = selectedPlace
       ? { latitude: selectedPlace.latitude, longitude: selectedPlace.longitude }
-      : selectedFestival
+      : selectedFestival && hasFestivalCoordinates(selectedFestival)
         ? { latitude: selectedFestival.latitude, longitude: selectedFestival.longitude }
         : null;
 
