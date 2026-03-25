@@ -2362,6 +2362,83 @@ async function loadFestivalRowsFromDb(env, nowIso, windowEndIso, limit = 100) {
   return (rows || []).filter((row) => isFestivalRowInTargetArea(row, cityKeyword));
 }
 
+async function handleFestivalsFromDb(request, env) {
+  const now = Date.now();
+  if (festivalsCache.value && festivalsCache.expiresAt > now) {
+    return jsonResponse(200, festivalsCache.value, env, request);
+  }
+
+  const festivals = await rememberPending(festivalsCache, async () => {
+    const nowIso = new Date(now).toISOString();
+    const windowEndIso = getFestivalWindowEnd(now).toISOString();
+    const rows = await loadFestivalRowsFromDb(env, nowIso, windowEndIso, 100);
+    const value = rows
+      .filter((row) => {
+        const startTime = new Date(row.starts_at).getTime();
+        const endTime = new Date(row.ends_at).getTime();
+        return Number.isFinite(startTime) && Number.isFinite(endTime) && endTime >= now && startTime <= getFestivalWindowEnd(now).getTime();
+      })
+      .slice(0, 10)
+      .map((row) => ({
+        id: String(row.public_event_id),
+        title: row.title,
+        venueName: row.venue_name ?? null,
+        startDate: row.starts_at ? String(row.starts_at).slice(0, 10) : '',
+        endDate: row.ends_at ? String(row.ends_at).slice(0, 10) : '',
+        homepageUrl: row.source_page_url ?? null,
+        roadAddress: row.road_address ?? row.address ?? null,
+        latitude: parseFestivalCoordinate(row.latitude),
+        longitude: parseFestivalCoordinate(row.longitude),
+        isOngoing: new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() >= now,
+      }));
+
+    festivalsCache = {
+      ...festivalsCache,
+      value,
+      expiresAt: Date.now() + FESTIVALS_CACHE_TTL_MS,
+      pending: null,
+    };
+    return value;
+  });
+
+  return jsonResponse(200, festivals, env, request);
+}
+
+async function handleBannerEventsFromDb(request, env) {
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const windowEndIso = getFestivalWindowEnd(now).toISOString();
+  const [eventRows, sourceRows] = await Promise.all([
+    loadFestivalRowsFromDb(env, nowIso, windowEndIso, 20),
+    supabaseRequest(env, `public_data_source?select=name,last_imported_at&source_key=eq.${encodeFilterValue(INTERNAL_FESTIVAL_SOURCE_KEY)}&limit=1`),
+  ]);
+  const source = sourceRows[0] ?? null;
+  const items = eventRows.length > 0
+    ? eventRows
+      .slice(0, 4)
+      .map((row) => ({
+        id: String(row.public_event_id),
+        title: row.title,
+        venueName: row.venue_name ?? null,
+        district: row.district ?? '',
+        startDate: row.starts_at,
+        endDate: row.ends_at,
+        dateLabel: row.starts_at && row.ends_at ? `${formatDate(row.starts_at)} - ${formatDate(row.ends_at)}` : '',
+        summary: row.summary ?? '',
+        sourcePageUrl: row.source_page_url ?? null,
+        linkedPlaceName: null,
+        isOngoing: new Date(row.starts_at).getTime() <= now && new Date(row.ends_at).getTime() >= now,
+      }))
+    : [];
+
+  return jsonResponse(200, {
+    sourceReady: items.length > 0 || Boolean(source?.last_imported_at),
+    sourceName: source?.name ?? null,
+    importedAt: source?.last_imported_at ?? null,
+    items,
+  }, env, request);
+}
+
 async function handleFestivalImport(request, env) {
   const configuredToken = readFestivalImportToken(env);
   if (!configuredToken) {
@@ -3256,10 +3333,10 @@ async function routeRequest(request, env) {
     return handleMyComments(request, env, url);
   }
   if (request.method === "GET" && url.pathname === "/api/festivals") {
-    return handleFestivals(request, env);
+    return handleFestivalsFromDb(request, env);
   }
   if (request.method === "GET" && url.pathname === "/api/banner/events") {
-    return handleBannerEvents(request, env);
+    return handleBannerEventsFromDb(request, env);
   }
   if (request.method === "POST" && url.pathname === "/api/internal/public-events/import") {
     return handleFestivalImport(request, env);
