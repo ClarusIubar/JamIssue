@@ -8,8 +8,8 @@ enabled = true
 
 [vars]
 APP_ORIGIN_API_URL = ""
-APP_FRONTEND_URL = "https://deajeon.jamissue.com"
-APP_CORS_ORIGINS = "https://deajeon.jamissue.com"
+APP_FRONTEND_URL = "https://daejeon.jamissue.com"
+APP_CORS_ORIGINS = "https://daejeon.jamissue.com"
 APP_NAVER_LOGIN_CALLBACK_URL = "https://api.daegeon.jamissue.com/api/auth/naver/callback"
 APP_STORAGE_BACKEND = "supabase"
 APP_SUPABASE_URL = "https://ifofgcaqrgtiurzqhiyy.supabase.co"

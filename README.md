@@ -79,8 +79,8 @@ PUBLIC_NAVER_MAP_CLIENT_ID=<NAVER_DYNAMIC_MAP_CLIENT_ID>
 ```env
 APP_ENV=worker-first
 APP_SESSION_HTTPS=true
-APP_FRONTEND_URL=https://deajeon.jamissue.com
-APP_CORS_ORIGINS=https://deajeon.jamissue.com
+APP_FRONTEND_URL=https://daejeon.jamissue.com
+APP_CORS_ORIGINS=https://daejeon.jamissue.com
 APP_NAVER_LOGIN_CALLBACK_URL=https://api.daegeon.jamissue.com/api/auth/naver/callback
 APP_STORAGE_BACKEND=supabase
 APP_SUPABASE_URL=https://<project-ref>.supabase.co
@@ -127,7 +127,7 @@ APP_PUBLIC_EVENT_SERVICE_KEY=<DATA_GO_KR_SERVICE_KEY>
 `네이버 개발자센터 > 애플리케이션 설정`
 
 맞춰야 할 값:
-- 서비스 URL = `https://deajeon.jamissue.com`
+- 서비스 URL = `https://daejeon.jamissue.com`
 - Callback URL = `https://api.daegeon.jamissue.com/api/auth/naver/callback`
 
 ## 처음 셋업 순서
