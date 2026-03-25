@@ -9,7 +9,7 @@
 ```text
 GitHub main
 -> GitHub Actions
--> Cloudflare Pages (daejeon-jamissue-pages)
+-> Cloudflare Pages (daejeon-jamissue)
 -> Cloudflare Worker (daejeon-jamissue-api)
 -> Supabase
 ```
@@ -27,7 +27,7 @@ GitHub main
 
 ### `cloudflare-pages.yml`
 
-- Pages 프로젝트명: `daejeon-jamissue-pages`
+- Pages 프로젝트명: `daejeon-jamissue`
 - PR에서는 preview 배포
 - `main` push에서는 production 배포
 - project가 없으면 workflow가 API로 생성 시도
@@ -64,7 +64,7 @@ CLOUDFLARE_ACCOUNT_ID=<Cloudflare account id>
 `GitHub > Repository > Settings > Secrets and variables > Actions > Repository variables`
 
 ```env
-PUBLIC_APP_BASE_URL=https://<api-domain>
+PUBLIC_APP_BASE_URL=https://api.daegeon.jamissue.com
 PUBLIC_NAVER_MAP_CLIENT_ID=<NAVER_DYNAMIC_MAP_CLIENT_ID>
 ```
 
@@ -79,9 +79,9 @@ PUBLIC_NAVER_MAP_CLIENT_ID=<NAVER_DYNAMIC_MAP_CLIENT_ID>
 ```env
 APP_ENV=worker-first
 APP_SESSION_HTTPS=true
-APP_FRONTEND_URL=https://<frontend-domain>
-APP_CORS_ORIGINS=https://<frontend-domain>
-APP_NAVER_LOGIN_CALLBACK_URL=https://<api-domain>/api/auth/naver/callback
+APP_FRONTEND_URL=https://deajeon.jamissue.com
+APP_CORS_ORIGINS=https://deajeon.jamissue.com
+APP_NAVER_LOGIN_CALLBACK_URL=https://api.daegeon.jamissue.com/api/auth/naver/callback
 APP_STORAGE_BACKEND=supabase
 APP_SUPABASE_URL=https://<project-ref>.supabase.co
 APP_SUPABASE_STORAGE_BUCKET=review-images
@@ -113,7 +113,7 @@ APP_PUBLIC_EVENT_SERVICE_KEY=<DATA_GO_KR_SERVICE_KEY>
 ### Cloudflare Pages 도메인
 
 위치:
-`Cloudflare Dashboard > Workers & Pages > daejeon-jamissue-pages > Custom domains`
+`Cloudflare Dashboard > Workers & Pages > daejeon-jamissue > Custom domains`
 
 확인 항목:
 - production frontend domain
@@ -125,15 +125,15 @@ APP_PUBLIC_EVENT_SERVICE_KEY=<DATA_GO_KR_SERVICE_KEY>
 `네이버 개발자센터 > 애플리케이션 설정`
 
 입력 항목:
-- 서비스 URL = frontend domain
-- Callback URL = `https://<api-domain>/api/auth/naver/callback`
+- 서비스 URL = `https://deajeon.jamissue.com`
+- Callback URL = `https://api.daegeon.jamissue.com/api/auth/naver/callback`
 
 ## 4. 초기 셋업 순서
 
 1. Supabase SQL을 적용합니다.
 2. Cloudflare Worker `daejeon-jamissue-api`에 Variables/Secrets를 입력합니다.
 3. GitHub repository secrets/variables를 입력합니다.
-4. 필요하면 [`scripts/create-cloudflare-pages-project.ps1`](/D:/JamIssue/scripts/create-cloudflare-pages-project.ps1)로 `daejeon-jamissue-pages`를 미리 생성합니다.
+4. 필요하면 [`scripts/create-cloudflare-pages-project.ps1`](/D:/JamIssue/scripts/create-cloudflare-pages-project.ps1)로 `daejeon-jamissue`를 미리 생성합니다.
 5. Pages custom domain과 Worker route/domain을 연결합니다.
 6. 네이버 개발자센터의 서비스 URL/Callback URL을 실제 도메인으로 맞춥니다.
 7. `main`에 머지해서 배포를 확인합니다.

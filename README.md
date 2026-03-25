@@ -5,7 +5,7 @@ JamIssue는 대전 장소 탐색, 스탬프, 피드, 코스를 연결하는 웹 
 ## 배포 기준
 
 - 배포 브랜치: `main`
-- Pages 프로젝트: `daejeon-jamissue-pages`
+- Pages 프로젝트: `daejeon-jamissue`
 - Worker 프로젝트: `daejeon-jamissue-api`
 - 데이터/스토리지: Supabase
 
@@ -20,7 +20,7 @@ JamIssue는 대전 장소 탐색, 스탬프, 피드, 코스를 연결하는 웹 
   - 백엔드 `pytest`
 - [`cloudflare-pages.yml`](/D:/JamIssue/.github/workflows/cloudflare-pages.yml)
   - 정적 프런트 빌드
-  - `daejeon-jamissue-pages`에 preview 배포
+  - `daejeon-jamissue`에 preview 배포
 - [`cloudflare-worker.yml`](/D:/JamIssue/.github/workflows/cloudflare-worker.yml)
   - Worker 번들 `wrangler deploy --dry-run` 검증
 
@@ -29,7 +29,7 @@ JamIssue는 대전 장소 탐색, 스탬프, 피드, 코스를 연결하는 웹 
 - [`ci.yml`](/D:/JamIssue/.github/workflows/ci.yml)
   - 프런트/백엔드 검증
 - [`cloudflare-pages.yml`](/D:/JamIssue/.github/workflows/cloudflare-pages.yml)
-  - `daejeon-jamissue-pages`가 없으면 생성
+  - `daejeon-jamissue`가 없으면 생성
   - production branch를 `main`으로 맞춤
   - production 정적 배포 수행
 - [`cloudflare-worker.yml`](/D:/JamIssue/.github/workflows/cloudflare-worker.yml)
@@ -62,7 +62,7 @@ CLOUDFLARE_ACCOUNT_ID=<Cloudflare account id>
 입력할 키:
 
 ```env
-PUBLIC_APP_BASE_URL=https://api.example.com
+PUBLIC_APP_BASE_URL=https://api.daegeon.jamissue.com
 PUBLIC_NAVER_MAP_CLIENT_ID=<NAVER_DYNAMIC_MAP_CLIENT_ID>
 ```
 
@@ -79,9 +79,9 @@ PUBLIC_NAVER_MAP_CLIENT_ID=<NAVER_DYNAMIC_MAP_CLIENT_ID>
 ```env
 APP_ENV=worker-first
 APP_SESSION_HTTPS=true
-APP_FRONTEND_URL=https://your-frontend-domain.example
-APP_CORS_ORIGINS=https://your-frontend-domain.example
-APP_NAVER_LOGIN_CALLBACK_URL=https://your-api-domain.example/api/auth/naver/callback
+APP_FRONTEND_URL=https://deajeon.jamissue.com
+APP_CORS_ORIGINS=https://deajeon.jamissue.com
+APP_NAVER_LOGIN_CALLBACK_URL=https://api.daegeon.jamissue.com/api/auth/naver/callback
 APP_STORAGE_BACKEND=supabase
 APP_SUPABASE_URL=https://<project-ref>.supabase.co
 APP_SUPABASE_STORAGE_BUCKET=review-images
@@ -110,7 +110,7 @@ APP_PUBLIC_EVENT_SERVICE_KEY=<DATA_GO_KR_SERVICE_KEY>
 ### 5. Cloudflare Pages 도메인
 
 위치:
-`Cloudflare Dashboard > Workers & Pages > daejeon-jamissue-pages > Custom domains`
+`Cloudflare Dashboard > Workers & Pages > daejeon-jamissue > Custom domains`
 
 확인할 값:
 - 프런트 도메인
@@ -127,8 +127,8 @@ APP_PUBLIC_EVENT_SERVICE_KEY=<DATA_GO_KR_SERVICE_KEY>
 `네이버 개발자센터 > 애플리케이션 설정`
 
 맞춰야 할 값:
-- 서비스 URL = 프런트 도메인
-- Callback URL = `https://<api-domain>/api/auth/naver/callback`
+- 서비스 URL = `https://deajeon.jamissue.com`
+- Callback URL = `https://api.daegeon.jamissue.com/api/auth/naver/callback`
 
 ## 처음 셋업 순서
 

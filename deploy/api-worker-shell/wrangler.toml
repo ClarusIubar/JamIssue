@@ -8,9 +8,9 @@ enabled = true
 
 [vars]
 APP_ORIGIN_API_URL = ""
-APP_FRONTEND_URL = "https://jamissue.growgardens.app"
-APP_CORS_ORIGINS = "https://jamissue.growgardens.app"
-APP_NAVER_LOGIN_CALLBACK_URL = "https://api.jamissue.growgardens.app/api/auth/naver/callback"
+APP_FRONTEND_URL = "https://deajeon.jamissue.com"
+APP_CORS_ORIGINS = "https://deajeon.jamissue.com"
+APP_NAVER_LOGIN_CALLBACK_URL = "https://api.daegeon.jamissue.com/api/auth/naver/callback"
 APP_STORAGE_BACKEND = "supabase"
 APP_SUPABASE_URL = "https://ifofgcaqrgtiurzqhiyy.supabase.co"
 APP_SUPABASE_STORAGE_BUCKET = "review-images"
@@ -21,5 +21,5 @@ APP_SESSION_HTTPS = "true"
 APP_ENV = "worker-first"
 
 [[routes]]
-pattern = "api.jamissue.growgardens.app"
+pattern = "api.daegeon.jamissue.com"
 custom_domain = true

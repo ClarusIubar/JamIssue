@@ -1218,7 +1218,7 @@ async function handleStartNaverLogin(request, env, url) {
     return jsonResponse(503, { detail: '네이버 로그인 설정이 비어 있어요.' }, env, request);
   }
 
-  const next = url.searchParams.get('next') || env.APP_FRONTEND_URL || 'https://jamissue.growgardens.app';
+  const next = url.searchParams.get('next') || env.APP_FRONTEND_URL || 'https://deajeon.jamissue.com';
   const state = crypto.randomUUID().replace(/-/g, '');
   const stateToken = await signPayload(getSigningSecret(env), {
     state,
@@ -1241,7 +1241,7 @@ async function handleNaverCallback(request, env, url) {
   const secure = getSecureCookieFlag(request, env);
   const stateToken = parseCookies(request).get(OAUTH_STATE_COOKIE_NAME);
   const statePayload = await verifyPayload(getSigningSecret(env), stateToken);
-  const redirectTarget = statePayload?.next || env.APP_FRONTEND_URL || 'https://jamissue.growgardens.app';
+  const redirectTarget = statePayload?.next || env.APP_FRONTEND_URL || 'https://deajeon.jamissue.com';
   const cleanupCookie = clearCookie(OAUTH_STATE_COOKIE_NAME, secure);
 
   const error = url.searchParams.get('error');

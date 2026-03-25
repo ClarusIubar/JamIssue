@@ -1,3 +1,3 @@
-name = "daejeon-jamissue-pages"
+name = "daejeon-jamissue"
 pages_build_output_dir = "../infra/nginx/site"
 compatibility_date = "2026-03-16"

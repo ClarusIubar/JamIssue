@@ -21,8 +21,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
-      CLOUDFLARE_PAGES_PROJECT_NAME: daejeon-jamissue-pages
-      PUBLIC_APP_BASE_URL: ${{ vars.PUBLIC_APP_BASE_URL || 'https://api.jamissue.growgardens.app' }}
+      CLOUDFLARE_PAGES_PROJECT_NAME: daejeon-jamissue
+      PUBLIC_APP_BASE_URL: ${{ vars.PUBLIC_APP_BASE_URL || 'https://api.daegeon.jamissue.com' }}
       PUBLIC_NAVER_MAP_CLIENT_ID: ${{ vars.PUBLIC_NAVER_MAP_CLIENT_ID || '' }}
       CF_PAGES_BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
     steps:

@@ -1,5 +1,5 @@
 param(
-    [string]$ProjectName = $(if($env:CLOUDFLARE_PAGES_PROJECT_NAME){$env:CLOUDFLARE_PAGES_PROJECT_NAME}else{'daejeon-jamissue-pages'}),
+    [string]$ProjectName = $(if($env:CLOUDFLARE_PAGES_PROJECT_NAME){$env:CLOUDFLARE_PAGES_PROJECT_NAME}else{'daejeon-jamissue'}),
     [string]$Branch = 'main'
 )
 
