@@ -45,7 +45,7 @@ export function EventTab({ festivals }: EventTabProps) {
       <header className="panel-header">
         <p className="eyebrow">EVENT</p>
         <h2>행사</h2>
-        <p>대전에서 진행 중이거나 곧 열릴 행사를 한눈에 보고 확인할 수 있어요.</p>
+        <p>대전에서 진행 중이거나 곧 열릴 행사를 한 번에 보고 빠르게 훑어볼 수 있어요.</p>
       </header>
 
       <section className="sheet-card stack-gap">
@@ -60,38 +60,41 @@ export function EventTab({ festivals }: EventTabProps) {
         {festivals.length === 0 ? (
           <p className="empty-copy">현재 진행 중이거나 30일 이내 예정된 대전 행사가 없어요.</p>
         ) : (
-          <div className="community-route-list">
-            {festivals.map((festival) => (
-              <article key={festival.id} className="community-route-card community-route-card--curated festival-card">
-                <div className="community-route-card__header community-route-card__header--feedlike">
-                  <div className="community-route-card__title-block">
-                    {festival.isOngoing ? (
-                      <div className="community-route-card__tag-row">
-                        <span className="soft-tag">진행 중</span>
-                      </div>
+          <div className="community-route-list festival-card-list">
+            {festivals.map((festival) => {
+              const locationLines = getFestivalLocationLines(festival);
+              return (
+                <article key={festival.id} className="community-route-card community-route-card--curated festival-card">
+                  <div className="festival-card__top">
+                    <div className="festival-card__status-row">
+                      {festival.isOngoing ? <span className="soft-tag festival-card__status-chip">진행 중</span> : null}
+                      <span className="festival-card__date">{formatFestivalPeriod(festival)}</span>
+                    </div>
+                    {festival.homepageUrl ? (
+                      <a className="festival-card__link" href={festival.homepageUrl} target="_blank" rel="noreferrer">
+                        홈페이지 열기
+                      </a>
                     ) : null}
-                    <h4>{formatFestivalTitle(festival.title)}</h4>
-                    <p className="community-route-meta community-route-meta--inline festival-card__period">{formatFestivalPeriod(festival)}</p>
                   </div>
-                </div>
 
-                <div className="festival-card__location">
-                  {getFestivalLocationLines(festival).map((line, index) => (
-                    <p key={`${festival.id}-${index}`} className={index === 0 ? 'festival-card__location-primary' : 'festival-card__location-secondary'}>
-                      {line}
-                    </p>
-                  ))}
-                </div>
-
-                {festival.homepageUrl ? (
-                  <div className="review-card__actions review-card__actions--course festival-card__actions">
-                    <a className="review-link-button" href={festival.homepageUrl} target="_blank" rel="noreferrer">
-                      홈페이지 열기
-                    </a>
+                  <div className="festival-card__content">
+                    <h4 className="festival-card__title">{formatFestivalTitle(festival.title)}</h4>
+                    <div className="festival-card__meta">
+                      <div className="festival-card__meta-item">
+                        <span className="festival-card__meta-label">장소</span>
+                        <div className="festival-card__location">
+                          {locationLines.map((line, index) => (
+                            <p key={`${festival.id}-${index}`} className={index === 0 ? 'festival-card__location-primary' : 'festival-card__location-secondary'}>
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ) : null}
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
