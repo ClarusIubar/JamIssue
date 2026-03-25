@@ -29,6 +29,9 @@ interface MyPagePanelProps {
   onOpenReview: (reviewId: string) => void;
   onUpdateReview: (reviewId: string, payload: { body: string; mood: ReviewMood }) => Promise<void>;
   onDeleteReview: (reviewId: string) => Promise<void>;
+  onMarkNotificationRead: (notificationId: string) => Promise<void>;
+  onMarkAllNotificationsRead: () => Promise<void>;
+  onDeleteNotification: (notificationId: string) => Promise<void>;
   commentsHasMore: boolean;
   commentsLoadingMore: boolean;
   onLoadMoreComments: (initial?: boolean) => Promise<void>;
@@ -48,6 +51,8 @@ interface DraftState {
   mood: string;
 }
 
+type NotificationItem = NonNullable<MyPageResponse>['notifications'][number];
+
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
     <svg viewBox="0 0 24 24" className="review-action-button__svg" aria-hidden="true">
@@ -62,6 +67,44 @@ function HeartIcon({ filled }: { filled: boolean }) {
     </svg>
   );
 }
+
+function BellIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="review-action-button__svg" aria-hidden="true">
+      <path
+        d="M12 4.75a4.25 4.25 0 0 0-4.25 4.25v2.23c0 .92-.3 1.81-.86 2.54l-1.1 1.47a1 1 0 0 0 .8 1.6h11.82a1 1 0 0 0 .8-1.6l-1.1-1.47a4.24 4.24 0 0 1-.86-2.54V9A4.25 4.25 0 0 0 12 4.75Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10.25 18.25a2 2 0 0 0 3.5 0"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function getNotificationLabel(notification: NotificationItem) {
+  switch (notification.type) {
+    case 'review-created':
+      return '피드';
+    case 'route-published':
+      return '코스';
+    case 'review-comment':
+      return '댓글';
+    case 'comment-reply':
+      return '답글';
+    default:
+      return '알림';
+  }
+}
+
 function buildDefaultDraft(session: TravelSession): DraftState {
   const firstPlaceName = session.placeNames[0] ?? '하루 코스';
   const lastPlaceName = session.placeNames[session.placeNames.length - 1] ?? firstPlaceName;
@@ -97,6 +140,9 @@ export function MyPagePanel({
   onOpenReview,
   onUpdateReview,
   onDeleteReview,
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead,
+  onDeleteNotification,
   commentsHasMore,
   commentsLoadingMore,
   onLoadMoreComments,
@@ -107,12 +153,16 @@ export function MyPagePanel({
   const [nickname, setNickname] = useState(sessionUser?.nickname ?? '');
   const [showVisitedDetail, setShowVisitedDetail] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, DraftState>>({});
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [editingReviewBody, setEditingReviewBody] = useState('');
   const [editingReviewMood, setEditingReviewMood] = useState<ReviewMood>('혼자서');
   const [reviewUpdatingId, setReviewUpdatingId] = useState<string | null>(null);
   const [reviewEditError, setReviewEditError] = useState<string | null>(null);
+  const [notificationBusyId, setNotificationBusyId] = useState<string | null>(null);
+  const [notificationsBusy, setNotificationsBusy] = useState(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
   const scrollRef = useScrollRestoration<HTMLElement>(`my:${activeTab}`);
   const commentsLoadMoreRef = useAutoLoadMore({
     enabled: activeTab === 'comments' && commentsHasMore,
@@ -127,6 +177,12 @@ export function MyPagePanel({
       setShowSettings(true);
     }
   }, [sessionUser?.nickname, sessionUser?.profileCompletedAt]);
+
+  useEffect(() => {
+    if (!myPage) {
+      setShowNotifications(false);
+    }
+  }, [myPage]);
 
   function startEditingReview(review: NonNullable<MyPageResponse>['reviews'][number]) {
     setEditingReviewId(review.id);
@@ -153,6 +209,7 @@ export function MyPagePanel({
       : 0),
     [myPage],
   );
+  const unreadNotificationCount = myPage?.unreadNotificationCount ?? 0;
 
   function readDraft(session: TravelSession) {
     return drafts[session.id] ?? buildDefaultDraft(session);
@@ -173,6 +230,60 @@ export function MyPagePanel({
     event.preventDefault();
     await onSaveNickname(nickname.trim());
     setShowSettings(false);
+  }
+
+  async function handleOpenNotification(notification: NotificationItem) {
+    try {
+      setNotificationBusyId(notification.id);
+      setNotificationError(null);
+      if (!notification.isRead) {
+        await onMarkNotificationRead(notification.id);
+      }
+
+      if (notification.reviewId && notification.commentId) {
+        onOpenComment(notification.reviewId, notification.commentId);
+        setShowNotifications(false);
+        return;
+      }
+      if (notification.reviewId) {
+        onOpenReview(notification.reviewId);
+        setShowNotifications(false);
+        return;
+      }
+      if (notification.routeId) {
+        onChangeTab('routes');
+        setShowNotifications(false);
+      }
+    } catch (error) {
+      setNotificationError(error instanceof Error ? error.message : '알림을 열지 못했어요.');
+    } finally {
+      setNotificationBusyId(null);
+    }
+  }
+
+  async function handleDeleteNotificationClick(event: React.MouseEvent<HTMLButtonElement>, notificationId: string) {
+    event.stopPropagation();
+    try {
+      setNotificationBusyId(notificationId);
+      setNotificationError(null);
+      await onDeleteNotification(notificationId);
+    } catch (error) {
+      setNotificationError(error instanceof Error ? error.message : '알림을 삭제하지 못했어요.');
+    } finally {
+      setNotificationBusyId(null);
+    }
+  }
+
+  async function handleMarkAllNotifications() {
+    try {
+      setNotificationsBusy(true);
+      setNotificationError(null);
+      await onMarkAllNotificationsRead();
+    } catch (error) {
+      setNotificationError(error instanceof Error ? error.message : '알림 상태를 바꾸지 못했어요.');
+    } finally {
+      setNotificationsBusy(false);
+    }
   }
 
   if (!sessionUser) {
@@ -201,14 +312,13 @@ export function MyPagePanel({
         <div className="panel-header__actions">
           <button
             type="button"
-            className={showSettings ? 'secondary-button icon-button is-complete' : 'secondary-button icon-button'}
-            onClick={() => setShowSettings((current) => !current)}
-            aria-label="설정 열기"
+            className={showNotifications ? 'secondary-button icon-button notification-bell is-complete' : 'secondary-button icon-button notification-bell'}
+            onClick={() => setShowNotifications((current) => !current)}
+            aria-label="알림 열기"
+            disabled={!myPage}
           >
-            <span aria-hidden="true">⚙</span>
-          </button>
-          <button type="button" className="secondary-button" onClick={() => void onLogout()} disabled={isLoggingOut}>
-            {isLoggingOut ? '정리 중' : '로그아웃'}
+            <BellIcon />
+            {unreadNotificationCount > 0 && <span className="notification-bell__dot" aria-hidden="true" />}
           </button>
         </div>
       </header>
@@ -223,6 +333,72 @@ export function MyPagePanel({
           <button type="button" className="primary-button route-submit-button" onClick={() => void onRetry()}>
             다시 불러오기
           </button>
+        </section>
+      )}
+      <section className="sheet-card stack-gap account-action-card">
+        <div className="section-title-row section-title-row--tight">
+          <div>
+            <p className="eyebrow">ACCOUNT</p>
+            <h3>계정과 알림 관리</h3>
+          </div>
+          {myPage && <span className={unreadNotificationCount > 0 ? 'counter-pill' : 'counter-pill counter-pill--muted'}>{unreadNotificationCount}개</span>}
+        </div>
+        <div className="account-action-row">
+          <button type="button" className={showSettings ? 'secondary-button is-complete' : 'secondary-button'} onClick={() => setShowSettings((current) => !current)}>
+            {showSettings ? '설정 닫기' : '설정 열기'}
+          </button>
+          <button type="button" className="secondary-button" onClick={() => void onLogout()} disabled={isLoggingOut}>
+            {isLoggingOut ? '정리 중' : '로그아웃'}
+          </button>
+        </div>
+      </section>
+      {showNotifications && myPage && (
+        <section className="sheet-card stack-gap notification-panel">
+          <div className="notification-panel__header">
+            <div>
+              <p className="eyebrow">ALERT</p>
+              <h3>새로운 인터랙션</h3>
+              <p className="section-copy">피드, 댓글, 코스 발행 같은 사용자 활동을 여기서 바로 확인해요.</p>
+            </div>
+            <button type="button" className="secondary-button notification-panel__mark-all" onClick={() => void handleMarkAllNotifications()} disabled={notificationsBusy || unreadNotificationCount === 0}>
+              {notificationsBusy ? '처리 중' : '모두 읽음'}
+            </button>
+          </div>
+          {notificationError && <p className="form-error-copy">{notificationError}</p>}
+          <div className="notification-list">
+            {myPage.notifications.map((notification) => (
+              <article
+                key={notification.id}
+                className={notification.isRead ? 'notification-item' : 'notification-item is-unread'}
+              >
+                <button
+                  type="button"
+                  className="notification-item__content"
+                  onClick={() => void handleOpenNotification(notification)}
+                  disabled={notificationBusyId === notification.id}
+                >
+                  <div className="notification-item__top">
+                    <span className="soft-tag">{getNotificationLabel(notification)}</span>
+                    <span className="notification-item__time">
+                      {notification.actorName ? `${notification.actorName} · ${notification.createdAt}` : notification.createdAt}
+                    </span>
+                  </div>
+                  <strong>{notification.title}</strong>
+                  <p>{notification.body}</p>
+                </button>
+                <button
+                  type="button"
+                  className="notification-item__delete"
+                  aria-label="알림 삭제"
+                  onClick={(event) => void handleDeleteNotificationClick(event, notification.id)}
+                  disabled={notificationBusyId === notification.id}
+                >
+                  ×
+                </button>
+              </article>
+            ))}
+            {myPage.notifications.length === 0 && <p className="empty-copy">새로운 알림이 아직 없어요.</p>}
+          </div>
         </section>
       )}
       {(showSettings || !sessionUser.profileCompletedAt) && (

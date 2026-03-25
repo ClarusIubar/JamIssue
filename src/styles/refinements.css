@@ -466,6 +466,128 @@ input.visually-hidden[type='file'] {
 .panel-header__actions .icon-button {
   min-width: 44px !important;
 }
+
+.notification-bell {
+  position: relative !important;
+  min-width: 48px !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 18px !important;
+}
+
+.notification-bell__dot {
+  position: absolute !important;
+  top: 11px !important;
+  right: 11px !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 999px !important;
+  background: #ff557d !important;
+  box-shadow: 0 0 0 3px rgba(255, 248, 251, 0.96) !important;
+}
+
+.account-action-card {
+  gap: 14px !important;
+}
+
+.account-action-row {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.notification-panel {
+  gap: 14px !important;
+}
+
+.notification-panel__header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+.notification-panel__mark-all {
+  min-width: 94px !important;
+}
+
+.notification-list {
+  display: grid !important;
+  gap: 10px !important;
+}
+
+.notification-item {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+  padding: 12px !important;
+  border-radius: 22px !important;
+  border: 1px solid rgba(255, 197, 217, 0.35) !important;
+  background: rgba(255, 252, 249, 0.92) !important;
+}
+
+.notification-item.is-unread {
+  background: linear-gradient(180deg, rgba(255, 244, 248, 0.98), rgba(255, 252, 249, 0.94)) !important;
+  border-color: rgba(255, 141, 180, 0.42) !important;
+}
+
+.notification-item__content {
+  display: grid !important;
+  gap: 8px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  text-align: left !important;
+}
+
+.notification-item__content strong,
+.notification-item__content p {
+  margin: 0 !important;
+}
+
+.notification-item__content p {
+  color: #6f5964 !important;
+  line-height: 1.45 !important;
+}
+
+.notification-item__top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.notification-item__time {
+  color: #866f7b !important;
+  font-size: 12px !important;
+  white-space: nowrap !important;
+}
+
+.notification-item__delete {
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 186, 207, 0.42) !important;
+  background: rgba(255, 246, 249, 0.94) !important;
+  color: #8d5c70 !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+}
+
+@media (max-width: 430px) {
+  .notification-panel__header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .notification-item__top {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+}
 /* 2026-03-19 map drawer visual teaser */
 .map-drawer-teaser {
   display: grid !important;

@@ -259,17 +259,48 @@ export interface MyStats {
   routeCount: number;
 }
 
+export type UserNotificationType =
+  | 'review-created'
+  | 'route-published'
+  | 'review-comment'
+  | 'comment-reply';
+
+export interface UserNotification {
+  id: string;
+  type: UserNotificationType;
+  title: string;
+  body: string;
+  createdAt: string;
+  isRead: boolean;
+  reviewId: string | null;
+  commentId: string | null;
+  routeId: string | null;
+  actorName: string | null;
+}
+
 export interface MyPageResponse {
   user: SessionUser;
   stats: MyStats;
   reviews: Review[];
   comments: MyComment[];
+  notifications: UserNotification[];
+  unreadNotificationCount: number;
   stampLogs: StampLog[];
   travelSessions: TravelSession[];
   visitedPlaces: Place[];
   unvisitedPlaces: Place[];
   collectedPlaces: Place[];
   routes: UserRoute[];
+}
+
+export interface NotificationReadResponse {
+  notificationId: string;
+  read: boolean;
+}
+
+export interface NotificationDeleteResponse {
+  notificationId: string;
+  deleted: boolean;
 }
 
 export interface ProfileUpdateRequest {

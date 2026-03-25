@@ -17,16 +17,12 @@ import type {
 interface MapTabStageProps {
   activeCategory: Category;
   setActiveCategory: (category: Category) => void;
-  notice: string | null;
-  bootstrapStatus: ApiStatus;
-  bootstrapError: string | null;
   filteredPlaces: Place[];
   festivals: FestivalItem[];
   selectedPlace: Place | null;
   selectedFestival: FestivalItem | null;
   currentPosition: { latitude: number; longitude: number } | null;
   mapLocationStatus: ApiStatus;
-  mapLocationMessage: string | null;
   mapLocationFocusKey: number;
   drawerState: DrawerState;
   sessionUser: SessionUser | null;
@@ -64,16 +60,12 @@ interface MapTabStageProps {
 export function MapTabStage({
   activeCategory,
   setActiveCategory,
-  notice,
-  bootstrapStatus,
-  bootstrapError,
   filteredPlaces,
   festivals,
   selectedPlace,
   selectedFestival,
   currentPosition,
   mapLocationStatus,
-  mapLocationMessage,
   mapLocationFocusKey,
   drawerState,
   sessionUser,
@@ -147,11 +139,6 @@ export function MapTabStage({
         </div>
       </div>
 
-      {notice && <div className="floating-notice">{notice}</div>}
-      {bootstrapStatus === 'loading' && <section className="floating-status">???吏?꾨? 遺덈윭?ㅺ퀬 ?덉뼱??</section>}
-      {bootstrapStatus === 'error' && <section className="floating-status floating-status--error">{bootstrapError}</section>}
-
-      {drawerState === 'closed' && mapLocationMessage && <section className="map-inline-status">{mapLocationMessage}</section>}
       <NaverMap
         places={filteredPlaces}
         festivals={festivals}
@@ -179,7 +166,7 @@ export function MapTabStage({
               <h3>{routePreview.title}</h3>
               <p className="section-copy">{routePreview.subtitle}</p>
             </div>
-            <button type="button" className="map-route-preview-card__close" onClick={onClearRoutePreview} aria-label="寃쎈줈 誘몃━蹂닿린 ?リ린">
+            <button type="button" className="map-route-preview-card__close" onClick={onClearRoutePreview} aria-label="경로 미리보기 닫기">
               <span aria-hidden="true">{'\u00D7'}</span>
             </button>
           </div>

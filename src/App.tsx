@@ -8,10 +8,13 @@ import {
   createReview,
   updateReview,
   createUserRoute,
+  deleteNotification,
   getAuthSession,
   getFestivals,
   getMapBootstrap,
   getMyCommentsPage,
+  markAllNotificationsRead,
+  markNotificationRead,
   getProviderLoginUrl,
   getReviewDetail,
   getReviewFeedPage,
@@ -29,6 +32,7 @@ import { CourseTab } from './components/CourseTab';
 import { EventTab } from './components/EventTab';
 import { FeedTab } from './components/FeedTab';
 import { FloatingBackButton } from './components/FloatingBackButton';
+import { GlobalStatusBanner } from './components/GlobalStatusBanner';
 import { MapTabStage } from './components/MapTabStage';
 import { MyPagePanel } from './components/MyPagePanel';
 import {
@@ -260,6 +264,24 @@ export default function App() {
   }, [knownMyReviews, sessionUser, todayStamp]);
   const canCreateReview = Boolean(sessionUser && selectedPlace && todayStamp && !hasCreatedReviewToday);
   const placeNameById = useMemo(() => Object.fromEntries(places.map((place) => [place.id, place.name])), [places]);
+  const globalStatus = useMemo(() => {
+    if (notice) {
+      return { tone: 'info' as const, message: notice };
+    }
+    if (bootstrapStatus === 'loading') {
+      return { tone: 'info' as const, message: '지도를 준비하고 있어요.' };
+    }
+    if (bootstrapStatus === 'error' && bootstrapError) {
+      return { tone: 'error' as const, message: bootstrapError };
+    }
+    if (mapLocationMessage) {
+      return {
+        tone: mapLocationStatus === 'error' ? ('error' as const) : ('info' as const),
+        message: mapLocationMessage,
+      };
+    }
+    return null;
+  }, [notice, bootstrapStatus, bootstrapError, mapLocationMessage, mapLocationStatus]);
   const {
     fetchCommunityRoutes,
     ensureFeedReviews,
@@ -1008,11 +1030,62 @@ export default function App() {
       });
       setNotice('코스를 발행했어요. 공개 경로 탭에서 바로 확인할 수 있어요.');
       setMyPageTab('routes');
+      await refreshMyPageForUser(sessionUser, true);
     } catch (error) {
       setRouteError(formatErrorMessage(error));
     } finally {
       setRouteSubmitting(false);
     }
+  }
+
+  async function handleMarkNotificationRead(notificationId: string) {
+    await markNotificationRead(notificationId);
+    setMyPage((current) => {
+      if (!current) {
+        return current;
+      }
+      return {
+        ...current,
+        notifications: current.notifications.map((notification) => (
+          notification.id === notificationId
+            ? { ...notification, isRead: true }
+            : notification
+        )),
+        unreadNotificationCount: Math.max(
+          0,
+          current.notifications.filter((notification) => !notification.isRead && notification.id !== notificationId).length,
+        ),
+      };
+    });
+  }
+
+  async function handleMarkAllNotificationsRead() {
+    await markAllNotificationsRead();
+    setMyPage((current) => {
+      if (!current) {
+        return current;
+      }
+      return {
+        ...current,
+        notifications: current.notifications.map((notification) => ({ ...notification, isRead: true })),
+        unreadNotificationCount: 0,
+      };
+    });
+  }
+
+  async function handleDeleteNotification(notificationId: string) {
+    await deleteNotification(notificationId);
+    setMyPage((current) => {
+      if (!current) {
+        return current;
+      }
+      const nextNotifications = current.notifications.filter((notification) => notification.id !== notificationId);
+      return {
+        ...current,
+        notifications: nextNotifications,
+        unreadNotificationCount: nextNotifications.filter((notification) => !notification.isRead).length,
+      };
+    });
   }
 
   async function handleToggleAdminPlace(placeId: string, nextValue: boolean) {
@@ -1222,21 +1295,22 @@ export default function App() {
 
   return (
     <div className="map-app-shell">
-      <div className={activeTab === 'map' ? 'phone-shell phone-shell--map' : 'phone-shell'}>
+      <div className={[
+        'phone-shell',
+        activeTab === 'map' ? 'phone-shell--map' : '',
+        globalStatus ? 'phone-shell--with-status' : '',
+      ].filter(Boolean).join(' ')}>
+        {globalStatus && <GlobalStatusBanner tone={globalStatus.tone} message={globalStatus.message} layout={activeTab === 'map' ? 'map' : 'page'} />}
         {activeTab === 'map' ? (
           <MapTabStage
             activeCategory={activeCategory}
             setActiveCategory={setActiveCategory}
-            notice={notice}
-            bootstrapStatus={bootstrapStatus}
-            bootstrapError={bootstrapError}
             filteredPlaces={filteredPlaces}
             festivals={festivals}
             selectedPlace={selectedPlace}
             selectedFestival={selectedFestival}
             currentPosition={currentPosition}
             mapLocationStatus={mapLocationStatus}
-            mapLocationMessage={mapLocationMessage}
             mapLocationFocusKey={mapLocationFocusKey}
             drawerState={drawerState}
             sessionUser={sessionUser}
@@ -1294,7 +1368,7 @@ export default function App() {
             onMapViewportChange={updateMapViewportInUrl}
           />
         ) : (
-          <div className="page-stage">
+          <div className={globalStatus ? 'page-stage page-stage--with-banner' : 'page-stage'}>
 
             {activeTab === 'feed' && (
               <FeedTab
@@ -1375,6 +1449,9 @@ export default function App() {
                 onOpenReview={handleOpenReviewWithReturn}
                 onUpdateReview={handleUpdateReview}
                 onDeleteReview={handleDeleteReview}
+                onMarkNotificationRead={handleMarkNotificationRead}
+                onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+                onDeleteNotification={handleDeleteNotification}
                 commentsHasMore={myCommentsHasMore}
                 commentsLoadingMore={myCommentsLoadingMore}
                 onLoadMoreComments={loadMoreMyComments}

@@ -190,6 +190,38 @@ textarea {
   background: linear-gradient(180deg, rgba(255, 248, 251, 0.92), rgba(255, 253, 248, 0.96));
 }
 
+.page-stage--with-banner {
+  padding-top: 74px;
+}
+
+.global-status-banner {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  z-index: 40;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  box-shadow: 0 14px 28px rgba(255, 143, 183, 0.14);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.global-status-banner--page {
+  top: 16px;
+}
+
+.global-status-banner--map {
+  top: 118px;
+}
+
+.global-status-banner--error {
+  background: rgba(255, 240, 244, 0.96);
+  color: #9a294f;
+}
+
 .page-stage .tab-overlay {
   position: absolute;
   inset: 12px 12px calc(var(--bottom-nav-offset) - 2px) 12px;

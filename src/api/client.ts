@@ -14,6 +14,8 @@ import type {
   CommunityRouteSort,
   MyCommentPageResponse,
   MyPageResponse,
+  NotificationDeleteResponse,
+  NotificationReadResponse,
   PlaceVisibilityRequest,
   ProfileUpdateRequest,
   ProviderKey,
@@ -380,6 +382,30 @@ export async function uploadReviewImage(file: File) {
 
 export function getMySummary() {
   return fetchJson<MyPageResponse>('/api/my/summary');
+}
+
+export async function markNotificationRead(notificationId: string) {
+  const response = await fetchJson<NotificationReadResponse>(`/api/notifications/${notificationId}/read`, {
+    method: 'PATCH',
+  });
+  invalidateApiCache(['/api/my/summary']);
+  return response;
+}
+
+export async function markAllNotificationsRead() {
+  const response = await fetchJson<{ updated: number }>('/api/notifications/read-all', {
+    method: 'PATCH',
+  });
+  invalidateApiCache(['/api/my/summary']);
+  return response;
+}
+
+export async function deleteNotification(notificationId: string) {
+  const response = await fetchJson<NotificationDeleteResponse>(`/api/notifications/${notificationId}`, {
+    method: 'DELETE',
+  });
+  invalidateApiCache(['/api/my/summary']);
+  return response;
 }
 
 export function getMyCommentsPage(params?: { cursor?: string | null; limit?: number }) {

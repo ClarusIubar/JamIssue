@@ -1496,6 +1496,7 @@ async function handleMySummary(request, env) {
   const routes = await loadCommunityRoutes(env, { ownerUserId: sessionUser.id, sessionUserId: sessionUser.id });
   const reviewItems = baseData.reviews.filter((review) => review.userId === sessionUser.id);
   const reviewById = new Map(baseData.reviews.map((review) => [String(review.id), review]));
+  const notifications = await loadUserNotifications(env, sessionUser.id);
   const myCommentRows = await supabaseRequest(
     env,
     `user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&user_id=eq.${encodeFilterValue(sessionUser.id)}&order=created_at.desc`,
@@ -1516,6 +1517,8 @@ async function handleMySummary(request, env) {
     },
     reviews: reviewItems,
     comments: myComments,
+    notifications,
+    unreadNotificationCount: notifications.filter((notification) => !notification.isRead).length,
     stampLogs: baseData.stampLogs,
     travelSessions: baseData.travelSessions,
     visitedPlaces,
@@ -2615,6 +2618,75 @@ async function readRouteRow(env, routeId) {
   return rows?.[0] ?? null;
 }
 
+async function readNotificationRow(env, notificationId) {
+  const rows = await supabaseRequest(
+    env,
+    `user_notification?select=notification_id,user_id,actor_user_id,type,title,body,review_id,comment_id,route_id,is_read,created_at&notification_id=eq.${encodeFilterValue(notificationId)}&limit=1`,
+  );
+  return rows?.[0] ?? null;
+}
+
+async function createUserNotification(env, {
+  userId,
+  actorUserId = null,
+  type,
+  title,
+  body = '',
+  reviewId = null,
+  commentId = null,
+  routeId = null,
+  metadata = {},
+}) {
+  if (!userId) {
+    return null;
+  }
+
+  const nowIso = new Date().toISOString();
+  const rows = await supabaseRequest(env, 'user_notification?select=notification_id', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_id: userId,
+      actor_user_id: actorUserId,
+      type,
+      title,
+      body,
+      review_id: reviewId ? Number(reviewId) : null,
+      comment_id: commentId ? Number(commentId) : null,
+      route_id: routeId ? Number(routeId) : null,
+      metadata,
+      is_read: false,
+      created_at: nowIso,
+      updated_at: nowIso,
+    }),
+  });
+  return rows?.[0] ?? null;
+}
+
+async function loadUserNotifications(env, userId, limit = 30) {
+  const rows = await supabaseRequest(
+    env,
+    `user_notification?select=notification_id,user_id,actor_user_id,type,title,body,review_id,comment_id,route_id,is_read,created_at&user_id=eq.${encodeFilterValue(userId)}&order=created_at.desc&limit=${limit}`,
+  );
+  const actorIdsFilter = buildInFilter((rows || []).map((row) => row.actor_user_id).filter(Boolean));
+  const actorRows = actorIdsFilter
+    ? await supabaseRequest(env, `user?select=user_id,nickname&user_id=${actorIdsFilter}`)
+    : [];
+  const actorNameById = new Map((actorRows || []).map((row) => [row.user_id, row.nickname]));
+
+  return (rows || []).map((row) => ({
+    id: String(row.notification_id),
+    type: row.type,
+    title: row.title,
+    body: row.body ?? '',
+    createdAt: formatDateTime(row.created_at),
+    isRead: Boolean(row.is_read),
+    reviewId: row.review_id ? String(row.review_id) : null,
+    commentId: row.comment_id ? String(row.comment_id) : null,
+    routeId: row.route_id ? String(row.route_id) : null,
+    actorName: row.actor_user_id ? actorNameById.get(row.actor_user_id) ?? null : null,
+  }));
+}
+
 async function loadSingleReview(env, reviewId, sessionUserId = null) {
   const reviewRows = await supabaseRequest(
     env,
@@ -2775,6 +2847,17 @@ async function handleCreateReview(request, env) {
   });
 
   const createdReview = await loadSingleReview(env, insertedRows?.[0]?.feed_id, sessionResult.sessionUser.id);
+  await createUserNotification(env, {
+    userId: sessionResult.sessionUser.id,
+    actorUserId: sessionResult.sessionUser.id,
+    type: 'review-created',
+    title: '피드 작성이 완료되었습니다.',
+    body: `${place.name} 피드를 남겼어요.`,
+    reviewId: insertedRows?.[0]?.feed_id ?? null,
+    metadata: {
+      placeId: place.id,
+    },
+  });
   return jsonResponse(201, createdReview, env, request);
 }
 
@@ -2831,12 +2914,13 @@ async function handleCreateComment(request, env, reviewId) {
   const payload = await readJsonBody(request);
   const body = String(payload.body ?? '').trim();
   let parentId = payload.parentId ? Number(payload.parentId) : null;
+  let parentComment = null;
   if (!body) {
     return jsonResponse(400, { detail: '댓글을 조금 더 적어 주세요.' }, env, request);
   }
 
   if (parentId) {
-    const parentComment = await readCommentRow(env, parentId);
+    parentComment = await readCommentRow(env, parentId);
     if (!parentComment || String(parentComment.feed_id) !== String(reviewId)) {
       return jsonResponse(400, { detail: '같은 후기 안의 댓글에만 답글을 달 수 있어요.' }, env, request);
     }
@@ -2845,7 +2929,7 @@ async function handleCreateComment(request, env, reviewId) {
     }
   }
 
-  await supabaseRequest(env, 'user_comment?select=comment_id', {
+  const insertedRows = await supabaseRequest(env, 'user_comment?select=comment_id', {
     method: 'POST',
     body: JSON.stringify({
       feed_id: Number(reviewId),
@@ -2855,6 +2939,38 @@ async function handleCreateComment(request, env, reviewId) {
       is_deleted: false,
     }),
   });
+
+  const createdCommentId = insertedRows?.[0]?.comment_id ?? null;
+  const actorUserId = sessionResult.sessionUser.id;
+  const reviewOwnerId = reviewRow.user_id;
+
+  if (parentComment && parentComment.user_id && parentComment.user_id !== actorUserId) {
+    await createUserNotification(env, {
+      userId: parentComment.user_id,
+      actorUserId,
+      type: 'comment-reply',
+      title: '내 댓글에 답글이 달렸습니다.',
+      body,
+      reviewId,
+      commentId: createdCommentId,
+    });
+  }
+
+  if (
+    reviewOwnerId
+    && reviewOwnerId !== actorUserId
+    && (!parentComment || parentComment.user_id !== reviewOwnerId)
+  ) {
+    await createUserNotification(env, {
+      userId: reviewOwnerId,
+      actorUserId,
+      type: 'review-comment',
+      title: '내 피드에 댓글이 달렸습니다.',
+      body,
+      reviewId,
+      commentId: createdCommentId,
+    });
+  }
 
   const comments = (await loadSingleReview(env, reviewId, sessionResult.sessionUser.id))?.comments ?? [];
   return jsonResponse(200, comments, env, request);
@@ -3186,8 +3302,108 @@ async function handleCreateUserRoute(request, env) {
 
   const routes = await loadCommunityRoutes(env, { ownerUserId: sessionResult.sessionUser.id, sessionUserId: sessionResult.sessionUser.id });
   const createdRoute = routes.find((route) => route.id === String(routeId)) ?? null;
+  await createUserNotification(env, {
+    userId: sessionResult.sessionUser.id,
+    actorUserId: sessionResult.sessionUser.id,
+    type: 'route-published',
+    title: '새로운 코스가 발행되었습니다.',
+    body: title,
+    routeId,
+    metadata: {
+      travelSessionId,
+    },
+  });
   return jsonResponse(201, createdRoute, env, request);
 }
+
+async function handleMarkNotificationRead(request, env, notificationId) {
+  const sessionResult = await requireSessionUser(request, env);
+  if (sessionResult.response) {
+    return sessionResult.response;
+  }
+
+  const notificationRow = await readNotificationRow(env, notificationId);
+  if (!notificationRow) {
+    return jsonResponse(404, { detail: '알림을 찾지 못했어요.' }, env, request);
+  }
+  if (notificationRow.user_id !== sessionResult.sessionUser.id) {
+    return jsonResponse(403, { detail: '내 알림만 확인할 수 있어요.' }, env, request);
+  }
+
+  if (!notificationRow.is_read) {
+    const nowIso = new Date().toISOString();
+    await supabaseRequest(env, `user_notification?notification_id=eq.${encodeFilterValue(notificationId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        is_read: true,
+        read_at: nowIso,
+        updated_at: nowIso,
+      }),
+    });
+  }
+
+  return jsonResponse(200, {
+    notificationId: String(notificationId),
+    read: true,
+  }, env, request);
+}
+
+async function handleMarkAllNotificationsRead(request, env) {
+  const sessionResult = await requireSessionUser(request, env);
+  if (sessionResult.response) {
+    return sessionResult.response;
+  }
+
+  const unreadRows = await supabaseRequest(
+    env,
+    `user_notification?select=notification_id&user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&is_read=eq.false`,
+  );
+  const updated = unreadRows?.length ?? 0;
+
+  if (updated > 0) {
+    const nowIso = new Date().toISOString();
+    await supabaseRequest(
+      env,
+      `user_notification?user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&is_read=eq.false`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          is_read: true,
+          read_at: nowIso,
+          updated_at: nowIso,
+        }),
+      },
+    );
+  }
+
+  return jsonResponse(200, { updated }, env, request);
+}
+
+async function handleDeleteNotification(request, env, notificationId) {
+  const sessionResult = await requireSessionUser(request, env);
+  if (sessionResult.response) {
+    return sessionResult.response;
+  }
+
+  const notificationRow = await readNotificationRow(env, notificationId);
+  if (!notificationRow) {
+    return jsonResponse(404, { detail: '알림을 찾지 못했어요.' }, env, request);
+  }
+  if (notificationRow.user_id !== sessionResult.sessionUser.id) {
+    return jsonResponse(403, { detail: '내 알림만 삭제할 수 있어요.' }, env, request);
+  }
+
+  await supabaseRequest(env, `user_notification?notification_id=eq.${encodeFilterValue(notificationId)}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=minimal' },
+  });
+
+  return jsonResponse(200, {
+    notificationId: String(notificationId),
+    deleted: true,
+  }, env, request);
+}
+
 async function handleToggleCommunityRouteLike(request, env, routeId) {
   const sessionResult = await requireSessionUser(request, env);
   if (sessionResult.response) {
@@ -3291,6 +3507,8 @@ async function routeRequest(request, env) {
   const reviewLikeMatch = url.pathname.match(/^\/api\/reviews\/(\d+)\/like$/);
   const reviewDetailMatch = url.pathname.match(/^\/api\/reviews\/(\d+)$/);
   const communityRouteLikeMatch = url.pathname.match(/^\/api\/community-routes\/(\d+)\/like$/);
+  const notificationReadMatch = url.pathname.match(/^\/api\/notifications\/(\d+)\/read$/);
+  const notificationDetailMatch = url.pathname.match(/^\/api\/notifications\/(\d+)$/);
   const adminPlaceMatch = url.pathname.match(/^\/api\/admin\/places\/([^/]+)$/);
 
   if (request.method === "OPTIONS") {
@@ -3384,6 +3602,15 @@ async function routeRequest(request, env) {
   }
   if (request.method === "GET" && url.pathname === "/api/my/comments") {
     return handleMyComments(request, env, url);
+  }
+  if (request.method === "PATCH" && notificationReadMatch) {
+    return handleMarkNotificationRead(request, env, notificationReadMatch[1]);
+  }
+  if (request.method === "PATCH" && url.pathname === "/api/notifications/read-all") {
+    return handleMarkAllNotificationsRead(request, env);
+  }
+  if (request.method === "DELETE" && notificationDetailMatch) {
+    return handleDeleteNotification(request, env, notificationDetailMatch[1]);
   }
   if (request.method === "GET" && url.pathname === "/api/festivals") {
     return handleFestivalsFromDb(request, env);

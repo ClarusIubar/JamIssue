@@ -244,6 +244,30 @@ CREATE TABLE IF NOT EXISTS `user_comment` (
     CONSTRAINT `fk_user_comment_parent_id` FOREIGN KEY (`parent_id`) REFERENCES `user_comment` (`comment_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `user_notification` (
+    `notification_id` INT NOT NULL AUTO_INCREMENT,
+    `user_id` VARCHAR(64) NOT NULL,
+    `actor_user_id` VARCHAR(64) NULL,
+    `type` VARCHAR(30) NOT NULL,
+    `title` VARCHAR(120) NOT NULL,
+    `body` VARCHAR(255) NOT NULL DEFAULT '',
+    `review_id` INT NULL,
+    `comment_id` INT NULL,
+    `route_id` INT NULL,
+    `is_read` BOOLEAN NOT NULL DEFAULT FALSE,
+    `read_at` DATETIME NULL,
+    `metadata` JSON NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`notification_id`),
+    KEY `idx_user_notification_user_created_at` (`user_id`, `created_at`),
+    KEY `idx_user_notification_user_is_read` (`user_id`, `is_read`),
+    CONSTRAINT `fk_user_notification_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_user_notification_actor_user_id` FOREIGN KEY (`actor_user_id`) REFERENCES `user` (`user_id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_user_notification_review_id` FOREIGN KEY (`review_id`) REFERENCES `feed` (`feed_id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_user_notification_comment_id` FOREIGN KEY (`comment_id`) REFERENCES `user_comment` (`comment_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `course` (
     `course_id` INT NOT NULL AUTO_INCREMENT,
     `slug` VARCHAR(80) NOT NULL,
