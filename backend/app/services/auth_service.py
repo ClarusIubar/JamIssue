@@ -17,6 +17,9 @@ SUPPORTED_PROVIDERS = tuple(PROVIDER_LABELS.keys())
 
 
 def build_auth_providers(app_settings: Settings) -> list[AuthProviderOut]:
+    """
+    설정에 따라 사용 가능한 소셜 인증 제공자 목록(AuthProviderOut)을 구성하여 반환합니다.
+    """
     providers: list[AuthProviderOut] = []
     for provider in SUPPORTED_PROVIDERS:
         providers.append(
@@ -31,6 +34,9 @@ def build_auth_providers(app_settings: Settings) -> list[AuthProviderOut]:
 
 
 def build_auth_response(session_user: SessionUser | None, app_settings: Settings) -> AuthSessionResponse:
+    """
+    현재 세션의 인증 상태와 사용자 정보, 사용 가능한 인증 제공자를 묶어 AuthSessionResponse로 반환합니다.
+    """
     return AuthSessionResponse(
         isAuthenticated=bool(session_user),
         user=session_user,
@@ -39,6 +45,9 @@ def build_auth_response(session_user: SessionUser | None, app_settings: Settings
 
 
 def get_redirect_target(request: Request, app_settings: Settings) -> str:
+    """
+    로그인 완료 후 돌아갈 대상 URL을 세션에서 찾아 반환합니다. 없으면 기본 프론트엔드 URL을 사용합니다.
+    """
     return request.session.get("post_login_redirect") or app_settings.frontend_url
 
 
@@ -48,6 +57,13 @@ def update_profile_session_payload(
     payload: ProfileUpdateRequest,
     app_settings: Settings,
 ) -> tuple[AuthSessionResponse, str]:
+    """
+    사용자의 프로필(닉네임 등)을 업데이트하고, 변경된 정보를 바탕으로 새 JWT 액세스 토큰과 응답 객체를 발급합니다.
+
+    의존성:
+    - repository_normalized.update_user_profile 호출
+    - jwt_auth.issue_access_token 호출
+    """
     try:
         user = update_user_profile(db, user_id, payload)
     except ValueError as error:
@@ -68,6 +84,15 @@ def complete_naver_login(
     error_description: str | None,
     app_settings: Settings,
 ) -> tuple[RedirectResponse, str | None]:
+    """
+    네이버 로그인 콜백을 처리합니다.
+    토큰 교환 및 프로필 조회를 수행한 후, 새 계정을 생성하거나 기존 계정과 연결하고,
+    완료 시 발급된 액세스 토큰 및 클라이언트로의 리다이렉트 응답을 반환합니다.
+
+    의존성:
+    - naver_oauth.py: 토큰 교환 및 프로필 조회 함수 사용
+    - repository_normalized.py: upsert_naver_user, link_naver_identity 사용
+    """
     redirect_target = get_redirect_target(request, app_settings)
     expected_state = request.session.pop("naver_oauth_state", None)
     link_user_id = request.session.pop("oauth_link_user_id", None)

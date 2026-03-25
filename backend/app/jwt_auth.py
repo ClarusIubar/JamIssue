@@ -16,7 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 def issue_access_token(settings: Settings, user: SessionUser) -> str:
-    """세션 사용자 정보를 담은 액세스 토큰을 발급합니다."""
+    """
+    세션 사용자 정보를 담은 액세스 토큰을 발급합니다.
+
+    의존성:
+    - config.py (Settings): jwt_secret, jwt_algorithm, access_token_expires_delta 참조
+    - models.py (SessionUser): 토큰 페이로드에 포함될 사용자 데이터
+    """
 
     expires_at = datetime.now(UTC) + settings.access_token_expires_delta
     payload = {
@@ -33,6 +39,9 @@ def issue_access_token(settings: Settings, user: SessionUser) -> str:
 
 
 def auth_cookie_settings(settings: Settings) -> dict[str, object]:
+    """
+    인증 쿠키 설정에 필요한 속성 딕셔너리를 반환합니다.
+    """
     return {
         "httponly": True,
         "samesite": "lax",
@@ -43,15 +52,27 @@ def auth_cookie_settings(settings: Settings) -> dict[str, object]:
 
 
 def set_auth_cookie(response: Response, settings: Settings, token: str) -> None:
+    """
+    응답 객체에 인증 쿠키를 설정합니다.
+    """
     response.set_cookie(key=ACCESS_TOKEN_COOKIE, value=token, **auth_cookie_settings(settings))
 
 
 def clear_auth_cookie(response: Response) -> None:
+    """
+    응답 객체에서 인증 쿠키를 삭제합니다 (로그아웃 처리 시 사용).
+    """
     response.delete_cookie(ACCESS_TOKEN_COOKIE, path="/")
 
 
 def read_access_token(settings: Settings, token: str | None) -> SessionUser | None:
-    """전달받은 JWT를 읽어 세션 사용자로 복원합니다."""
+    """
+    전달받은 JWT를 읽어 세션 사용자로 복원합니다.
+
+    파라미터:
+    - settings: 애플리케이션 설정 (jwt_secret, jwt_algorithm)
+    - token: 쿠키나 헤더를 통해 전달받은 액세스 토큰
+    """
 
     if not token:
         return None

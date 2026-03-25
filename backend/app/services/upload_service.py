@@ -10,6 +10,10 @@ async def upload_review_image_service(
     session_user: SessionUser,
     app_settings: Settings,
 ) -> UploadResponse:
+    """
+    클라이언트에서 전송된 리뷰 이미지를 읽어 스토리지(로컬/Supabase)에 업로드하고,
+    저장된 파일의 URL 정보를 반환합니다.
+    """
     upload_service = get_review_image_upload_service(app_settings)
     raw_bytes = await file.read()
     stored_file = upload_service.save_review_image(

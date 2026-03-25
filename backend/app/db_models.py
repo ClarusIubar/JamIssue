@@ -7,10 +7,26 @@ from .db import Base
 
 
 def utcnow_naive() -> datetime:
+    """
+    현재 시간을 UTC 기반의 naive datetime(시간대 정보 없음) 객체로 반환합니다.
+    """
     return datetime.now(UTC).replace(tzinfo=None)
 
 
 class User(Base):
+    """
+    사용자(User) 데이터베이스 모델.
+
+    관계:
+    - UserIdentity: 외부 인증 제공자(OAuth) 연결 정보
+    - Feed: 사용자가 작성한 피드(리뷰)
+    - FeedLike: 사용자가 누른 피드 좋아요
+    - UserComment: 사용자가 작성한 댓글
+    - UserStamp: 사용자의 스탬프 획득 기록
+    - UserRoute: 사용자가 생성한 커뮤니티 루트
+    - UserRouteLike: 사용자가 누른 루트 좋아요
+    - TravelSession: 사용자의 24시간 여행 세션 기록
+    """
     __tablename__ = "user"
 
     user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -64,6 +80,13 @@ class User(Base):
 
 
 class UserIdentity(Base):
+    """
+    사용자의 외부 인증 제공자(OAuth) 연결 정보를 저장하는 모델.
+
+    제약사항:
+    - provider + provider_user_id 조합은 유일해야 함.
+    - user_id + provider 조합은 유일해야 함 (한 사용자가 같은 제공자를 여러 번 연결할 수 없음).
+    """
     __tablename__ = "user_identity"
     __table_args__ = (
         UniqueConstraint("provider", "provider_user_id", name="uq_user_identity_provider_user"),
@@ -83,6 +106,17 @@ class UserIdentity(Base):
 
 
 class MapPlace(Base):
+    """
+    지도에 표시되는 장소(Place) 데이터베이스 모델.
+
+    관계:
+    - Feed: 해당 장소에 작성된 피드
+    - CoursePlace: 이 장소가 포함된 큐레이션 코스 매핑
+    - UserStamp: 해당 장소에서 획득된 스탬프
+    - PublicPlaceMapLink: 공공 장소 데이터와의 연결 정보
+    - PublicEventMapLink: 공공 행사 데이터와의 연결 정보
+    - UserRoutePlace: 이 장소가 포함된 사용자(커뮤니티) 루트 매핑
+    """
     __tablename__ = "map"
 
     position_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -117,6 +151,13 @@ class MapPlace(Base):
 
 
 class PublicDataSource(Base):
+    """
+    공공 데이터 출처(Source) 정보를 저장하는 모델.
+
+    관계:
+    - PublicPlace: 해당 출처에서 가져온 공공 장소
+    - PublicEvent: 해당 출처에서 가져온 공공 행사
+    """
     __tablename__ = "public_data_source"
 
     source_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -133,6 +174,12 @@ class PublicDataSource(Base):
 
 
 class PublicPlace(Base):
+    """
+    공공 장소 데이터베이스 모델.
+
+    제약사항:
+    - source_id + external_id 조합은 유일해야 함.
+    """
     __tablename__ = "public_place"
     __table_args__ = (UniqueConstraint("source_id", "external_id", name="uq_public_place_source_external"),)
 
@@ -164,6 +211,9 @@ class PublicPlace(Base):
 
 
 class PublicPlaceMapLink(Base):
+    """
+    공공 장소 데이터(PublicPlace)와 내부 지도 장소(MapPlace)를 연결하는 모델.
+    """
     __tablename__ = "public_place_map_link"
     __table_args__ = (UniqueConstraint("public_place_id", "position_id", name="uq_public_place_map_link"),)
 
@@ -182,6 +232,12 @@ class PublicPlaceMapLink(Base):
 
 
 class PublicEvent(Base):
+    """
+    공공 행사(축제 등) 데이터베이스 모델.
+
+    제약사항:
+    - source_id + external_id 조합은 유일해야 함.
+    """
     __tablename__ = "public_event"
     __table_args__ = (UniqueConstraint("source_id", "external_id", name="uq_public_event_source_external"),)
 
@@ -214,6 +270,9 @@ class PublicEvent(Base):
 
 
 class PublicEventMapLink(Base):
+    """
+    공공 행사 데이터(PublicEvent)와 내부 지도 장소(MapPlace)를 연결하는 모델.
+    """
     __tablename__ = "public_event_map_link"
     __table_args__ = (UniqueConstraint("public_event_id", "position_id", name="uq_public_event_map_link"),)
 
@@ -232,6 +291,12 @@ class PublicEventMapLink(Base):
 
 
 class Feed(Base):
+    """
+    사용자가 작성한 피드(리뷰) 데이터베이스 모델.
+
+    제약사항:
+    - 특정 지도 장소(position_id)와 스탬프(stamp_id)에 귀속됨.
+    """
     __tablename__ = "feed"
 
     feed_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -257,6 +322,12 @@ class Feed(Base):
 
 
 class FeedLike(Base):
+    """
+    피드(리뷰)에 대한 사용자 좋아요 기록을 저장하는 모델.
+
+    제약사항:
+    - feed_id + user_id 조합은 유일해야 함.
+    """
     __tablename__ = "feed_like"
     __table_args__ = (UniqueConstraint("feed_id", "user_id", name="uq_feed_like"),)
 
@@ -270,6 +341,12 @@ class FeedLike(Base):
 
 
 class UserComment(Base):
+    """
+    피드(리뷰)에 작성된 사용자 댓글 데이터베이스 모델.
+
+    특징:
+    - 자기 참조(parent_id)를 통해 대댓글 구조를 지원함.
+    """
     __tablename__ = "user_comment"
 
     comment_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -288,6 +365,9 @@ class UserComment(Base):
 
 
 class Course(Base):
+    """
+    운영자가 생성한 큐레이션 코스 데이터베이스 모델.
+    """
     __tablename__ = "course"
 
     course_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -303,6 +383,12 @@ class Course(Base):
 
 
 class CoursePlace(Base):
+    """
+    큐레이션 코스와 지도 장소를 연결하는 중간 테이블(매핑) 모델.
+
+    속성:
+    - stop_order: 코스 내 장소의 순서
+    """
     __tablename__ = "course_place"
     __table_args__ = (UniqueConstraint("course_id", "position_id", name="uq_course_place"),)
 
@@ -316,6 +402,13 @@ class CoursePlace(Base):
 
 
 class TravelSession(Base):
+    """
+    사용자의 24시간 이내 스탬프 획득 묶음인 여행 세션 모델.
+
+    관계:
+    - UserStamp: 해당 세션 내에 획득한 스탬프 기록들
+    - UserRoute: 이 세션을 기반으로 생성된 커뮤니티 루트들
+    """
     __tablename__ = "travel_session"
 
     travel_session_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -333,6 +426,12 @@ class TravelSession(Base):
 
 
 class UserStamp(Base):
+    """
+    사용자의 스탬프 획득 기록 데이터베이스 모델.
+
+    제약사항:
+    - user_id + position_id + stamp_date 조합은 하루에 하나만 가능 (유일해야 함).
+    """
     __tablename__ = "user_stamp"
     __table_args__ = (UniqueConstraint("user_id", "position_id", "stamp_date", name="uq_user_stamp_per_day"),)
 
@@ -351,6 +450,12 @@ class UserStamp(Base):
 
 
 class UserRoute(Base):
+    """
+    사용자가 생성한 루트(커뮤니티 루트) 데이터베이스 모델.
+
+    특징:
+    - travel_session_id를 참조하여 어느 여행 세션 기반으로 작성되었는지 알 수 있음.
+    """
     __tablename__ = "user_route"
 
     route_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -372,6 +477,12 @@ class UserRoute(Base):
 
 
 class UserRoutePlace(Base):
+    """
+    사용자(커뮤니티) 루트와 지도 장소를 연결하는 중간 테이블 모델.
+
+    제약사항:
+    - route_id + position_id 조합은 유일해야 함.
+    """
     __tablename__ = "user_route_place"
     __table_args__ = (UniqueConstraint("route_id", "position_id", name="uq_user_route_place"),)
 
@@ -386,6 +497,12 @@ class UserRoutePlace(Base):
 
 
 class UserRouteLike(Base):
+    """
+    사용자(커뮤니티) 루트에 대한 좋아요 기록 모델.
+
+    제약사항:
+    - route_id + user_id 조합은 유일해야 함.
+    """
     __tablename__ = "user_route_like"
     __table_args__ = (UniqueConstraint("route_id", "user_id", name="uq_user_route_like"),)
 

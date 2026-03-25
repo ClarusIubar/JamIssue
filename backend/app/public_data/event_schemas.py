@@ -9,7 +9,10 @@ from typing import Any
 
 @dataclass(slots=True)
 class NormalizedPublicEvent:
-    """배너와 행사 테이블에 바로 저장할 수 있는 정규화된 행사 레코드입니다."""
+    """
+    외부 공공 행사(축제 등) 데이터를 JamIssue 내부 데이터베이스(PublicEvent) 및 홈 배너 표시에 적합하게
+    정규화한 데이터 저장용 데이터 클래스(DataClass) 모델입니다.
+    """
 
     external_id: str
     title: str

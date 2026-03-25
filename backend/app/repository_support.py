@@ -21,10 +21,12 @@ BADGE_BY_MOOD = {
 
 
 def utcnow_naive() -> datetime:
+    """한국 시간(KST)을 기준으로 naive datetime 객체를 반환합니다."""
     return datetime.now(KST).replace(tzinfo=None)
 
 
 def to_seoul_date(value: datetime | None = None) -> date:
+    """datetime 객체를 한국 시간 기준의 date 객체로 변환합니다."""
     if value is None:
         return datetime.now(KST).date()
     if value.tzinfo is None:
@@ -33,16 +35,19 @@ def to_seoul_date(value: datetime | None = None) -> date:
 
 
 def generate_user_id() -> str:
+    """임의의 해시가 포함된 고유 사용자 ID를 생성합니다."""
     return f"user-{uuid4().hex[:20]}"
 
 
 def format_datetime(value: datetime | None) -> str:
+    """datetime 객체를 화면에 보여줄 포맷(MM. DD. HH:MM)으로 변환합니다."""
     if not value:
         return ""
     return value.strftime("%m. %d. %H:%M")
 
 
 def format_date(value: date | datetime | None) -> str:
+    """날짜(date) 혹은 datetime 객체를 ISO 8601 포맷의 문자열로 변환합니다."""
     if value is None:
         return ""
     if isinstance(value, datetime):
@@ -51,11 +56,13 @@ def format_date(value: date | datetime | None) -> str:
 
 
 def format_visit_label(visit_number: int | None) -> str:
+    """n번째 방문 여부를 나타내는 라벨 문자열을 생성합니다."""
     safe_visit_number = visit_number if visit_number and visit_number > 0 else 1
     return f"{safe_visit_number}\uBC88\uC9F8 \uBC29\uBB38"
 
 
 def build_session_duration_label(session: TravelSession) -> str:
+    """여행 세션의 기간(당일, 1박 2일 등) 및 스탬프 수를 요약한 문자열을 반환합니다."""
     diff = max(session.ended_at - session.started_at, timedelta())
     diff_days = diff.days
     if diff_days <= 0:
@@ -69,6 +76,7 @@ def calculate_distance_meters(
     end_latitude: float,
     end_longitude: float,
 ) -> float:
+    """두 좌표 사이의 직선 거리를 하버사인 공식을 이용해 미터 단위로 계산합니다."""
     earth_radius_meters = 6_371_000
     latitude_delta = radians(end_latitude - start_latitude)
     longitude_delta = radians(end_longitude - start_longitude)
@@ -87,6 +95,7 @@ def ensure_stamp_can_be_collected(
     current_longitude: float,
     radius_meters: int,
 ) -> None:
+    """사용자가 스탬프를 받을 수 있는 범위 내에 있는지 확인합니다. 벗어나면 PermissionError를 발생시킵니다."""
     distance_meters = calculate_distance_meters(
         current_latitude,
         current_longitude,
@@ -100,6 +109,7 @@ def ensure_stamp_can_be_collected(
 
 
 def parse_review_id(review_id: str) -> int:
+    """리뷰(피드) 식별자 문자열을 정수형 ID로 파싱합니다."""
     try:
         return int(review_id)
     except ValueError as error:
@@ -107,6 +117,7 @@ def parse_review_id(review_id: str) -> int:
 
 
 def parse_comment_id(comment_id: str) -> int:
+    """댓글 식별자 문자열을 정수형 ID로 파싱합니다."""
     try:
         return int(comment_id)
     except ValueError as error:
@@ -114,6 +125,7 @@ def parse_comment_id(comment_id: str) -> int:
 
 
 def parse_stamp_id(stamp_id: str) -> int:
+    """스탬프 식별자 문자열을 정수형 ID로 파싱합니다."""
     try:
         return int(stamp_id)
     except ValueError as error:
@@ -121,6 +133,7 @@ def parse_stamp_id(stamp_id: str) -> int:
 
 
 def to_place_out(place: MapPlace) -> PlaceOut:
+    """장소(MapPlace) ORM 객체를 API 응답용 PlaceOut 모델로 변환합니다."""
     return PlaceOut(
         id=place.slug,
         positionId=str(place.position_id),
@@ -148,6 +161,7 @@ def to_session_user(
     profile_image: str | None = None,
     provider: str | None = None,
 ) -> SessionUser:
+    """사용자(User) ORM 객체를 세션용 SessionUser 모델로 변환합니다."""
     return SessionUser(
         id=user.user_id,
         nickname=user.nickname,
@@ -160,6 +174,7 @@ def to_session_user(
 
 
 def to_admin_place_out(place: MapPlace, review_count: int) -> AdminPlaceOut:
+    """장소 정보를 관리자 조회용 모델(AdminPlaceOut)로 변환합니다."""
     return AdminPlaceOut(
         id=place.slug,
         name=place.name,
@@ -173,6 +188,7 @@ def to_admin_place_out(place: MapPlace, review_count: int) -> AdminPlaceOut:
 
 
 def build_comment_tree(comments: list[UserComment]) -> list[CommentOut]:
+    """선형 댓글 리스트를 부모-자식 트리 형태의 CommentOut 리스트로 재구성합니다."""
     ordered_comments = sorted(comments, key=lambda item: (item.created_at, item.comment_id))
     comment_rows_by_id = {comment.comment_id: comment for comment in ordered_comments}
     nodes: dict[int, CommentOut] = {}

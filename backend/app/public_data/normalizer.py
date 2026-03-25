@@ -64,7 +64,10 @@ CATEGORY_DEFAULTS = {
 
 
 def slugify_candidate(value: str | None) -> str:
-    """Build a stable internal slug candidate from an external value."""
+    """
+    외부 데이터(예: ID나 이름)를 안전하고 일관된 내부 식별자(Slug)로 변환합니다.
+    소문자 변환, 기호의 대시(-) 치환 등을 수행합니다. 유효한 결과가 없으면 SHA-1 해시를 생성합니다.
+    """
 
     text = (value or "").strip().lower()
     text = re.sub(r"[^a-z0-9]+", "-", text)
@@ -77,14 +80,20 @@ def slugify_candidate(value: str | None) -> str:
 
 
 def normalize_category(raw_category: str | None) -> str:
-    """Map external categories into JamIssue's internal categories."""
+    """
+    외부에서 제공된 장소 카테고리를 내부에서 사용하는 4가지 표준 카테고리(landmark, food, cafe, night)로 매핑합니다.
+    매핑 불가능한 카테고리는 기본값인 'landmark'로 처리합니다.
+    """
 
     key = (raw_category or "landmark").strip().lower()
     return CATEGORY_ALIASES.get(key, "landmark")
 
 
 def normalize_public_place(record: PublicPlacePayload) -> NormalizedPublicPlace:
-    """Normalize an external place record into a map-ready payload."""
+    """
+    외부 장소 레코드(PublicPlacePayload)를 가져와 내부 DB(MapPlace) 규격에 맞게 정규화(NormalizedPublicPlace)합니다.
+    카테고리 매핑, 누락된 필드의 기본값 생성, 태그(vibe_tags) 및 속성 결정을 수행합니다.
+    """
 
     category = normalize_category(record.category)
     defaults = CATEGORY_DEFAULTS[category]

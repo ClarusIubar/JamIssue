@@ -6,13 +6,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ApiModel(BaseModel):
-    """API 응답 모델 공통 설정입니다."""
+    """API 응답(Response) 모델을 위한 기본 설정(Pydantic Config)을 포함한 부모 클래스입니다."""
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 
 class PublicEventBannerItem(ApiModel):
-    """배너 카드에 들어가는 단일 행사 일정입니다."""
+    """
+    홈 화면 등의 배너 영역에 표시될 개별 공공 행사(축제 등) 정보 모델입니다.
+    진행 여부(is_ongoing), 연결된 내부 장소 이름(linked_place_name) 등의 가공된 속성을 포함합니다.
+    """
 
     id: str
     title: str
@@ -28,7 +31,10 @@ class PublicEventBannerItem(ApiModel):
 
 
 class PublicEventBannerResponse(ApiModel):
-    """배너 프리뷰가 읽는 행사 일정 목록 응답입니다."""
+    """
+    클라이언트에서 행사 배너 데이터를 그리기 위해 호출 시 반환되는 종합 응답 모델입니다.
+    가져온 데이터의 출처 메타데이터 및 행사 목록(items)을 포함합니다.
+    """
 
     source_ready: bool = Field(alias="sourceReady")
     source_name: str | None = Field(default=None, alias="sourceName")

@@ -14,7 +14,9 @@ DEFAULT_EVENT_SOURCE_KEY = "jamissue-public-event-feed"
 
 
 def default_event_source_payload(settings: Settings) -> PublicSourcePayload:
-    """현재 설정을 기준으로 행사 원본 메타데이터를 구성합니다."""
+    """
+    현재 설정(Settings)을 기준으로 공공 행사 API 혹은 로컬 JSON 파일의 출처 메타데이터를 생성합니다.
+    """
 
     source_url = settings.public_event_source_url or str(settings.public_event_file_path)
     provider = "public-api" if settings.public_event_source_url else "public-json"
@@ -27,7 +29,9 @@ def default_event_source_payload(settings: Settings) -> PublicSourcePayload:
 
 
 def build_source_url(settings: Settings) -> str:
-    """서비스 키가 있으면 행사 API URL에 query parameter로 붙입니다."""
+    """
+    설정된 행사 API 원본 URL(source_url)에 인증용 서비스 키(serviceKey) 및 응답 포맷(json) 파라미터를 추가하여 완전한 호출 URL을 생성합니다.
+    """
 
     source_url = settings.public_event_source_url.strip()
     if not source_url:
@@ -46,7 +50,10 @@ def build_source_url(settings: Settings) -> str:
 
 
 def read_public_event_payload(settings: Settings) -> dict:
-    """행사 API URL 또는 로컬 JSON 파일에서 원본 JSON을 읽습니다."""
+    """
+    행사 API URL로 HTTP 요청을 보내거나 지정된 로컬 JSON 파일을 읽어와 파싱된 원본 딕셔너리를 반환합니다.
+    통신 실패 시 빈 리스트({"items": []})를 기본값으로 반환합니다.
+    """
 
     request_url = build_source_url(settings)
     if request_url:

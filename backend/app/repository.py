@@ -62,10 +62,16 @@ KST = ZoneInfo("Asia/Seoul")
 
 
 def utcnow_naive() -> datetime:
+    """
+    현재 시간을 UTC 기반의 시간대 정보가 없는(naive) datetime 객체로 반환합니다.
+    """
     return datetime.now(UTC).replace(tzinfo=None)
 
 
 def to_seoul_date(value: datetime | None = None) -> date:
+    """
+    주어진 datetime을 한국 시간(KST) 기준의 날짜(date)로 변환하여 반환합니다.
+    """
     if value is None:
         return datetime.now(KST).date()
     if value.tzinfo is None:
@@ -74,10 +80,16 @@ def to_seoul_date(value: datetime | None = None) -> date:
 
 
 def generate_user_id() -> str:
+    """
+    고유한 사용자 ID를 생성하여 반환합니다. (예: user-1234567890abcdef1234)
+    """
     return f"user-{uuid4().hex[:20]}"
 
 
 def _nickname_exists(db: Session, nickname: str, *, exclude_user_id: str | None = None) -> bool:
+    """
+    특정 닉네임이 데이터베이스에 이미 존재하는지 대소문자 구분 없이 확인합니다.
+    """
     stmt = select(User.user_id).where(func.lower(User.nickname) == nickname.lower())
     if exclude_user_id:
         stmt = stmt.where(User.user_id != exclude_user_id)
@@ -85,7 +97,12 @@ def _nickname_exists(db: Session, nickname: str, *, exclude_user_id: str | None 
 
 
 def generate_unique_nickname(db: Session, base_nickname: str) -> str:
-    """닉네임이 이미 존재하면 유일해질 때까지 숫자 접미사를 붙여 반환합니다."""
+    """
+    닉네임이 이미 존재하면 유일해질 때까지 숫자 접미사를 붙여 반환합니다.
+
+    의존성:
+    - 데이터베이스의 User 테이블과 연동되어 중복 검사를 수행합니다.
+    """
     base = base_nickname.strip() or "이름 없음"
     if not _nickname_exists(db, base):
         return base
@@ -98,13 +115,16 @@ def generate_unique_nickname(db: Session, base_nickname: str) -> str:
 
 
 def format_datetime(value: datetime) -> str:
-    """화면에 맞는 방문 시각 문자열로 바꿉니다."""
-
+    """
+    datetime 객체를 화면에 표시하기 적합한 방문 시각 문자열(예: '03월 15일 14:30')로 바꿉니다.
+    """
     return value.strftime("%m월 %d일 %H:%M")
 
 
 def to_place_out(place: MapPlace) -> PlaceOut:
-    """장소 ORM 객체를 API 응답 모델로 바꿉니다."""
+    """
+    MapPlace ORM 객체를 PlaceOut API 응답 모델로 변환합니다.
+    """
 
     return PlaceOut(
         id=place.slug,
@@ -126,7 +146,9 @@ def to_place_out(place: MapPlace) -> PlaceOut:
 
 
 def build_comment_tree(comments: list[UserComment]) -> list[CommentOut]:
-    """댓글 목록을 부모-자식 트리 구조로 묶습니다."""
+    """
+    평면적인 댓글 목록(UserComment 리스트)을 부모-자식 관계가 적용된 트리 구조(CommentOut 리스트)로 변환합니다.
+    """
 
     ordered_comments = sorted(comments, key=lambda item: (item.created_at, item.comment_id))
     nodes: dict[int, CommentOut] = {}
@@ -157,7 +179,10 @@ def build_comment_tree(comments: list[UserComment]) -> list[CommentOut]:
 
 
 def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
-    """후기 ORM 객체를 화면 응답 모델로 바꿉니다."""
+    """
+    Feed(후기) ORM 객체를 화면에 표시할 ReviewOut 모델로 변환합니다.
+    현재 로그인한 사용자 ID를 전달받아 '좋아요' 여부(likedByMe)를 판별합니다.
+    """
 
     comments = list(feed.comments or [])
     likes = list(feed.likes or [])
@@ -186,7 +211,9 @@ def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
 
 
 def to_course_out(course: Course) -> CourseOut:
-    """코스 ORM 객체를 응답 모델로 바꿉니다."""
+    """
+    Course ORM 객체를 API 응답용 CourseOut 모델로 변환합니다.
+    """
 
     ordered_places = sorted(course.course_places, key=lambda item: item.stop_order)
     return CourseOut(
@@ -206,7 +233,9 @@ def to_session_user(
     profile_image: str | None = None,
     provider: str | None = None,
 ) -> SessionUser:
-    """사용자 ORM 객체를 세션 응답 모델로 바꿉니다."""
+    """
+    User ORM 객체를 현재 로그인 세션을 위한 SessionUser 모델로 변환합니다.
+    """
 
     return SessionUser(
         id=user.user_id,
@@ -219,7 +248,9 @@ def to_session_user(
 
 
 def to_admin_place_out(place: MapPlace, review_count: int) -> AdminPlaceOut:
-    """관리자 화면용 장소 요약 객체를 만듭니다."""
+    """
+    관리자 화면에서 사용할 장소 요약 정보(AdminPlaceOut) 객체를 생성합니다.
+    """
 
     return AdminPlaceOut(
         id=place.slug,
@@ -239,6 +270,9 @@ def _sync_user_profile(
     email: str | None = None,
     provider: str | None = None,
 ) -> bool:
+    """
+    사용자의 프로필 정보를 업데이트하고 변경 사항이 있는지(dirty) 여부를 반환하는 내부 헬퍼 함수입니다.
+    """
     dirty = False
     if nickname and user.nickname != nickname:
         user.nickname = nickname
@@ -262,7 +296,13 @@ def get_or_create_user(
     email: str | None = None,
     provider: str = "demo",
 ) -> User:
-    """내부 user_id 기준으로 사용자를 찾거나 새로 만듭니다."""
+    """
+    내부 user_id를 기준으로 사용자를 찾고, 없다면 새로 생성하여 반환합니다.
+    이미 존재한다면 전달받은 정보로 프로필을 동기화합니다.
+
+    의존성:
+    - SQLAlchemy Session을 사용하여 DB 작업 수행
+    """
 
     user = db.get(User, user_id)
     if not user:
@@ -295,7 +335,9 @@ def upsert_social_user(
     email: str | None = None,
     profile_image: str | None = None,
 ) -> User:
-    """외부 로그인 식별자를 내부 고유 user_id 계정에 연결합니다."""
+    """
+    OAuth 등 외부 로그인 식별자를 기반으로 사용자를 찾거나 생성하여 내부 고유 계정과 연결합니다.
+    """
 
     identity = db.scalars(
         select(UserIdentity)
@@ -367,7 +409,9 @@ def link_social_identity(
     email: str | None = None,
     profile_image: str | None = None,
 ) -> User:
-    """이미 로그인한 내부 계정에 외부 로그인 수단을 명시적으로 연결합니다."""
+    """
+    이미 로그인되어 있는 기존 내부 계정에 새로운 외부 로그인 수단(Identity)을 추가로 연결합니다.
+    """
 
     user = db.get(User, user_id)
     if not user:
@@ -421,7 +465,9 @@ def link_social_identity(
 
 
 def upsert_naver_user(db: Session, profile: NaverProfile) -> User:
-    """네이버 프로필을 기준으로 내부 계정과 소셜 identity를 갱신합니다."""
+    """
+    네이버 프로필 정보를 기반으로 내부 사용자 계정 및 소셜 Identity를 생성하거나 갱신합니다.
+    """
 
     nickname = profile.nickname or profile.name or "이름 없음"
     return upsert_social_user(
@@ -435,7 +481,9 @@ def upsert_naver_user(db: Session, profile: NaverProfile) -> User:
 
 
 def link_naver_identity(db: Session, user_id: str, profile: NaverProfile) -> User:
-    """네이버 identity를 현재 로그인한 내부 계정에 명시적으로 연결합니다."""
+    """
+    조회된 네이버 프로필을 현재 로그인한 내부 계정에 연결합니다.
+    """
 
     return link_social_identity(
         db,
@@ -453,7 +501,9 @@ def calculate_distance_meters(
     end_latitude: float,
     end_longitude: float,
 ) -> float:
-    """두 좌표 사이의 거리를 미터 단위로 계산합니다."""
+    """
+    두 위경도 좌표 사이의 직선 거리를 하버사인(Haversine) 공식을 사용하여 미터 단위로 계산합니다.
+    """
 
     earth_radius_meters = 6_371_000
     latitude_delta = radians(end_latitude - start_latitude)
@@ -475,7 +525,10 @@ def ensure_stamp_can_be_collected(
     current_longitude: float,
     radius_meters: int,
 ) -> None:
-    """현재 위치가 스탬프 적립 반경 안인지 검증합니다."""
+    """
+    사용자의 현재 위치가 대상 장소의 스탬프 획득 가능 반경 내에 있는지 검증합니다.
+    벗어났을 경우 PermissionError를 발생시킵니다.
+    """
 
     distance_meters = calculate_distance_meters(
         current_latitude,
@@ -491,7 +544,10 @@ def ensure_stamp_can_be_collected(
 
 
 def list_places(db: Session, category: CategoryFilter = "all") -> list[PlaceOut]:
-    """공개할 장소 목록을 카테고리 기준으로 반환합니다."""
+    """
+    DB에서 활성화된(공개된) 장소 목록을 조회하여 반환합니다.
+    선택적으로 카테고리 필터링이 가능합니다.
+    """
 
     stmt = select(MapPlace).where(MapPlace.is_active.is_(True)).order_by(MapPlace.name.asc())
     if category != "all":
@@ -501,7 +557,9 @@ def list_places(db: Session, category: CategoryFilter = "all") -> list[PlaceOut]
 
 
 def get_place(db: Session, place_id: str) -> PlaceOut:
-    """단일 장소 정보를 반환합니다."""
+    """
+    특정 식별자(slug)에 해당하는 활성화된 장소 1개의 상세 정보를 조회하여 반환합니다.
+    """
 
     place = db.scalars(select(MapPlace).where(MapPlace.slug == place_id, MapPlace.is_active.is_(True))).first()
     if not place:
@@ -515,7 +573,9 @@ def list_reviews(
     user_id: str | None = None,
     current_user_id: str | None = None,
 ) -> list[ReviewOut]:
-    """장소별 또는 사용자별 후기 목록을 반환합니다."""
+    """
+    특정 장소, 혹은 특정 사용자가 작성한 피드(리뷰) 목록을 조회하여 반환합니다.
+    """
 
     stmt = (
         select(Feed)
@@ -538,7 +598,9 @@ def list_reviews(
 
 
 def get_review_comments(db: Session, review_id: str) -> list[CommentOut]:
-    """하나의 후기 아래 달린 댓글 트리를 반환합니다."""
+    """
+    지정된 후기(Feed) 아래에 작성된 모든 댓글을 조회하고 트리 구조로 조립하여 반환합니다.
+    """
 
     review_key = parse_review_id(review_id)
     comments = db.scalars(
@@ -551,7 +613,11 @@ def get_review_comments(db: Session, review_id: str) -> list[CommentOut]:
 
 
 def create_review(db: Session, payload: ReviewCreate, user_id: str, nickname: str) -> ReviewOut:
-    """후기를 저장하고 응답 모델로 다시 읽어옵니다."""
+    """
+    사용자가 작성한 새로운 후기(피드)를 DB에 저장하고, 저장된 데이터를 기반으로 응답 모델을 구성하여 반환합니다.
+
+    제약사항: 오늘 획득한 해당 장소의 스탬프가 있어야 작성 가능합니다.
+    """
 
     body = payload.body.strip()
     if not body:
@@ -603,7 +669,9 @@ def create_review(db: Session, payload: ReviewCreate, user_id: str, nickname: st
 
 
 def toggle_review_like(db: Session, review_id: str, user_id: str, nickname: str) -> ReviewLikeResponse:
-    """후기 좋아요를 토글합니다."""
+    """
+    특정 후기에 대해 현재 사용자의 '좋아요' 상태를 토글(추가/삭제)합니다.
+    """
 
     review_key = parse_review_id(review_id)
     feed = db.scalars(
@@ -635,7 +703,9 @@ def toggle_review_like(db: Session, review_id: str, user_id: str, nickname: str)
 
 
 def create_comment(db: Session, review_id: str, payload: CommentCreate, user_id: str, nickname: str) -> list[CommentOut]:
-    """댓글 또는 답글을 저장한 뒤 최신 댓글 트리를 반환합니다."""
+    """
+    특정 후기에 새로운 댓글(또는 대댓글)을 추가하고, 업데이트된 전체 댓글 트리를 반환합니다.
+    """
 
     body = payload.body.strip()
     if not body:
@@ -680,7 +750,10 @@ def delete_comment(
     *,
     is_admin: bool = False,
 ) -> list[CommentOut]:
-    """댓글은 soft delete 처리하고 대댓글은 그대로 유지합니다."""
+    """
+    특정 댓글을 삭제(Soft Delete) 처리합니다.
+    부모 댓글이 삭제되더라도 구조 유지를 위해 대댓글 연결은 그대로 보존됩니다.
+    """
 
     review_key = parse_review_id(review_id)
     comment_key = parse_comment_id(comment_id)
@@ -703,7 +776,9 @@ def delete_comment(
 
 
 def delete_review(db: Session, review_id: str, user_id: str, *, is_admin: bool = False) -> None:
-    """후기를 삭제하면 해당 피드 아래 댓글과 좋아요도 함께 정리합니다."""
+    """
+    사용자가 작성한 후기(피드)를 DB에서 완전히 삭제합니다. 연관된 좋아요 및 댓글도 cascade 설정 등에 의해 정리됩니다.
+    """
 
     review_key = parse_review_id(review_id)
     feed = db.scalars(
@@ -721,7 +796,9 @@ def delete_review(db: Session, review_id: str, user_id: str, *, is_admin: bool =
 
 
 def delete_account(db: Session, user_id: str) -> None:
-    """회원 탈퇴 시 user_id 기준으로 후기, 댓글, 스탬프, 경로를 모두 정리합니다."""
+    """
+    회원 탈퇴 기능입니다. 해당 사용자(user_id)가 작성한 모든 피드, 댓글, 스탬프, 루트 및 계정 정보를 삭제합니다.
+    """
 
     user = db.get(User, user_id)
     if not user:
@@ -759,7 +836,9 @@ def delete_account(db: Session, user_id: str) -> None:
 
 
 def list_courses(db: Session, mood: CourseMood | None = None) -> list[CourseOut]:
-    """무드 기준 코스 목록을 반환합니다."""
+    """
+    운영자가 큐레이션한 코스 목록을 DB에서 조회하여 반환합니다. (선택적으로 테마/무드 필터링 적용)
+    """
 
     stmt = (
         select(Course)
@@ -773,7 +852,9 @@ def list_courses(db: Session, mood: CourseMood | None = None) -> list[CourseOut]
 
 
 def get_stamps(db: Session, user_id: str | None) -> StampState:
-    """현재 사용자가 모은 스탬프 목록을 반환합니다."""
+    """
+    현재 사용자가 모은 전체 스탬프 기록 및 여행 세션 상태(StampState)를 조회하여 반환합니다.
+    """
 
     if not user_id:
         return StampState(collectedPlaceIds=[])
@@ -795,7 +876,9 @@ def toggle_stamp(
     longitude: float,
     radius_meters: int,
 ) -> StampState:
-    """현장 반경 검증 뒤 스탬프를 적립합니다."""
+    """
+    사용자의 현재 위치를 기반으로 반경 검증을 수행한 뒤, 조건을 만족하면 새 스탬프를 적립하고 갱신된 상태를 반환합니다.
+    """
 
     get_or_create_user(db, user_id, user_id)
     place = db.scalars(select(MapPlace).where(MapPlace.slug == place_id, MapPlace.is_active.is_(True))).first()
@@ -820,7 +903,9 @@ def toggle_stamp(
 
 
 def get_my_page(db: Session, user_id: str, is_admin: bool) -> MyPageResponse:
-    """마이페이지에 필요한 계정 요약 정보를 반환합니다."""
+    """
+    마이페이지 화면 구성을 위해 필요한 사용자의 전체 활동 요약(통계, 리뷰, 스탬프 등) 정보를 모아서 반환합니다.
+    """
 
     user = db.get(User, user_id)
     if not user:
@@ -846,7 +931,9 @@ def get_my_page(db: Session, user_id: str, is_admin: bool) -> MyPageResponse:
 
 
 def get_bootstrap(db: Session, user_id: str | None) -> BootstrapResponse:
-    """첫 진입에 필요한 장소, 코스, 후기, 스탬프를 묶어 보냅니다."""
+    """
+    클라이언트가 앱을 처음 실행하거나 새로고침할 때 필요한 필수 초기 데이터(장소, 코스, 후기 등)를 한 번에 조회해 반환합니다.
+    """
 
     places = list_places(db)
     return BootstrapResponse(
@@ -859,7 +946,9 @@ def get_bootstrap(db: Session, user_id: str | None) -> BootstrapResponse:
 
 
 def get_admin_summary(db: Session, settings: Settings) -> AdminSummaryResponse:
-    """관리자 화면에 필요한 운영 지표를 집계합니다."""
+    """
+    관리자 대시보드에서 활용할 전체 서비스 운영 통계(가입자, 등록 장소 수 등)를 집계하여 반환합니다.
+    """
 
     user_count = db.scalar(select(func.count()).select_from(User)) or 0
     place_count = db.scalar(select(func.count()).select_from(MapPlace)) or 0
@@ -886,7 +975,9 @@ def get_admin_summary(db: Session, settings: Settings) -> AdminSummaryResponse:
 
 
 def update_place_visibility(db: Session, place_id: str, is_active: bool) -> AdminPlaceOut:
-    """장소의 공개 여부를 변경합니다."""
+    """
+    특정 장소의 사용자 대상 공개 여부(is_active)를 변경하고 결과를 반환합니다.
+    """
 
     place = db.scalars(select(MapPlace).where(MapPlace.slug == place_id)).first()
     if not place:
@@ -901,7 +992,9 @@ def update_place_visibility(db: Session, place_id: str, is_active: bool) -> Admi
 
 
 def cleanup_legacy_demo_content(db: Session) -> None:
-    """예전 데모 계정과 샘플 데이터를 정리합니다."""
+    """
+    기존에 생성되었던 데모/샘플용 계정 및 연관 데이터를 데이터베이스에서 일괄 삭제합니다.
+    """
 
     legacy_user_ids = db.scalars(select(User.user_id).where(User.provider.in_(LEGACY_PROVIDERS))).all()
     if not legacy_user_ids:
@@ -928,19 +1021,25 @@ def cleanup_legacy_demo_content(db: Session) -> None:
 
 
 def load_public_bundle(settings: Settings) -> dict:
-    """전용 public_data 모듈을 통해 공공데이터 번들을 읽습니다."""
+    """
+    public_data 하위 모듈을 호출하여 로컬 파일 등에서 공공 데이터 번들을 로드해 딕셔너리로 반환합니다.
+    """
 
     return load_public_bundle_payload(settings).model_dump(by_alias=True, exclude_none=True)
 
 
 def import_public_bundle(db: Session, settings: Settings) -> PublicImportResponse:
-    """공공데이터 동기화를 전용 모듈에 위임합니다."""
+    """
+    public_data 모듈을 호출하여 외부 공공 데이터를 읽어오고 DB에 동기화(저장/갱신)하는 작업을 수행합니다.
+    """
 
     return sync_public_bundle(db, settings)
 
 
 def parse_review_id(review_id: str) -> int:
-    """문자열 리뷰 ID를 정수 키로 바꿉니다."""
+    """
+    문자열로 전달받은 후기(리뷰) 식별자를 DB 조회에 사용할 정수형 ID로 변환합니다.
+    """
 
     try:
         return int(review_id)
@@ -949,7 +1048,9 @@ def parse_review_id(review_id: str) -> int:
 
 
 def parse_comment_id(comment_id: str) -> int:
-    """문자열 댓글 ID를 정수 키로 바꿉니다."""
+    """
+    문자열로 전달받은 댓글 식별자를 정수형 키로 안전하게 변환합니다.
+    """
 
     try:
         return int(comment_id)

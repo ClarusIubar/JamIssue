@@ -9,13 +9,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class PublicDataModel(BaseModel):
-    """Base Pydantic configuration for external public-data payloads."""
+    """외부 공공데이터 페이로드를 파싱하기 위한 기본 Pydantic 모델 설정 클래스입니다."""
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
 
 class PublicSourcePayload(PublicDataModel):
-    """Metadata that describes a public-data source."""
+    """공공데이터 출처(소스)의 메타데이터를 나타내는 모델입니다."""
 
     source_key: str = Field(default="jamissue-public-bundle", alias="sourceKey")
     provider: str = "public-json"
@@ -24,7 +24,7 @@ class PublicSourcePayload(PublicDataModel):
 
 
 class PublicPlacePayload(PublicDataModel):
-    """Single external tourism place record."""
+    """외부에서 가져온 개별 관광 장소(Place)의 원본 데이터를 나타내는 모델입니다."""
 
     external_id: str | None = Field(default=None, alias="externalId")
     slug: str | None = None
@@ -52,7 +52,7 @@ class PublicPlacePayload(PublicDataModel):
 
 
 class PublicCoursePayload(PublicDataModel):
-    """Course record bundled with tourism place data."""
+    """관광 장소 데이터와 함께 제공되는 코스(Course) 정보 모델입니다."""
 
     slug: str
     title: str
@@ -65,7 +65,10 @@ class PublicCoursePayload(PublicDataModel):
 
 
 class PublicDataBundle(PublicDataModel):
-    """Validated import bundle for public tourism data."""
+    """
+    공공 관광 데이터를 가져오기 위해 검증된 전체 묶음(번들) 모델입니다.
+    소스 정보, 장소 목록, 코스 목록을 포함합니다.
+    """
 
     source: PublicSourcePayload | None = None
     places: list[PublicPlacePayload] = Field(default_factory=list)
@@ -73,7 +76,10 @@ class PublicDataBundle(PublicDataModel):
 
 
 class NormalizedPublicPlace(PublicDataModel):
-    """JamIssue-ready place record normalized from an external payload."""
+    """
+    외부 데이터를 JamIssue 내부 시스템(MapPlace)에 맞게 정규화한 장소 모델입니다.
+    DB 업데이트에 필요한 매핑 정보와 정규화된 페이로드를 포함합니다.
+    """
 
     external_id: str
     map_slug: str = Field(alias="mapSlug")
