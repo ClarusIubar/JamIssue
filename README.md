@@ -8,6 +8,12 @@ JamIssue는 대전 장소를 지도에서 탐색하고, 스탬프를 찍은 뒤 
 - 데이터/스토리지: Supabase
 - 기준 브랜치: `codex/production-deploy`
 
+## 배포 기준
+
+- 실제 운영 반영 기준은 `origin/codex/production-deploy` 입니다.
+- `main`은 통합/정리용으로 사용할 수 있지만, 운영 화면과 API는 `codex/production-deploy`를 기준으로 확인해야 합니다.
+- UI 수정 후 “코드는 바뀌었는데 live가 그대로”인 경우, 먼저 현재 변경이 `origin/codex/production-deploy`에 올라갔는지 확인해야 합니다.
+
 ## 핵심 사용자 흐름
 
 ### 1. 지도에서 장소 탐색
@@ -247,6 +253,13 @@ node scripts/upload-sample-place-images.mjs
 - 버킷: `place-images`
 - 경로 형식: `places/001/hero.png`
 - DB 반영 컬럼: `map.image_url`, `map.image_storage_path`
+
+### 리뷰 이미지 처리 정책
+
+- 사용자가 올린 원본 이미지는 업로드 전에 클라이언트에서 자동 최적화합니다.
+- 큰 이미지는 해상도와 용량을 줄여 업로드하며, 기본적으로 “파일이 너무 커서 거절”보다 “자동 축소 후 업로드”를 우선합니다.
+- 피드 카드에서는 이미지 프레임 높이를 제한해 한 장의 사진이 카드 전체를 과하게 먹지 않도록 합니다.
+- 세로로 긴 사진은 피드 카드 가로 레이아웃에 맞춰 회전 표시될 수 있습니다.
 
 ## Cloudflare Pages 환경변수
 

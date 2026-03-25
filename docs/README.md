@@ -21,3 +21,5 @@
 - [community-routes.md](/D:/Code305/JamIssue/docs/community-routes.md)
 - [account-identity-schema.md](/D:/Code305/JamIssue/docs/account-identity-schema.md)
 - [code-flow-diagrams.md](/D:/Code305/JamIssue/docs/code-flow-diagrams.md)
+- [operations-refactor-roadmap.md](/D:/Code305/JamIssue/docs/operations-refactor-roadmap.md)
+  - 다음 단계 운영 체계 리팩터링 TODO

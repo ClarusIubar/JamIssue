@@ -236,7 +236,7 @@ def link_social_identity(
         select(UserIdentity).where(UserIdentity.user_id == user_id, UserIdentity.provider == provider)
     ).first()
     if provider_slot:
-        raise ValueError("이미 같은 제공자의 계정이 연결돼 있어요.")
+        raise ValueError("이미 같은 제공자의 계정이 연결되어 있어요.")
 
     if email and not user.email:
         user.email = email
@@ -523,7 +523,7 @@ def create_review(db: Session, payload: ReviewCreate, user_id: str, nickname: st
         select(Feed.feed_id).where(Feed.user_id == user_id, Feed.created_at >= day_start, Feed.created_at < day_end)
     ).first()
     if existing_daily_feed:
-        raise ValueError("피드는 하루에 하나만 작성할 수 있어요.")
+        raise ValueError("피드는 하루에 한 번만 작성할 수 있어요.")
 
     user = get_or_create_user(db, user_id, nickname)
     feed = Feed(
@@ -560,7 +560,7 @@ def toggle_review_like(db: Session, review_id: str, user_id: str, nickname: str)
     if not feed:
         raise ValueError("리뷰를 찾지 못했어요.")
     if feed.user_id == user_id:
-        raise ValueError("내가 쓴 리뷰에는 좋아요를 누를 수 없어요.")
+        raise ValueError("내 리뷰에는 좋아요를 누를 수 없어요.")
 
     user = get_or_create_user(db, user_id, nickname)
     existing_like = db.scalars(
@@ -591,7 +591,7 @@ def create_comment(db: Session, review_id: str, payload: CommentCreate, user_id:
         parent_id = parse_comment_id(payload.parent_id)
         parent = db.get(UserComment, parent_id)
         if not parent or parent.feed_id != review_key:
-            raise ValueError("같은 리뷰 안의 댓글에만 답글을 달 수 있어요.")
+            raise ValueError("같은 리뷰의 댓글에만 답글을 달 수 있어요.")
         # Enforce 2-level depth: if parent is itself a reply, use its root comment instead
         if parent.parent_id is not None:
             parent_id = parent.parent_id
@@ -775,7 +775,7 @@ def build_my_comments(db: Session, user_id: str) -> list[MyCommentOut]:
             reviewId=str(comment.feed_id),
             placeId=comment.feed.place.slug,
             placeName=comment.feed.place.name,
-            body='삭제된 댓글입니다.' if comment.is_deleted else comment.body,
+            body="삭제된 댓글입니다." if comment.is_deleted else comment.body,
             isDeleted=comment.is_deleted,
             parentId=str(comment.parent_id) if comment.parent_id else None,
             createdAt=format_datetime(comment.created_at),
