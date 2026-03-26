@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   getAuthSession,
   getMyCommentsPage,
@@ -290,7 +290,7 @@ export default function App() {
     upsertReviewCollections,
   });
 
-  async function loadMoreFeedReviews() {
+  const loadMoreFeedReviews = useCallback(async () => {
     if (feedLoadingMore || !feedHasMore) {
       return;
     }
@@ -310,9 +310,9 @@ export default function App() {
     } finally {
       setFeedLoadingMore(false);
     }
-  }
+  }, [feedHasMore, feedLoadingMore, feedNextCursor, setFeedHasMore, setFeedLoadingMore, setFeedNextCursor, setReviews]);
 
-  async function loadMoreMyComments(initial = false) {
+  const loadMoreMyComments = useCallback(async (initial = false) => {
     if (!sessionUser || !myPage) {
       return;
     }
@@ -343,7 +343,7 @@ export default function App() {
     } finally {
       setMyCommentsLoadingMore(false);
     }
-  }
+  }, [myCommentsHasMore, myCommentsLoadingMore, myCommentsNextCursor, myPage, sessionUser, setMyCommentsHasMore, setMyCommentsLoadedOnce, setMyCommentsLoadingMore, setMyCommentsNextCursor, setMyPage]);
   useAppFeedbackEffects({
     selectedPlace,
     selectedPlaceDistanceMeters,
@@ -713,6 +713,3 @@ export default function App() {
     </div>
   );
 }
-
-
-

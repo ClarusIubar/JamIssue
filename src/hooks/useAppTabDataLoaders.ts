@@ -1,4 +1,5 @@
-﻿import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+﻿import { useCallback } from 'react';
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { getAdminSummary, getCommunityRoutes, getCuratedCourses, getMySummary, getReviewFeedPage } from '../api/client';
 import type {
   AdminSummaryResponse,
@@ -52,7 +53,7 @@ export function useAppTabDataLoaders({
   setMyPage,
   setMyPageError,
 }: UseAppTabDataLoadersParams) {
-  async function fetchCommunityRoutes(sort: CommunityRouteSort, force = false) {
+  const fetchCommunityRoutes = useCallback(async (sort: CommunityRouteSort, force = false) => {
     const cached = communityRoutesCacheRef.current[sort];
     if (!force && cached) {
       setCommunityRoutes(cached);
@@ -62,9 +63,9 @@ export function useAppTabDataLoaders({
     const nextRoutes = await getCommunityRoutes(sort);
     replaceCommunityRoutes(nextRoutes, sort);
     return nextRoutes;
-  }
+  }, [communityRoutesCacheRef, replaceCommunityRoutes, setCommunityRoutes]);
 
-  async function ensureFeedReviews(force = false) {
+  const ensureFeedReviews = useCallback(async (force = false) => {
     if (!force && feedLoadedRef.current) {
       return;
     }
@@ -74,9 +75,9 @@ export function useAppTabDataLoaders({
     setFeedNextCursor(page.nextCursor);
     setFeedHasMore(Boolean(page.nextCursor));
     feedLoadedRef.current = true;
-  }
+  }, [feedLoadedRef, setFeedHasMore, setFeedNextCursor, setReviews]);
 
-  async function ensureCuratedCourses(force = false) {
+  const ensureCuratedCourses = useCallback(async (force = false) => {
     if (!force && coursesLoadedRef.current) {
       return;
     }
@@ -84,9 +85,9 @@ export function useAppTabDataLoaders({
     const response = await getCuratedCourses();
     setCourses(response.courses);
     coursesLoadedRef.current = true;
-  }
+  }, [coursesLoadedRef, setCourses]);
 
-  async function refreshAdminSummary(force = false) {
+  const refreshAdminSummary = useCallback(async (force = false) => {
     if (!sessionUser?.isAdmin) {
       setAdminSummary(null);
       return null;
@@ -104,9 +105,9 @@ export function useAppTabDataLoaders({
     } finally {
       setAdminLoading(false);
     }
-  }
+  }, [activeTab, adminSummary, sessionUser, setAdminLoading, setAdminSummary]);
 
-  async function refreshMyPageForUser(user: SessionUser | null, force = false) {
+  const refreshMyPageForUser = useCallback(async (user: SessionUser | null, force = false) => {
     if (!user) {
       setMyPage(null);
       setMyPageError(null);
@@ -130,7 +131,7 @@ export function useAppTabDataLoaders({
       }
       throw error;
     }
-  }
+  }, [activeTab, myPage, setMyPage, setMyPageError]);
 
   return {
     fetchCommunityRoutes,
