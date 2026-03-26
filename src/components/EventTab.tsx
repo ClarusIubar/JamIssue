@@ -17,7 +17,11 @@ function formatFestivalPeriod(festival: FestivalItem) {
 
 function formatFestivalTitle(title: string) {
   return title
-    .replace(/\[([^\]]+)\]/g, '$1')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[&_·•/|]+/g, ' ')
+    .replace(/\s+-\s+/g, ' ')
+    .replace(/\s+[A-Z][A-Z0-9-]{2,}$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
