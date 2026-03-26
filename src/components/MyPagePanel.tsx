@@ -579,14 +579,15 @@ export function MyPagePanel({
                 {myPage.comments.map((comment) => (
                   <article key={comment.id} className="review-card review-card--comment-log">
                     <div className="review-card__top review-card__top--comment-log">
-                      <div className="review-card__title-block">
+                      <div className="review-card__title-block review-card__title-block--comment-log">
+                        <p className="review-card__label review-card__label--comment-log">내 댓글</p>
+                        <p className="review-card__body review-card__body--comment-log">{comment.body}</p>
+                        <p className="review-card__meta-line">{comment.parentId ? '답글 남김' : '댓글 남김'} · {comment.createdAt}</p>
                         <button type="button" className="review-card__place-anchor" onClick={() => onOpenPlace(comment.placeId)}>
                           <strong>{comment.placeName}</strong>
                         </button>
-                        <p className="review-card__meta-line">{comment.parentId ? '답글 남김' : '댓글 남김'} · {comment.createdAt}</p>
                       </div>
                     </div>
-                    <p className="review-card__body review-card__body--comment-log">{comment.body}</p>
                     <p className="review-card__context-line">피드 원문 · {comment.reviewBody}</p>
                     <button type="button" className="review-card__place-link" onClick={() => onOpenComment(comment.reviewId, comment.id)}>
                       내 댓글 보기

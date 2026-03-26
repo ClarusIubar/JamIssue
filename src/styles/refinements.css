@@ -780,6 +780,10 @@ input.visually-hidden[type='file'] {
   align-items: flex-start !important;
 }
 
+.review-card__title-block--comment-log {
+  gap: 4px !important;
+}
+
 .review-card__title-block {
   min-width: 0 !important;
   display: grid !important;
@@ -812,6 +816,18 @@ input.visually-hidden[type='file'] {
   color: rgba(93, 77, 101, 0.72) !important;
   font-size: 12px !important;
   font-weight: 500 !important;
+}
+
+.review-card__label--comment-log {
+  margin-bottom: 2px !important;
+}
+
+.review-card__body--comment-log {
+  margin: 0 !important;
+  color: var(--ink) !important;
+  font-size: 16px !important;
+  line-height: 1.45 !important;
+  font-weight: 600 !important;
 }
 
 /* 2026-03-19 comment teleport highlight */
