@@ -958,13 +958,15 @@ function buildCommentTree(commentRows, usersById) {
     }
   }
 
+  const hasLiveDescendant = (node) => node.replies.some((reply) => !reply.isDeleted || hasLiveDescendant(reply));
+
   const collapseDeletedNodes = (nodes) => nodes.reduce((acc, node) => {
     const nextNode = {
       ...node,
       replies: collapseDeletedNodes(node.replies),
     };
     if (nextNode.isDeleted) {
-      if (nextNode.replies.length > 0) {
+      if (hasLiveDescendant(nextNode)) {
         acc.push(nextNode);
       }
       return acc;

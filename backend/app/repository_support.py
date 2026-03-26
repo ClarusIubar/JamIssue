@@ -202,12 +202,15 @@ def build_comment_tree(comments: list[UserComment]) -> list[CommentOut]:
         else:
             roots.append(node)
 
+    def has_live_descendant(node: CommentOut) -> bool:
+        return any((not reply.is_deleted) or has_live_descendant(reply) for reply in node.replies)
+
     def collapse_deleted_nodes(comment_nodes: list[CommentOut]) -> list[CommentOut]:
         visible_nodes: list[CommentOut] = []
         for node in comment_nodes:
             node.replies = collapse_deleted_nodes(node.replies)
             if node.is_deleted:
-                if node.replies:
+                if has_live_descendant(node):
                     visible_nodes.append(node)
                 continue
             visible_nodes.append(node)

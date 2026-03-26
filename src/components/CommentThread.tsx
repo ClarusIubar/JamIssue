@@ -31,17 +31,21 @@ interface CommentItemProps {
 }
 
 function normalizeRenderableComments(comments: Comment[]): Comment[] {
+  const hasLiveDescendant = (comment: Comment): boolean =>
+    comment.replies.some((reply) => !reply.isDeleted || hasLiveDescendant(reply));
+
   return comments.flatMap((comment) => {
     const replies = normalizeRenderableComments(comment.replies);
     if (comment.isDeleted) {
-      if (replies.length === 0) {
+      const nextComment = {
+        ...comment,
+        replies,
+      };
+      if (!hasLiveDescendant(nextComment)) {
         return [];
       }
       return [
-        {
-          ...comment,
-          replies,
-        },
+        nextComment,
       ];
     }
     return [
