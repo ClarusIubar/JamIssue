@@ -41,3 +41,12 @@ deploy/api-worker-package/
 tmp_alias_main.js
 tmp_live_main.js
 sample/
+
+# local portable python / pytest scratch
+.python-embed/
+.python-site/
+.python-temp/
+.tmp-python-embed.zip
+.pytest_cache/
+pytest-cache-files-*/
+backend/pytest-cache-files-*/
