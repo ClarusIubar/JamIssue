@@ -88,6 +88,91 @@ function toEndOfDayIso(dateKey) {
   return `${dateKey}T23:59:59+09:00`;
 }
 
+function normalizeSeriesKeyPart(value) {
+  return String(value || '')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[&_·/|]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function toSeoulDateKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+function parseSeoulDateKey(dateKey) {
+  return new Date(`${dateKey}T00:00:00+09:00`);
+}
+
+function buildSeriesGroupingKey(item) {
+  return [
+    normalizeSeriesKeyPart(item.title),
+    normalizeSeriesKeyPart(item.venueName || item.roadAddress || ''),
+    normalizeSeriesKeyPart(item.homepageUrl || ''),
+  ].join('|');
+}
+
+function areSeriesDatesAdjacent(leftEnd, rightStart) {
+  const leftKey = toSeoulDateKey(leftEnd);
+  const rightKey = toSeoulDateKey(rightStart);
+  if (!leftKey || !rightKey) {
+    return false;
+  }
+  const nextDate = parseSeoulDateKey(leftKey);
+  nextDate.setDate(nextDate.getDate() + 1);
+  return parseSeoulDateKey(rightKey).getTime() <= nextDate.getTime();
+}
+
+function mergeEventSeries(items) {
+  const sorted = [...items].sort((left, right) => {
+    const startDiff = new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime();
+    if (startDiff !== 0) {
+      return startDiff;
+    }
+    return left.title.localeCompare(right.title, 'ko');
+  });
+
+  const merged = [];
+  for (const item of sorted) {
+    const previous = merged[merged.length - 1];
+    if (
+      previous &&
+      buildSeriesGroupingKey(previous) === buildSeriesGroupingKey(item) &&
+      areSeriesDatesAdjacent(previous.endsAt, item.startsAt)
+    ) {
+      if (new Date(item.endsAt).getTime() > new Date(previous.endsAt).getTime()) {
+        previous.endsAt = item.endsAt;
+      }
+      previous.summary = previous.summary || item.summary;
+      previous.rawPayload = {
+        ...(previous.rawPayload || {}),
+        mergedEventSeqs: [...new Set([...(previous.rawPayload?.mergedEventSeqs || [previous.rawPayload?.eventSeq].filter(Boolean)), item.rawPayload?.eventSeq].filter(Boolean))],
+      };
+      continue;
+    }
+    merged.push({
+      ...item,
+      rawPayload: {
+        ...(item.rawPayload || {}),
+        mergedEventSeqs: [item.rawPayload?.eventSeq].filter(Boolean),
+      },
+    });
+  }
+
+  return merged;
+}
+
 function parseMaxPage(html) {
   const pageNumbers = [...html.matchAll(/fn_link_page\((\d+)\)/g)].map((match) => Number(match[1]));
   return pageNumbers.length > 0 ? Math.max(...pageNumbers) : 1;
@@ -202,7 +287,7 @@ async function collectEvents(range) {
 
   return {
     pageCount: maxPage,
-    items: [...uniqueItems.values()].sort((left, right) => left.startsAt.localeCompare(right.startsAt)),
+    items: mergeEventSeries([...uniqueItems.values()]),
   };
 }
 

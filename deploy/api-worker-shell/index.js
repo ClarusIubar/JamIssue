@@ -195,6 +195,77 @@ function isFestivalOngoingInSeoul(startsAt, endsAt, nowValue = Date.now()) {
   return startDateKey <= nowDateKey && endDateKey >= nowDateKey;
 }
 
+function normalizeFestivalSeriesKeyPart(value) {
+  return String(value || "")
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[&_·/|]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function buildFestivalSeriesKey(row) {
+  return [
+    normalizeFestivalSeriesKeyPart(row.title),
+    normalizeFestivalSeriesKeyPart(row.venue_name ?? row.road_address ?? row.address ?? ""),
+    normalizeFestivalSeriesKeyPart(row.source_page_url ?? ""),
+  ].join("|");
+}
+
+function parseSeoulDateKey(dateKey) {
+  return new Date(`${dateKey}T00:00:00+09:00`);
+}
+
+function areFestivalSeriesDatesAdjacent(leftEnd, rightStart) {
+  const leftKey = toSeoulDateKey(leftEnd);
+  const rightKey = toSeoulDateKey(rightStart);
+  if (!leftKey || !rightKey) {
+    return false;
+  }
+  const nextDate = parseSeoulDateKey(leftKey);
+  nextDate.setDate(nextDate.getDate() + 1);
+  return parseSeoulDateKey(rightKey).getTime() <= nextDate.getTime();
+}
+
+function groupFestivalRowsBySeries(rows) {
+  return rows.reduce((acc, row) => {
+    const previous = acc[acc.length - 1];
+    if (
+      previous &&
+      buildFestivalSeriesKey(previous) === buildFestivalSeriesKey(row) &&
+      areFestivalSeriesDatesAdjacent(previous.ends_at, row.starts_at)
+    ) {
+      if (new Date(row.ends_at).getTime() > new Date(previous.ends_at).getTime()) {
+        previous.ends_at = row.ends_at;
+      }
+      if (!previous.summary && row.summary) {
+        previous.summary = row.summary;
+      }
+      if (!previous.source_page_url && row.source_page_url) {
+        previous.source_page_url = row.source_page_url;
+      }
+      if (!previous.road_address && row.road_address) {
+        previous.road_address = row.road_address;
+      }
+      if (!previous.address && row.address) {
+        previous.address = row.address;
+      }
+      if (
+        (!Number.isFinite(Number(previous.latitude)) || !Number.isFinite(Number(previous.longitude))) &&
+        Number.isFinite(Number(row.latitude)) &&
+        Number.isFinite(Number(row.longitude))
+      ) {
+        previous.latitude = row.latitude;
+        previous.longitude = row.longitude;
+      }
+      return acc;
+    }
+    acc.push({ ...row });
+    return acc;
+  }, []);
+}
+
 function formatVisitLabel(visitNumber) {
   const safeVisitNumber = Number.isFinite(Number(visitNumber)) && Number(visitNumber) > 0 ? Number(visitNumber) : 1;
   return `${safeVisitNumber}번째 방문`;
@@ -2414,7 +2485,7 @@ async function loadFestivalRowsFromDb(env, nowIso, windowEndIso, limit = 100) {
     `public_event?select=public_event_id,title,venue_name,district,address,road_address,starts_at,ends_at,summary,source_page_url,latitude,longitude&ends_at=gte.${encodeFilterValue(nowIso)}&starts_at=lte.${encodeFilterValue(windowEndIso)}&order=starts_at.asc&limit=${limit}`,
   );
   const cityKeyword = getTargetFestivalCityKeyword(env);
-  return (rows || []).filter((row) => isFestivalRowInTargetArea(row, cityKeyword));
+  return groupFestivalRowsBySeries((rows || []).filter((row) => isFestivalRowInTargetArea(row, cityKeyword)));
 }
 
 async function handleFestivalsFromDb(request, env) {
