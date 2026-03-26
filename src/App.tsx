@@ -14,7 +14,6 @@ import {
   getMyCommentsPage,
   getProviderLoginUrl,
   getReviewFeedPage,
-  getReviews,
   importPublicData,
   logout,
   toggleCommunityRouteLike,
@@ -31,15 +30,16 @@ import { GlobalNotificationCenter } from './components/GlobalNotificationCenter'
 import { GlobalStatusBanner } from './components/GlobalStatusBanner';
 import {
   useAppRouteState,
-  clearAuthQueryParams,
   getInitialNotice,
   getLoginReturnUrl,
   getInitialMapViewport,
   updateMapViewportInUrl,
 } from './hooks/useAppRouteState';
 import { useAppDataState } from './hooks/useAppDataState';
+import { useAppBootstrapLifecycle } from './hooks/useAppBootstrapLifecycle';
 import { useAppNavigationHelpers } from './hooks/useAppNavigationHelpers';
 import { useNotificationLifecycle } from './hooks/useNotificationLifecycle';
+import { useAppShellNavigation } from './hooks/useAppShellNavigation';
 import { useAppTabDataLoaders } from './hooks/useAppTabDataLoaders';
 import { getCurrentDevicePosition } from './lib/geolocation';
 import { useAppUIStore } from './store/app-ui-store';
@@ -54,7 +54,6 @@ import {
 import type {
   ApiStatus,
   Category,
-  FestivalItem,
   Place,
   ReviewMood,
   Tab,
@@ -435,10 +434,6 @@ export default function App() {
   }, [selectedPlace, selectedPlaceDistanceMeters, sessionUser, todayStamp]);
 
   useEffect(() => {
-    void loadApp(true);
-  }, []);
-
-  useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(null), NOTICE_DISMISS_DELAY_MS);
     return () => clearTimeout(timer);
@@ -450,114 +445,47 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [mapLocationMessage]);
 
-  useEffect(() => {
-    if (activeTab === 'feed') {
-      void ensureFeedReviews().catch(reportBackgroundError);
-      return;
-    }
-
-    if (activeTab === 'course') {
-      void ensureCuratedCourses().catch(reportBackgroundError);
-      void fetchCommunityRoutes(communityRouteSort).catch(reportBackgroundError);
-      return;
-    }
-
-    if (activeTab === 'my') {
-      if (sessionUser && myPage === null) {
-        void refreshMyPageForUser(sessionUser, true).catch(reportBackgroundError);
-      }
-      if (sessionUser?.isAdmin && myPageTab === 'admin' && adminSummary === null) {
-        void refreshAdminSummary().catch(reportBackgroundError);
-      }
-      if (sessionUser && myPage && myPageTab === 'comments' && !myCommentsLoadedOnce) {
-        void loadMoreMyComments(true);
-      }
-    }
-  }, [
+  useAppBootstrapLifecycle({
     activeTab,
-    communityRouteSort,
+    selectedPlaceId,
     sessionUser,
     myPage,
     myPageTab,
     adminSummary,
+    communityRouteSort,
     myCommentsLoadedOnce,
-  ]);
-
-  useEffect(() => {
-    if (activeTab !== 'map') {
-      setSelectedPlaceReviews([]);
-      return;
-    }
-
-    if (!selectedPlaceId) {
-      setSelectedPlaceReviews([]);
-      return;
-    }
-
-    const cachedReviews = placeReviewsCacheRef.current[selectedPlaceId];
-    if (cachedReviews) {
-      setSelectedPlaceReviews(cachedReviews);
-      return;
-    }
-
-    void getReviews({ placeId: selectedPlaceId })
-      .then((nextReviews) => {
-        placeReviewsCacheRef.current[selectedPlaceId] = nextReviews;
-        setSelectedPlaceReviews(nextReviews);
-      })
-      .catch(reportBackgroundError);
-  }, [activeTab, selectedPlaceId]);
-
-  async function loadApp(withLoading: boolean) {
-    const authParams = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
-    const authState = authParams?.get('auth');
-
-    if (withLoading) {
-      setBootstrapStatus('loading');
-    }
-    setBootstrapError(null);
-
-    try {
-      const [bootstrap, festivalResult] = await Promise.all([
-        getMapBootstrap(),
-        getFestivals().catch(() => [] as FestivalItem[]),
-      ]);
-
-      setPlaces(bootstrap.places);
-      setFestivals(festivalResult);
-      setStampState(bootstrap.stamps);
-      setHasRealData(bootstrap.hasRealData);
-      setSessionUser(bootstrap.auth.user);
-      resetReviewCaches();
-      setFeedNextCursor(null);
-      setFeedHasMore(false);
-      setFeedLoadingMore(false);
-      setMyCommentsNextCursor(null);
-      setMyCommentsHasMore(false);
-      setMyCommentsLoadingMore(false);
-      setMyCommentsLoadedOnce(false);
-      setProviders(bootstrap.auth.providers);
-      setSelectedPlaceId((current) => (current && bootstrap.places.some((place) => place.id === current) ? current : null));
-      setSelectedFestivalId((current) => (current && festivalResult.some((festival) => festival.id === current) ? current : null));
-
-      if (bootstrap.auth.user) {
-        await refreshMyPageForUser(bootstrap.auth.user, true);
-      } else {
-        setMyPage(null);
-      }
-
-      setBootstrapStatus('ready');
-      if (authState === 'naver-success' && bootstrap.auth.user?.profileCompletedAt === null) {
-        goToTab('my');
-        setNotice('닉네임을 먼저 정하면 같은 계정으로 스탬프와 피드를 이어서 남길 수 있어요.');
-      }
-    } catch (error) {
-      setBootstrapError(formatErrorMessage(error));
-      setBootstrapStatus('error');
-    } finally {
-      clearAuthQueryParams();
-    }
-  }
+    placeReviewsCacheRef,
+    setBootstrapStatus,
+    setBootstrapError,
+    setPlaces,
+    setFestivals,
+    setStampState,
+    setHasRealData,
+    setSessionUser,
+    setProviders,
+    setSelectedPlaceId,
+    setSelectedFestivalId,
+    setSelectedPlaceReviews,
+    setNotice,
+    setFeedNextCursor,
+    setFeedHasMore,
+    setFeedLoadingMore,
+    setMyCommentsNextCursor,
+    setMyCommentsHasMore,
+    setMyCommentsLoadingMore,
+    setMyCommentsLoadedOnce,
+    setMyPage,
+    resetReviewCaches,
+    refreshMyPageForUser,
+    ensureFeedReviews,
+    ensureCuratedCourses,
+    fetchCommunityRoutes,
+    refreshAdminSummary,
+    loadMoreMyComments,
+    goToTab,
+    formatErrorMessage,
+    reportBackgroundError,
+  });
 
   async function refreshCurrentPosition(shouldFocusMap: boolean) {
     setMapLocationStatus('loading');
@@ -1076,89 +1004,25 @@ export default function App() {
     }
   }
 
-  const canNavigateBack =
-    returnView !== null ||
-    activeCommentReviewId !== null ||
-    activeTab !== 'map' ||
-    selectedPlaceId !== null ||
-    selectedFestivalId !== null ||
-    drawerState !== 'closed' ||
-    selectedRoutePreview !== null ||
-    (typeof window !== 'undefined' && window.history.length > 1);
-
-  function handleNavigateBack() {
-    if (returnView) {
-      setMyPageTab(returnView.myPageTab);
-      setActiveCommentReviewId(returnView.activeCommentReviewId);
-      setHighlightedCommentId(returnView.highlightedCommentId);
-      setHighlightedReviewId(returnView.highlightedReviewId);
-      setFeedPlaceFilterId(returnView.feedPlaceFilterId);
-      setSelectedRoutePreview(null);
-      const nextTab = returnView.tab;
-      setReturnView(null);
-      commitRouteState(
-        {
-          tab: nextTab,
-          placeId: nextTab === 'map' ? returnView.placeId : null,
-          festivalId: nextTab === 'map' ? returnView.festivalId : null,
-          drawerState: nextTab === 'map' ? returnView.drawerState : 'closed',
-        },
-        'replace',
-      );
-      return;
-    }
-
-    if (selectedRoutePreview) {
-      setSelectedRoutePreview(null);
-      return;
-    }
-
-    if (activeCommentReviewId !== null) {
-      handleCloseReviewComments();
-      return;
-    }
-
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-
-    handleCloseReviewComments();
-    goToTab('map', 'replace');
-  }
-
-  function handleBottomNavChange(nextTab: Tab) {
-    setSelectedRoutePreview(null);
-    handleCloseReviewComments();
-
-    if (nextTab !== 'feed') {
-      setFeedPlaceFilterId(null);
-      setHighlightedReviewId(null);
-    }
-
-    if (nextTab === 'map') {
-      commitRouteState(
-        {
-          tab: 'map',
-          placeId: selectedPlaceId,
-          festivalId: selectedFestivalId,
-          drawerState,
-        },
-        'replace',
-      );
-      return;
-    }
-
-    commitRouteState(
-      {
-        tab: nextTab,
-        placeId: null,
-        festivalId: null,
-        drawerState: 'closed',
-      },
-      'push',
-    );
-  }
+  const { canNavigateBack, handleNavigateBack, handleBottomNavChange } = useAppShellNavigation({
+    returnView,
+    activeCommentReviewId,
+    activeTab,
+    selectedPlaceId,
+    selectedFestivalId,
+    drawerState,
+    selectedRoutePreview,
+    setMyPageTab,
+    setActiveCommentReviewId,
+    setHighlightedCommentId,
+    setHighlightedReviewId,
+    setFeedPlaceFilterId,
+    setSelectedRoutePreview,
+    setReturnView,
+    handleCloseReviewComments,
+    goToTab,
+    commitRouteState,
+  });
 
   const reviewProofMessage = !sessionUser
     ? '\uB85C\uADF8\uC778\uD558\uBA74 \uC624\uB298 \uBC29\uBB38 \uC778\uC99D \uB4A4\uC5D0\uB9CC \uD53C\uB4DC\uB97C \uB0A8\uAE38 \uC218 \uC788\uC5B4\uC694.'
