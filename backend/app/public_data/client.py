@@ -32,7 +32,7 @@ def read_public_payload(settings: Settings) -> dict:
     if settings.public_data_source_url:
         request = Request(settings.public_data_source_url, headers={"Accept": "application/json"})
         try:
-            with urlopen(request, timeout=10) as response:
+            with urlopen(request, timeout=settings.public_data_request_timeout_seconds) as response:
                 return json.loads(response.read().decode("utf-8"))
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
             pass

@@ -52,7 +52,7 @@ def read_public_event_payload(settings: Settings) -> dict:
     if request_url:
         request = Request(request_url, headers={"Accept": "application/json"})
         try:
-            with urlopen(request, timeout=12) as response:
+            with urlopen(request, timeout=settings.public_event_request_timeout_seconds) as response:
                 return json.loads(response.read().decode("utf-8"))
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
             pass

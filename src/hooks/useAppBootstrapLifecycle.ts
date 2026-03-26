@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { getFestivals, getMapBootstrap, getReviews } from '../api/client';
 import { clearAuthQueryParams } from './useAppRouteState';
@@ -98,6 +98,8 @@ export function useAppBootstrapLifecycle({
   formatErrorMessage,
   reportBackgroundError,
 }: UseAppBootstrapLifecycleParams) {
+  const hasBootstrappedRef = useRef(false);
+
   useEffect(() => {
     if (!selectedPlaceId || activeTab !== 'map') {
       setSelectedPlaceReviews([]);
@@ -159,6 +161,13 @@ export function useAppBootstrapLifecycle({
   ]);
 
   useEffect(() => {
+    if (hasBootstrappedRef.current) {
+      return;
+    }
+    hasBootstrappedRef.current = true;
+
+    let active = true;
+
     void (async () => {
       const authParams = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
       const authState = authParams?.get('auth');
@@ -167,13 +176,12 @@ export function useAppBootstrapLifecycle({
       setBootstrapError(null);
 
       try {
-        const [bootstrap, festivalResult] = await Promise.all([
-          getMapBootstrap(),
-          getFestivals().catch(() => [] as FestivalItem[]),
-        ]);
+        const bootstrap = await getMapBootstrap();
+        if (!active) {
+          return;
+        }
 
         setPlaces(bootstrap.places);
-        setFestivals(festivalResult);
         setStampState(bootstrap.stamps);
         setHasRealData(bootstrap.hasRealData);
         setSessionUser(bootstrap.auth.user);
@@ -187,10 +195,13 @@ export function useAppBootstrapLifecycle({
         setMyCommentsLoadedOnce(false);
         setProviders(bootstrap.auth.providers);
         setSelectedPlaceId((current) => (current && bootstrap.places.some((place) => place.id === current) ? current : null));
-        setSelectedFestivalId((current) => (current && festivalResult.some((festival) => festival.id === current) ? current : null));
+        setSelectedFestivalId(null);
 
         if (bootstrap.auth.user) {
           await refreshMyPageForUser(bootstrap.auth.user, true);
+          if (!active) {
+            return;
+          }
         } else {
           setMyPage(null);
         }
@@ -207,6 +218,20 @@ export function useAppBootstrapLifecycle({
         clearAuthQueryParams();
       }
     })();
+
+    void getFestivals()
+      .then((festivalResult) => {
+        if (!active) {
+          return;
+        }
+        setFestivals(festivalResult);
+        setSelectedFestivalId((current) => (current && festivalResult.some((festival) => festival.id === current) ? current : null));
+      })
+      .catch(reportBackgroundError);
+
+    return () => {
+      active = false;
+    };
   }, [
     formatErrorMessage,
     goToTab,

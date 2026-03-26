@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -176,10 +176,7 @@ def should_refresh_events(source: PublicDataSource | None, settings: Settings) -
 
     if not (settings.public_event_source_url or settings.public_event_file_path.exists()):
         return False
-    if not source or not source.last_imported_at:
-        return True
-    cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=settings.public_event_refresh_minutes)
-    return source.last_imported_at <= cutoff
+    return not source or not source.last_imported_at
 
 
 def format_date_label(starts_at: datetime, ends_at: datetime) -> str:
@@ -197,10 +194,13 @@ def build_public_event_banner_response(db: Session, settings: Settings) -> Publi
         select(PublicDataSource).where(PublicDataSource.source_key == "jamissue-public-event-feed")
     ).first()
     if should_refresh_events(source, settings):
-        import_public_events(db, settings)
-        source = db.scalars(
-            select(PublicDataSource).where(PublicDataSource.source_key == "jamissue-public-event-feed")
-        ).first()
+        try:
+            import_public_events(db, settings)
+            source = db.scalars(
+                select(PublicDataSource).where(PublicDataSource.source_key == "jamissue-public-event-feed")
+            ).first()
+        except Exception:
+            db.rollback()
 
     now = datetime.now(UTC).replace(tzinfo=None)
     events = db.scalars(

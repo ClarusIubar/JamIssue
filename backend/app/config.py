@@ -30,8 +30,10 @@ class Settings(BaseSettings):
     auto_import_public_data: bool = True
     public_data_path: str = "data/public_bundle.json"
     public_data_source_url: str = ""
+    public_data_request_timeout_seconds: float = 3.0
     public_event_path: str = "data/public_events.json"
     public_event_source_url: str = ""
+    public_event_request_timeout_seconds: float = 3.0
     public_event_service_key: str = ""
     public_event_city_keyword: str = "대전"
     public_event_refresh_minutes: int = 360

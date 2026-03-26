@@ -89,10 +89,9 @@ export function useAppAdminActions({
     setAdminLoading(true);
     try {
       await importPublicData();
-      const [nextSummary, nextMap, nextFestivals] = await Promise.all([
+      const [nextSummary, nextMap] = await Promise.all([
         refreshAdminSummary(true),
         getMapBootstrap(),
-        getFestivals(),
       ]);
       if (nextSummary) {
         setAdminSummary(nextSummary);
@@ -101,8 +100,14 @@ export function useAppAdminActions({
       setPlaces(nextMap.places);
       setStampState(nextMap.stamps);
       setHasRealData(nextMap.hasRealData);
-      setFestivals(nextFestivals);
       setNotice('행사 데이터를 다시 불러왔어요.');
+      void getFestivals()
+        .then((nextFestivals) => {
+          setFestivals(nextFestivals);
+        })
+        .catch(() => {
+          // 축제 동기화 실패는 관리자 import 완료 상태를 막지 않는다.
+        });
     } catch (error) {
       setNotice(formatErrorMessage(error));
     } finally {
