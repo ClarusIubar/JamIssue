@@ -10,6 +10,17 @@ interface Position {
   y: number;
 }
 
+function getDefaultPosition(): Position {
+  if (typeof window === 'undefined') {
+    return { x: EDGE_PADDING, y: EDGE_PADDING };
+  }
+
+  return clampPosition({
+    x: EDGE_PADDING,
+    y: window.innerHeight - BUTTON_SIZE - BOTTOM_PADDING,
+  });
+}
+
 function clampPosition(position: Position) {
   if (typeof window === 'undefined') {
     return position;
@@ -29,7 +40,7 @@ interface FloatingBackButtonProps {
 }
 
 export function FloatingBackButton({ onNavigateBack }: FloatingBackButtonProps) {
-  const [position, setPosition] = useState<Position | null>(null);
+  const [position, setPosition] = useState<Position>(getDefaultPosition);
   const [isDragging, setIsDragging] = useState(false);
   const handledTapRef = useRef(false);
   const touchTimerRef = useRef<number | null>(null);
@@ -49,7 +60,7 @@ export function FloatingBackButton({ onNavigateBack }: FloatingBackButtonProps) 
     }
 
     function handleResize() {
-      setPosition((current) => (current ? clampPosition(current) : current));
+      setPosition((current) => clampPosition(current));
     }
 
     window.addEventListener('resize', handleResize);
@@ -64,7 +75,7 @@ export function FloatingBackButton({ onNavigateBack }: FloatingBackButtonProps) 
   }, []);
 
   const style = useMemo(
-    () => (position ? { left: position.x, top: position.y, right: 'auto', bottom: 'auto' } : undefined),
+    () => ({ left: position.x, top: position.y, right: 'auto', bottom: 'auto' }),
     [position],
   );
 
@@ -91,14 +102,13 @@ export function FloatingBackButton({ onNavigateBack }: FloatingBackButtonProps) 
       return;
     }
 
-    const rect = event.currentTarget.getBoundingClientRect();
     handledTapRef.current = false;
     dragStateRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      originX: position?.x ?? rect.left,
-      originY: position?.y ?? rect.top,
+      originX: position.x,
+      originY: position.y,
       hasMoved: false,
       dragEnabled: event.pointerType === 'mouse',
     };
