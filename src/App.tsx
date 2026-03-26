@@ -13,7 +13,6 @@ import {
   getMapBootstrap,
   getMyCommentsPage,
   getProviderLoginUrl,
-  getReviewDetail,
   getReviewFeedPage,
   getReviews,
   importPublicData,
@@ -24,15 +23,12 @@ import {
   updateProfile,
   uploadReviewImage,
 } from './api/client';
+import { AppMapStageView } from './components/AppMapStageView';
+import { AppPageStage } from './components/AppPageStage';
 import { BottomNav } from './components/BottomNav';
-import { CourseTab } from './components/CourseTab';
-import { EventTab } from './components/EventTab';
-import { FeedTab } from './components/FeedTab';
 import { FloatingBackButton } from './components/FloatingBackButton';
 import { GlobalNotificationCenter } from './components/GlobalNotificationCenter';
 import { GlobalStatusBanner } from './components/GlobalStatusBanner';
-import { MapTabStage } from './components/MapTabStage';
-import { MyPagePanel } from './components/MyPagePanel';
 import {
   useAppRouteState,
   clearAuthQueryParams,
@@ -42,9 +38,11 @@ import {
   updateMapViewportInUrl,
 } from './hooks/useAppRouteState';
 import { useAppDataState } from './hooks/useAppDataState';
+import { useAppNavigationHelpers } from './hooks/useAppNavigationHelpers';
+import { useNotificationLifecycle } from './hooks/useNotificationLifecycle';
 import { useAppTabDataLoaders } from './hooks/useAppTabDataLoaders';
 import { getCurrentDevicePosition } from './lib/geolocation';
-import { useAppUIStore, type ReturnViewState } from './store/app-ui-store';
+import { useAppUIStore } from './store/app-ui-store';
 import { useNotificationStore } from './store/notification-store';
 import {
   calculateDistanceMeters,
@@ -59,7 +57,6 @@ import type {
   FestivalItem,
   Place,
   ReviewMood,
-  RoutePreview,
   Tab,
   UserNotification,
 } from './types';
@@ -86,18 +83,6 @@ function formatErrorMessage(error: unknown) {
 
 function reportBackgroundError(error: unknown) {
   console.error(error);
-}
-
-function TabPanelFallback() {
-  return (
-    <section className="page-panel page-panel--scrollable page-panel--loading">
-      <div className="page-panel__loading-copy">Loading...</div>
-    </section>
-  );
-}
-
-function buildReturnViewSnapshot(params: ReturnViewState): ReturnViewState {
-  return params;
 }
 
 export default function App() {
@@ -295,33 +280,14 @@ export default function App() {
     return null;
   }, [notice, bootstrapStatus, bootstrapError, mapLocationMessage, mapLocationStatus]);
 
-  useEffect(() => {
-    if (!sessionUser) {
-      disconnectNotifications();
-      return;
-    }
-
-    connectNotifications(sessionUser);
-    if (!myPage) {
-      void fetchNotifications();
-    }
-
-    return () => {
-      disconnectNotifications();
-    };
-  }, [
+  useNotificationLifecycle({
+    sessionUser,
+    myPage,
+    fetchNotifications,
     connectNotifications,
     disconnectNotifications,
-    fetchNotifications,
-    sessionUser,
-  ]);
-
-  useEffect(() => {
-    if (!sessionUser || !myPage) {
-      return;
-    }
-    hydrateNotifications(myPage.notifications, myPage.unreadNotificationCount);
-  }, [hydrateNotifications, myPage, sessionUser]);
+    hydrateNotifications,
+  });
   const {
     fetchCommunityRoutes,
     ensureFeedReviews,
@@ -348,138 +314,41 @@ export default function App() {
     setMyPageError,
   });
 
-  function handleOpenReviewComments(reviewId: string, commentId: string | null = null) {
-    goToTab('feed');
-    setHighlightedReviewId(reviewId ?? null);
-    setActiveCommentReviewId(reviewId);
-    setHighlightedCommentId(commentId);
-  }
-
-  function handleCloseReviewComments() {
-    setActiveCommentReviewId(null);
-    setHighlightedCommentId(null);
-  }
-
-  function handleOpenRoutePreview(route: RoutePreview) {
-    if (activeTab !== 'map') {
-      setReturnView(buildReturnViewSnapshot({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId,
-        highlightedCommentId,
-        highlightedReviewId,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      }));
-    }
-    setSelectedRoutePreview(route);
-    handleCloseReviewComments();
-    commitRouteState({ tab: 'map', placeId: null, festivalId: null, drawerState: 'closed' }, activeTab === 'map' ? 'replace' : 'push');
-  }
-
-  function handleOpenPlaceWithReturn(placeId: string) {
-    if (activeTab !== 'map') {
-      const preserveFeedFocus = activeTab !== 'feed';
-      setReturnView(buildReturnViewSnapshot({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId: preserveFeedFocus ? activeCommentReviewId : null,
-        highlightedCommentId: preserveFeedFocus ? highlightedCommentId : null,
-        highlightedReviewId: preserveFeedFocus ? highlightedReviewId : null,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      }));
-    }
-    setSelectedRoutePreview(null);
-    openPlace(placeId);
-  }
-
-
-  function handleOpenFestivalWithReturn(festivalId: string) {
-    if (activeTab !== 'map') {
-      setReturnView(buildReturnViewSnapshot({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId,
-        highlightedCommentId,
-        highlightedReviewId,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      }));
-    }
-    setSelectedRoutePreview(null);
-    openFestival(festivalId);
-  }
-  async function ensureReviewLoadedById(reviewId: string | null) {
-    if (!reviewId) {
-      return null;
-    }
-
-    const existing = [...reviews, ...selectedPlaceReviews, ...(myPage?.reviews ?? [])].find((review) => review.id === reviewId) ?? null;
-    if (existing) {
-      upsertReviewCollections(existing);
-      return existing;
-    }
-
-    try {
-      const loaded = await getReviewDetail(reviewId);
-      upsertReviewCollections(loaded);
-      return loaded;
-    } catch (error) {
-      setNotice(formatErrorMessage(error));
-      return null;
-    }
-  }
-
-  async function handleOpenReviewWithReturn(reviewId: string | null) {
-    await ensureReviewLoadedById(reviewId);
-    if (activeTab !== 'feed') {
-      setReturnView(buildReturnViewSnapshot({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId,
-        highlightedCommentId,
-        highlightedReviewId,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      }));
-    }
-    setFeedPlaceFilterId(null);
-    setHighlightedReviewId(reviewId);
-    setHighlightedCommentId(null);
-    setActiveCommentReviewId(null);
-    goToTab('feed');
-  }
-
-  function handleOpenPlaceFeedWithReturn(placeId: string) {
-    if (activeTab !== 'feed') {
-      setReturnView(buildReturnViewSnapshot({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId,
-        highlightedCommentId,
-        highlightedReviewId,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      }));
-    }
-    setSelectedRoutePreview(null);
-    setFeedPlaceFilterId(placeId);
-    setHighlightedReviewId(null);
-    setHighlightedCommentId(null);
-    setActiveCommentReviewId(null);
-    goToTab('feed');
-  }
+  const {
+    handleOpenReviewComments,
+    handleCloseReviewComments,
+    handleOpenRoutePreview,
+    handleOpenPlaceWithReturn,
+    handleOpenFestivalWithReturn,
+    handleOpenReviewWithReturn,
+    handleOpenPlaceFeedWithReturn,
+    handleOpenCommentWithReturn,
+  } = useAppNavigationHelpers({
+    activeTab,
+    myPageTab,
+    activeCommentReviewId,
+    highlightedCommentId,
+    highlightedReviewId,
+    selectedPlaceId,
+    selectedFestivalId,
+    drawerState,
+    feedPlaceFilterId,
+    reviews,
+    selectedPlaceReviews,
+    myPageReviews: myPage?.reviews ?? [],
+    setActiveCommentReviewId,
+    setHighlightedCommentId,
+    setHighlightedReviewId,
+    setReturnView,
+    setSelectedRoutePreview,
+    setFeedPlaceFilterId,
+    setNotice,
+    goToTab,
+    commitRouteState,
+    openPlace,
+    openFestival,
+    upsertReviewCollections,
+  });
 
   async function loadMoreFeedReviews() {
     if (feedLoadingMore || !feedHasMore) {
@@ -534,24 +403,6 @@ export default function App() {
     } finally {
       setMyCommentsLoadingMore(false);
     }
-  }
-
-  async function handleOpenCommentWithReturn(reviewId: string, commentId: string | null = null) {
-    if (activeTab !== 'feed') {
-      setReturnView(buildReturnViewSnapshot({
-        tab: activeTab,
-        myPageTab,
-        activeCommentReviewId,
-        highlightedCommentId,
-        highlightedReviewId,
-        placeId: selectedPlaceId,
-        festivalId: selectedFestivalId,
-        drawerState,
-        feedPlaceFilterId,
-      }));
-    }
-    await ensureReviewLoadedById(reviewId);
-    handleOpenReviewComments(reviewId, commentId);
   }
 
   useEffect(() => {
@@ -1342,7 +1193,7 @@ export default function App() {
         )}
         <div className="phone-shell__body">
           {activeTab === 'map' ? (
-            <MapTabStage
+            <AppMapStageView
               activeCategory={activeCategory}
               setActiveCategory={setActiveCategory}
               filteredPlaces={filteredPlaces}
@@ -1367,14 +1218,13 @@ export default function App() {
               reviewSubmitting={reviewSubmitting}
               canCreateReview={canCreateReview}
               hasCreatedReviewToday={hasCreatedReviewToday}
-              onOpenFeedReview={() => {
+              initialMapViewport={{ lat: initialMapViewport.lat, lng: initialMapViewport.lng, zoom: initialMapViewport.zoom }}
+              onOpenPlaceFeed={() => {
                 if (!selectedPlace) {
                   return;
                 }
                 handleOpenPlaceFeedWithReturn(selectedPlace.id);
               }}
-              initialMapCenter={{ lat: initialMapViewport.lat, lng: initialMapViewport.lng }}
-              initialMapZoom={initialMapViewport.zoom}
               onOpenPlace={(placeId) => {
                 setSelectedRoutePreview(null);
                 openPlace(placeId);
@@ -1408,99 +1258,74 @@ export default function App() {
               onMapViewportChange={updateMapViewportInUrl}
             />
           ) : (
-            <div className="page-stage">
-
-              {activeTab === 'feed' && (
-                <FeedTab
-                  reviews={reviews}
-                  sessionUser={sessionUser}
-                  reviewLikeUpdatingId={reviewLikeUpdatingId}
-                  placeFilterId={feedPlaceFilterId}
-                  placeFilterName={feedPlaceFilterId ? placeNameById[feedPlaceFilterId] ?? null : null}
-                  commentSubmittingReviewId={commentSubmittingReviewId}
-                  commentMutatingId={commentMutatingId}
-                  deletingReviewId={deletingReviewId}
-                  activeCommentReviewId={activeCommentReviewId}
-                  highlightedCommentId={highlightedCommentId}
-                  highlightedReviewId={highlightedReviewId}
-                  hasMore={feedHasMore && !feedPlaceFilterId}
-                  loadingMore={feedLoadingMore}
-                  onLoadMore={loadMoreFeedReviews}
-                  onToggleReviewLike={handleToggleReviewLike}
-                  onCreateComment={handleCreateComment}
-                  onUpdateComment={handleUpdateComment}
-                  onDeleteComment={handleDeleteComment}
-                  onDeleteReview={handleDeleteReview}
-                  onRequestLogin={() => goToTab('my')}
-                  onClearPlaceFilter={() => setFeedPlaceFilterId(null)}
-                  onOpenPlace={handleOpenPlaceWithReturn}
-                  onOpenComments={handleOpenReviewComments}
-                  onCloseComments={handleCloseReviewComments}
-                />
-              )}
-
-              {activeTab === 'event' && (
-                <EventTab festivals={festivals} />
-              )}
-
-              {activeTab === 'course' && (
-                <CourseTab
-                  curatedCourses={courses}
-                  communityRoutes={communityRoutes}
-                  sort={communityRouteSort}
-                  sessionUser={sessionUser}
-                  routeLikeUpdatingId={routeLikeUpdatingId}
-                  placeNameById={placeNameById}
-                  onChangeSort={(sort) => {
-                    setCommunityRouteSort(sort);
-                    void fetchCommunityRoutes(sort)
-                      .catch(reportBackgroundError);
-                  }}
-                  onToggleLike={handleToggleRouteLike}
-                  onOpenPlace={handleOpenPlaceWithReturn}
-                  onOpenRoutePreview={handleOpenRoutePreview}
-                  onRequestLogin={() => goToTab('my')}
-                />
-              )}
-
-              {activeTab === 'my' && (
-                <MyPagePanel
-                  sessionUser={sessionUser}
-                  myPage={hydratedMyPage}
-                  providers={providers}
-                  myPageError={myPageError}
-                  activeTab={myPageTab}
-                  isLoggingOut={isLoggingOut}
-                  profileSaving={profileSaving}
-                  profileError={profileError}
-                  routeSubmitting={routeSubmitting}
-                  routeError={routeError}
-                  adminSummary={adminSummary}
-                  adminBusyPlaceId={adminBusyPlaceId}
-                  adminLoading={adminLoading}
-                  onChangeTab={setMyPageTab}
-                  onLogin={startProviderLogin}
-                  onRetry={async () => { if (sessionUser) { await refreshMyPageForUser(sessionUser, true); } }}
-                  onLogout={handleLogout}
-                  onSaveNickname={handleUpdateProfile}
-                  onPublishRoute={handlePublishRoute}
-                  onOpenPlace={handleOpenPlaceWithReturn}
-                  onOpenComment={(reviewId, commentId) => handleOpenCommentWithReturn(reviewId, commentId)}
-                  onOpenReview={handleOpenReviewWithReturn}
-                  onUpdateReview={handleUpdateReview}
-                  onDeleteReview={handleDeleteReview}
-                  onMarkNotificationRead={handleMarkNotificationRead}
-                  onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
-                  onDeleteNotification={handleDeleteNotification}
-                  commentsHasMore={myCommentsHasMore}
-                  commentsLoadingMore={myCommentsLoadingMore}
-                  onLoadMoreComments={loadMoreMyComments}
-                  onRefreshAdmin={handleRefreshAdminImport}
-                  onToggleAdminPlace={handleToggleAdminPlace}
-                  onToggleAdminManualOverride={handleToggleAdminManualOverride}
-                />
-              )}
-            </div>
+            <AppPageStage
+              activeTab={activeTab}
+              reviews={reviews}
+              sessionUser={sessionUser}
+              reviewLikeUpdatingId={reviewLikeUpdatingId}
+              feedPlaceFilterId={feedPlaceFilterId}
+              placeNameById={placeNameById}
+              commentSubmittingReviewId={commentSubmittingReviewId}
+              commentMutatingId={commentMutatingId}
+              deletingReviewId={deletingReviewId}
+              activeCommentReviewId={activeCommentReviewId}
+              highlightedCommentId={highlightedCommentId}
+              highlightedReviewId={highlightedReviewId}
+              feedHasMore={feedHasMore}
+              feedLoadingMore={feedLoadingMore}
+              festivals={festivals}
+              courses={courses}
+              communityRoutes={communityRoutes}
+              communityRouteSort={communityRouteSort}
+              routeLikeUpdatingId={routeLikeUpdatingId}
+              myPage={hydratedMyPage}
+              providers={providers}
+              myPageError={myPageError}
+              myPageTab={myPageTab}
+              isLoggingOut={isLoggingOut}
+              profileSaving={profileSaving}
+              profileError={profileError}
+              routeSubmitting={routeSubmitting}
+              routeError={routeError}
+              adminSummary={adminSummary}
+              adminBusyPlaceId={adminBusyPlaceId}
+              adminLoading={adminLoading}
+              commentsHasMore={myCommentsHasMore}
+              commentsLoadingMore={myCommentsLoadingMore}
+              onLoadMoreFeed={loadMoreFeedReviews}
+              onToggleReviewLike={handleToggleReviewLike}
+              onCreateComment={handleCreateComment}
+              onUpdateComment={handleUpdateComment}
+              onDeleteComment={handleDeleteComment}
+              onDeleteReview={handleDeleteReview}
+              onRequestLogin={() => goToTab('my')}
+              onClearPlaceFilter={() => setFeedPlaceFilterId(null)}
+              onOpenPlace={handleOpenPlaceWithReturn}
+              onOpenComments={handleOpenReviewComments}
+              onCloseComments={handleCloseReviewComments}
+              onChangeRouteSort={(sort) => {
+                setCommunityRouteSort(sort);
+                void fetchCommunityRoutes(sort).catch(reportBackgroundError);
+              }}
+              onToggleRouteLike={handleToggleRouteLike}
+              onOpenRoutePreview={handleOpenRoutePreview}
+              onChangeMyPageTab={setMyPageTab}
+              onLogin={startProviderLogin}
+              onRetryMyPage={async () => { if (sessionUser) { await refreshMyPageForUser(sessionUser, true); } }}
+              onLogout={handleLogout}
+              onSaveNickname={handleUpdateProfile}
+              onPublishRoute={handlePublishRoute}
+              onOpenCommentFromMyPage={(reviewId, commentId) => handleOpenCommentWithReturn(reviewId, commentId)}
+              onOpenReview={handleOpenReviewWithReturn}
+              onUpdateReview={handleUpdateReview}
+              onMarkNotificationRead={handleMarkNotificationRead}
+              onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+              onDeleteNotification={handleDeleteNotification}
+              onLoadMoreComments={loadMoreMyComments}
+              onRefreshAdmin={handleRefreshAdminImport}
+              onToggleAdminPlace={handleToggleAdminPlace}
+              onToggleAdminManualOverride={handleToggleAdminManualOverride}
+            />
           )}
 
           {canNavigateBack && <FloatingBackButton onNavigateBack={handleNavigateBack} />}
