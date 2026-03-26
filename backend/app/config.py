@@ -11,7 +11,10 @@ from sqlalchemy.engine import URL, make_url
 
 
 class Settings(BaseSettings):
-    """FastAPI 서버에서 사용하는 환경 설정 집합입니다."""
+    """
+    FastAPI 서버 및 비즈니스 로직 전반에서 사용하는 환경 설정(Environment Variables) 모델입니다.
+    pydantic-settings의 BaseSettings를 상속하여 .env 파일 및 OS 환경변수에서 값을 자동으로 로드하고 타입 변환을 수행합니다.
+    """
 
     env: str = "development"
     host: str = "127.0.0.1"
@@ -234,14 +237,19 @@ class Settings(BaseSettings):
         return bool(self.supabase_url and (self.supabase_service_role_key or self.supabase_anon_key))
 
     def is_admin(self, user_id: str | None) -> bool:
-        """관리자 사용자 여부를 확인합니다."""
+        """
+        주어진 사용자가 관리자 목록(admin_user_id_set)에 포함되는지 확인합니다.
+        """
 
         if not user_id:
             return False
         return user_id in self.admin_user_id_set
 
     def provider_enabled(self, provider: str) -> bool:
-        """소셜 로그인 제공자 설정 여부를 확인합니다."""
+        """
+        특정 소셜 로그인 제공자(예: 'naver', 'kakao')에 필요한 클라이언트 ID 및 시크릿 키가
+        설정에 올바르게 주입되어 활성화된 상태인지 확인합니다.
+        """
 
         mapping = {
             "naver": bool(self.naver_login_client_id and self.naver_login_client_secret),

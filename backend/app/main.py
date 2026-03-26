@@ -462,6 +462,7 @@ def remove_review(
     db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
 ) -> Response:
+    """사용자가 자신이 작성한 피드(리뷰)를 삭제합니다."""
     delete_review_service(db, review_id, session_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -475,6 +476,7 @@ def like_review(
 
 @app.get("/api/reviews/{review_id}/comments", response_model=list[CommentOut], tags=["reviews"])
 def read_review_comments(review_id: str, db: Session = Depends(get_db)) -> list[CommentOut]:
+    """특정 리뷰에 달린 모든 댓글 목록(트리 구조)을 조회합니다."""
     return read_review_comments_service(db, review_id)
 
 @app.post("/api/reviews/{review_id}/comments", response_model=list[CommentOut], tags=["reviews"])
@@ -484,6 +486,7 @@ def write_review_comment(
     db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
 ) -> list[CommentOut]:
+    """특정 리뷰에 새로운 댓글이나 대댓글을 작성합니다."""
     return create_comment_service(db, review_id, payload, session_user)
 
 @app.delete("/api/reviews/{review_id}/comments/{comment_id}", response_model=list[CommentOut], tags=["reviews"])
@@ -493,6 +496,7 @@ def remove_review_comment(
     db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
 ) -> list[CommentOut]:
+    """사용자가 자신이 작성한 댓글을 삭제(소프트 삭제)합니다."""
     return delete_comment_service(db, review_id, comment_id, session_user)
 
 @app.post("/api/reviews/upload", response_model=UploadResponse, tags=["reviews"])
@@ -520,6 +524,7 @@ def remove_my_account(
     db: Session = Depends(get_db),
     session_user: SessionUser = Depends(require_session_user),
 ) -> Response:
+    """사용자의 계정을 삭제(탈퇴) 처리하고 연관 데이터를 모두 정리합니다."""
     delete_my_account_service(db, session_user.id)
     clear_auth_cookie(response)
     response.status_code = status.HTTP_204_NO_CONTENT
@@ -562,6 +567,7 @@ def patch_place_visibility(
     db: Session = Depends(get_db),
     _: SessionUser = Depends(require_admin_user),
 ) -> AdminPlaceOut:
+    """관리자가 특정 장소의 노출(is_active) 상태 등을 변경합니다."""
     return patch_admin_place_service(db, place_id, payload)
 
 
@@ -571,5 +577,6 @@ def import_public_data(
     _: SessionUser = Depends(require_admin_user),
     app_settings: Settings = Depends(get_settings),
 ) -> PublicImportResponse:
+    """관리자가 공공데이터 소스를 수동으로 동기화(Import)하도록 요청합니다."""
     return import_public_data_service(db, app_settings)
 
