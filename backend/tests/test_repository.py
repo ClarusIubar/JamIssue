@@ -223,9 +223,31 @@ def test_delete_comment_keeps_reply_tree(tmp_path: Path):
     updated_tree = delete_comment(session, review.id, str(parent.comment_id), 'user-parent')
 
     assert tree[0].replies[0].body == '대댓글'
-    assert updated_tree[0].is_deleted is True
-    assert updated_tree[0].body == '삭제된 댓글입니다.'
-    assert updated_tree[0].replies[0].body == '대댓글'
+    assert len(updated_tree) == 1
+    assert updated_tree[0].body == '대댓글'
+    assert updated_tree[0].parent_id is None
+
+
+def test_delete_parent_and_reply_hides_entire_thread(tmp_path: Path):
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    stamp_state = claim_stamp_for(session, 'user-owner', 'hanbat-forest')
+    review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', stampId=stamp_id_for_place(stamp_state, 'hanbat-forest'), body='부모/자식 삭제 테스트', mood='설렘', imageUrl=None),
+        'user-owner',
+        '소희',
+    )
+    create_comment(session, review.id, CommentCreate(body='부모 댓글', parentId=None), 'user-parent', '민서')
+    parent = session.scalars(select(UserComment).where(UserComment.body == '부모 댓글')).one()
+    create_comment(session, review.id, CommentCreate(body='대댓글', parentId=str(parent.comment_id)), 'user-child', '가은')
+    reply = session.scalars(select(UserComment).where(UserComment.body == '대댓글')).one()
+
+    delete_comment(session, review.id, str(parent.comment_id), 'user-parent')
+    updated_tree = delete_comment(session, review.id, str(reply.comment_id), 'user-child')
+
+    assert updated_tree == []
 
 
 def test_delete_comment_without_reply_disappears_from_tree(tmp_path: Path):

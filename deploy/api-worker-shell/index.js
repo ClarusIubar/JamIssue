@@ -750,14 +750,23 @@ function buildCommentTree(commentRows, usersById) {
     }
   }
 
-  const pruneDeletedNodes = (nodes) => nodes
-    .map((node) => ({
+  const collapseDeletedNodes = (nodes) => nodes.reduce((acc, node) => {
+    const nextNode = {
       ...node,
-      replies: pruneDeletedNodes(node.replies),
-    }))
-    .filter((node) => !(node.isDeleted && node.replies.length === 0));
+      replies: collapseDeletedNodes(node.replies),
+    };
+    if (nextNode.isDeleted) {
+      acc.push(...nextNode.replies.map((reply) => ({
+        ...reply,
+        parentId: null,
+      })));
+      return acc;
+    }
+    acc.push(nextNode);
+    return acc;
+  }, []);
 
-  return pruneDeletedNodes(roots);
+  return collapseDeletedNodes(roots);
 }
 
 function buildMyComments(commentRows, reviewsById) {
