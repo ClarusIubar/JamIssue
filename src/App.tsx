@@ -7,6 +7,7 @@ import {
 import { AppMapStageView } from './components/AppMapStageView';
 import { AppPageStage } from './components/AppPageStage';
 import { BottomNav } from './components/BottomNav';
+import { GlobalFeedbackButton } from './components/GlobalFeedbackButton';
 import { FloatingBackButton } from './components/FloatingBackButton';
 import { GlobalNotificationCenter } from './components/GlobalNotificationCenter';
 import { GlobalStatusBanner } from './components/GlobalStatusBanner';
@@ -104,7 +105,7 @@ export default function App() {
   const [commentMutatingId, setCommentMutatingId] = useState<string | null>(null);
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
   const [stampActionStatus, setStampActionStatus] = useState<ApiStatus>('idle');
-  const [stampActionMessage, setStampActionMessage] = useState('Àå¼Ò¸¦ ¼±ÅÃÇÏ¸é ¿À´Ã ½ºÅÆÇÁ °¡´É ¿©ºÎ¸¦ ¹Ù·Î È®ÀÎÇÒ ¼ö ÀÖ¾î¿ä.');
+  const [stampActionMessage, setStampActionMessage] = useState('ì¥ì†Œë¥¼ ì„ íƒí•˜ë©´ ì˜¤ëŠ˜ ìŠ¤íƒ¬í”„ ê°€ëŠ¥ ì—¬ë¶€ë¥¼ ë°”ë¡œ í™•ì¸í•  ìˆ˜ ìˆì–´ìš”.');
   const [routeSubmitting, setRouteSubmitting] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [routeLikeUpdatingId, setRouteLikeUpdatingId] = useState<string | null>(null);
@@ -632,8 +633,9 @@ export default function App() {
             <GlobalStatusBanner tone={globalStatus.tone} message={globalStatus.message} layout={activeTab === 'map' ? 'map' : 'page'} />
           </div>
         )}
-        {sessionUser && hydratedMyPage && (
-          <div className="phone-shell__utility-slot">
+        <div className="phone-shell__utility-slot">
+          <GlobalFeedbackButton />
+          {sessionUser && hydratedMyPage && (
             <GlobalNotificationCenter
               sessionUserName={sessionUser.nickname}
               notifications={hydratedMyPage.notifications}
@@ -642,8 +644,8 @@ export default function App() {
               onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
               onDeleteNotification={handleDeleteNotification}
             />
-          </div>
-        )}
+          )}
+        </div>
         <div className="phone-shell__body">
           {activeTab === 'map' ? (
             <AppMapStageView

@@ -475,6 +475,14 @@ input.visually-hidden[type='file'] {
   border-radius: 18px !important;
 }
 
+.feedback-button {
+  min-width: 48px !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 18px !important;
+  color: #7b4a63 !important;
+}
+
 .notification-bell__dot {
   position: absolute !important;
   top: 11px !important;
