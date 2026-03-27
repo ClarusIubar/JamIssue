@@ -407,6 +407,7 @@ export default function App() {
     handleClaimStamp,
   } = useAppMapActions({
     sessionUser,
+    setPlaces,
     setCurrentPosition,
     setMapLocationStatus,
     setMapLocationMessage,

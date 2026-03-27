@@ -120,7 +120,7 @@ def parse_stamp_id(stamp_id: str) -> int:
         raise ValueError("\uC2A4\uD0EC\uD504 ID \uD615\uC2DD\uC774 \uC62C\uBC14\uB974\uC9C0 \uC54A\uC544\uC694.") from error
 
 
-def to_place_out(place: MapPlace) -> PlaceOut:
+def to_place_out(place: MapPlace, total_visit_count: int = 0) -> PlaceOut:
     return PlaceOut(
         id=place.slug,
         positionId=str(place.position_id),
@@ -139,6 +139,7 @@ def to_place_out(place: MapPlace) -> PlaceOut:
         routeHint=place.route_hint,
         stampReward=place.stamp_reward,
         heroLabel=place.hero_label,
+        totalVisitCount=total_visit_count,
     )
 
 

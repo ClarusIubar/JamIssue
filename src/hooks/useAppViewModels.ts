@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import {
   calculateDistanceMeters,
   getLatestPlaceStamp,
-  getPlaceVisitCount,
   getTodayStampLog,
 } from '../lib/visits';
 import type {
@@ -101,7 +100,7 @@ export function useAppViewModels({
   }, [festivals, selectedFestivalId]);
   const todayStamp = selectedPlace ? getTodayStampLog(stampState.logs, selectedPlace.id) : null;
   const latestStamp = selectedPlace ? getLatestPlaceStamp(stampState.logs, selectedPlace.id) : null;
-  const visitCount = selectedPlace ? getPlaceVisitCount(stampState.logs, selectedPlace.id) : 0;
+  const visitCount = selectedPlace?.totalVisitCount ?? 0;
   const selectedPlaceDistanceMeters =
     selectedPlace && currentPosition
       ? calculateDistanceMeters(currentPosition.latitude, currentPosition.longitude, selectedPlace.latitude, selectedPlace.longitude)

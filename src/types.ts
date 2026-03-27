@@ -51,6 +51,7 @@ export interface Place {
   routeHint: string;
   stampReward: string;
   heroLabel: string;
+  totalVisitCount?: number;
 }
 
 export interface Comment {

@@ -896,7 +896,17 @@ function mapPlace(row) {
     routeHint: row.route_hint,
     stampReward: row.stamp_reward,
     heroLabel: getCategoryPalette(normalizePlaceCategory(row.category, row.slug), row).heroLabel,
+    totalVisitCount: Number(row.total_visit_count ?? 0),
   };
+}
+
+function buildPlaceVisitCountMap(stampRows) {
+  const counts = new Map();
+  for (const row of stampRows ?? []) {
+    const key = String(row.position_id);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
 }
 
 async function loadStaticBaseRows(env) {
@@ -1137,7 +1147,7 @@ async function loadBaseData(env, sessionUserId = null) {
   const feedIdsFilter = buildInFilter(feedRows.map((row) => row.feed_id));
   const reviewStampIdsFilter = buildInFilter(feedRows.map((row) => row.stamp_id).filter(Boolean));
 
-  const [commentRows, likeRows, reviewStampRows, userFeedLikeRows = [], userSessionRows = [], ownerRouteRows = [], userStampRows = []] = await Promise.all([
+  const [commentRows, likeRows, reviewStampRows, userFeedLikeRows = [], userSessionRows = [], ownerRouteRows = [], userStampRows = [], allPlaceStampRows = []] = await Promise.all([
     feedIdsFilter
       ? supabaseRequest(env, `user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&feed_id=${feedIdsFilter}&order=created_at.asc`)
       : Promise.resolve([]),
@@ -1159,6 +1169,7 @@ async function loadBaseData(env, sessionUserId = null) {
     sessionUserId
       ? supabaseRequest(env, `user_stamp?select=stamp_id,user_id,position_id,travel_session_id,stamp_date,visit_ordinal,created_at&user_id=eq.${encodeFilterValue(sessionUserId)}&order=created_at.desc`)
       : Promise.resolve([]),
+    supabaseRequest(env, "user_stamp?select=position_id"),
   ]);
   const reviewTravelSessionIds = [...new Set((reviewStampRows ?? []).map((row) => row.travel_session_id).filter(Boolean).map((value) => String(value)))];
   const reviewRouteRows = reviewTravelSessionIds.length > 0
@@ -1175,7 +1186,8 @@ async function loadBaseData(env, sessionUserId = null) {
     : [];
 
   const allStampRows = [...reviewStampRows, ...userStampRows.filter((row) => !reviewStampRows.some((stamp) => String(stamp.stamp_id) === String(row.stamp_id)))];
-  const places = placeRows.map(mapPlace);
+  const placeVisitCounts = buildPlaceVisitCountMap(allPlaceStampRows);
+  const places = placeRows.map((row) => mapPlace({ ...row, total_visit_count: placeVisitCounts.get(String(row.position_id)) ?? 0 }));
   const placesByPositionId = new Map(places.map((place) => [place.positionId, place]));
   const usersById = new Map(userRows.map((row) => [row.user_id, row]));
   const stampRowsById = new Map((allStampRows ?? []).map((row) => [String(row.stamp_id), row]));
@@ -1232,7 +1244,7 @@ async function loadCommunityRoutes(env, options = {}) {
   return mapCommunityRoutes(routeRows, routePlaceRows, usersById, placesByPositionId, likedRouteIds);
 }
 async function loadMapData(env, sessionUserId = null) {
-  const [{ placeRows }, userSessionRows = [], ownerRouteRows = [], userStampRows = []] = await Promise.all([
+  const [{ placeRows }, userSessionRows = [], ownerRouteRows = [], userStampRows = [], allPlaceStampRows = []] = await Promise.all([
     loadStaticBaseRows(env),
     sessionUserId
       ? supabaseRequest(env, `travel_session?select=travel_session_id,user_id,started_at,ended_at,last_stamp_at,stamp_count,created_at&user_id=eq.${encodeFilterValue(sessionUserId)}&order=started_at.desc`)
@@ -1243,9 +1255,11 @@ async function loadMapData(env, sessionUserId = null) {
     sessionUserId
       ? supabaseRequest(env, `user_stamp?select=stamp_id,user_id,position_id,travel_session_id,stamp_date,visit_ordinal,created_at&user_id=eq.${encodeFilterValue(sessionUserId)}&order=created_at.desc`)
       : Promise.resolve([]),
+    supabaseRequest(env, "user_stamp?select=position_id"),
   ]);
 
-  const places = placeRows.map(mapPlace);
+  const placeVisitCounts = buildPlaceVisitCountMap(allPlaceStampRows);
+  const places = placeRows.map((row) => mapPlace({ ...row, total_visit_count: placeVisitCounts.get(String(row.position_id)) ?? 0 }));
   const placesByPositionId = new Map(places.map((place) => [place.positionId, place]));
   const collectedPlaceIds = [...new Set(userStampRows.map((row) => placesByPositionId.get(String(row.position_id))?.id).filter(Boolean))];
   const stampLogs = buildStampLogs(userStampRows, placesByPositionId);

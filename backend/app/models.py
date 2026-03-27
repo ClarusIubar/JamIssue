@@ -60,6 +60,7 @@ class PlaceOut(ApiModel):
     route_hint: str = Field(alias='routeHint')
     stamp_reward: str = Field(alias='stampReward')
     hero_label: str = Field(alias='heroLabel')
+    total_visit_count: int = Field(default=0, alias='totalVisitCount')
 
 
 class CommentOut(ApiModel):

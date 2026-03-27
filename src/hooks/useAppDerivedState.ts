@@ -1,5 +1,5 @@
 ﻿import { useMemo } from 'react';
-import { calculateDistanceMeters, getLatestPlaceStamp, getPlaceVisitCount, getTodayStampLog } from '../lib/visits';
+import { calculateDistanceMeters, getLatestPlaceStamp, getTodayStampLog } from '../lib/visits';
 import { filterPlacesByCategory } from '../lib/filterPlaces';
 import type { Category, FestivalItem, MyPageResponse, Place, Review, SessionUser, StampState, UserRoute } from '../types';
 
@@ -59,7 +59,7 @@ export function useAppDerivedState({
 
   const todayStamp = selectedPlace ? getTodayStampLog(stampState.logs, selectedPlace.id) : null;
   const latestStamp = selectedPlace ? getLatestPlaceStamp(stampState.logs, selectedPlace.id) : null;
-  const visitCount = selectedPlace ? getPlaceVisitCount(stampState.logs, selectedPlace.id) : 0;
+  const visitCount = selectedPlace?.totalVisitCount ?? 0;
   const selectedPlaceDistanceMeters =
     selectedPlace && currentPosition
       ? calculateDistanceMeters(currentPosition.latitude, currentPosition.longitude, selectedPlace.latitude, selectedPlace.longitude)

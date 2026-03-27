@@ -9,6 +9,7 @@ type SetState<T> = Dispatch<SetStateAction<T>>;
 
 interface UseAppMapActionsParams {
   sessionUser: SessionUser | null;
+  setPlaces: SetState<Place[]>;
   setCurrentPosition: SetState<{ latitude: number; longitude: number } | null>;
   setMapLocationStatus: SetState<ApiStatus>;
   setMapLocationMessage: SetState<string | null>;
@@ -27,6 +28,7 @@ interface UseAppMapActionsParams {
 
 export function useAppMapActions({
   sessionUser,
+  setPlaces,
   setCurrentPosition,
   setMapLocationStatus,
   setMapLocationMessage,
@@ -76,6 +78,11 @@ export function useAppMapActions({
       });
       // 스탬프 성공 후 지도 상태와 마이페이지를 함께 맞춘다.
       setStampState(nextStampState);
+      setPlaces((current) => current.map((item) => (
+        item.id === place.id
+          ? { ...item, totalVisitCount: (item.totalVisitCount ?? 0) + 1 }
+          : item
+      )));
       setNotice(`${place.name}에서 오늘 스탬프를 찍었어요.`);
       commitRouteState(
         {

@@ -103,7 +103,7 @@ def format_datetime(value: datetime) -> str:
     return value.strftime("%m월 %d일 %H:%M")
 
 
-def to_place_out(place: MapPlace) -> PlaceOut:
+def to_place_out(place: MapPlace, total_visit_count: int = 0) -> PlaceOut:
     """장소 ORM 객체를 API 응답 모델로 바꿉니다."""
 
     return PlaceOut(
@@ -122,6 +122,7 @@ def to_place_out(place: MapPlace) -> PlaceOut:
         routeHint=place.route_hint,
         stampReward=place.stamp_reward,
         heroLabel=place.hero_label,
+        totalVisitCount=total_visit_count,
     )
 
 
