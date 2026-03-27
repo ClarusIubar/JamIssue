@@ -26,6 +26,18 @@ import {
   handleUpdateReview,
 } from './services/review-interactions.js';
 import {
+  countUnreadNotifications,
+  createUserNotification,
+  handleDeleteNotification,
+  handleMarkAllNotificationsRead,
+  handleMarkNotificationRead,
+  handleMyNotifications,
+  handleNotificationRealtimeChannel,
+  loadNotificationById,
+  loadUserNotifications,
+  publishNotificationEvent,
+} from './services/notifications.js';
+import {
   buildInFilter,
   encodeFilterValue,
   getSupabaseKey,
@@ -1026,174 +1038,6 @@ async function readRouteRow(env, routeId) {
   return rows?.[0] ?? null;
 }
 
-async function readNotificationRow(env, notificationId) {
-  const rows = await supabaseRequest(
-    env,
-    `user_notification?select=notification_id,user_id,actor_user_id,type,title,body,review_id,comment_id,route_id,is_read,created_at&notification_id=eq.${encodeFilterValue(notificationId)}&limit=1`,
-  );
-  return rows?.[0] ?? null;
-}
-
-async function createUserNotification(env, {
-  userId,
-  actorUserId = null,
-  type,
-  title,
-  body = '',
-  reviewId = null,
-  commentId = null,
-  routeId = null,
-  metadata = {},
-}) {
-  if (!userId) {
-    return null;
-  }
-
-  const nowIso = new Date().toISOString();
-  const rows = await supabaseRequest(env, 'user_notification?select=notification_id', {
-    method: 'POST',
-    body: JSON.stringify({
-      user_id: userId,
-      actor_user_id: actorUserId,
-      type,
-      title,
-      body,
-      review_id: reviewId ? Number(reviewId) : null,
-      comment_id: commentId ? Number(commentId) : null,
-      route_id: routeId ? Number(routeId) : null,
-      metadata,
-      is_read: false,
-      created_at: nowIso,
-      updated_at: nowIso,
-    }),
-  });
-  return rows?.[0] ?? null;
-}
-
-async function loadUserNotifications(env, userId, limit = 30) {
-  const rows = await supabaseRequest(
-    env,
-    `user_notification?select=notification_id,user_id,actor_user_id,type,title,body,review_id,comment_id,route_id,is_read,created_at&user_id=eq.${encodeFilterValue(userId)}&order=created_at.desc&limit=${limit}`,
-  );
-  const actorIdsFilter = buildInFilter((rows || []).map((row) => row.actor_user_id).filter(Boolean));
-  const actorRows = actorIdsFilter
-    ? await supabaseRequest(env, `user?select=user_id,nickname&user_id=${actorIdsFilter}`)
-    : [];
-  const actorNameById = new Map((actorRows || []).map((row) => [row.user_id, row.nickname]));
-
-  return (rows || []).map((row) => ({
-    id: String(row.notification_id),
-    type: row.type,
-    title: row.title,
-    body: row.body ?? '',
-    createdAt: formatDateTime(row.created_at),
-    isRead: Boolean(row.is_read),
-    reviewId: row.review_id ? String(row.review_id) : null,
-    commentId: row.comment_id ? String(row.comment_id) : null,
-    routeId: row.route_id ? String(row.route_id) : null,
-    actorName: row.actor_user_id ? actorNameById.get(row.actor_user_id) ?? null : null,
-  }));
-}
-
-async function countUnreadNotifications(env, userId) {
-  const rows = await supabaseRequest(
-    env,
-    `user_notification?select=notification_id&user_id=eq.${encodeFilterValue(userId)}&is_read=eq.false`,
-  );
-  return rows?.length ?? 0;
-}
-
-async function loadNotificationById(env, notificationId) {
-  const row = await readNotificationRow(env, notificationId);
-  if (!row) {
-    return null;
-  }
-  let actorName = null;
-  if (row.actor_user_id) {
-    const actorRows = await supabaseRequest(
-      env,
-      `user?select=user_id,nickname&user_id=eq.${encodeFilterValue(row.actor_user_id)}&limit=1`,
-    );
-    actorName = actorRows?.[0]?.nickname ?? null;
-  }
-  return {
-    id: String(row.notification_id),
-    type: row.type,
-    title: row.title,
-    body: row.body ?? '',
-    createdAt: formatDateTime(row.created_at),
-    isRead: Boolean(row.is_read),
-    reviewId: row.review_id ? String(row.review_id) : null,
-    commentId: row.comment_id ? String(row.comment_id) : null,
-    routeId: row.route_id ? String(row.route_id) : null,
-    actorName,
-  };
-}
-
-async function buildNotificationRealtimeTopic(env, userId) {
-  const secret = getSigningSecret(env);
-  if (!secret) {
-    throw new Error('Notification realtime secret is missing.');
-  }
-  const signature = await sha256Base64Url(`${userId}:${secret}:notifications`);
-  return `user-notifications:${userId}:${signature}`;
-}
-
-async function sendRealtimeBroadcast(env, topic, event, payload) {
-  if (!env.APP_SUPABASE_URL) {
-    return;
-  }
-
-  const apiKey = getSupabaseKey(env);
-  if (!apiKey) {
-    return;
-  }
-
-  await fetch(`${env.APP_SUPABASE_URL}/realtime/v1/api/broadcast`, {
-    method: 'POST',
-    headers: {
-      apikey: apiKey,
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messages: [
-        {
-          topic,
-          event,
-          payload,
-          private: false,
-        },
-      ],
-    }),
-  });
-}
-
-async function publishNotificationEvent(env, userId, event, payload) {
-  const topic = await buildNotificationRealtimeTopic(env, userId);
-  await sendRealtimeBroadcast(env, topic, event, payload);
-}
-
-async function handleMyNotifications(request, env) {
-  const sessionResult = await requireSessionUser(request, env);
-  if (sessionResult.response) {
-    return sessionResult.response;
-  }
-
-  const notifications = await loadUserNotifications(env, sessionResult.sessionUser.id, 50);
-  return jsonResponse(200, notifications, env, request);
-}
-
-async function handleNotificationRealtimeChannel(request, env) {
-  const sessionResult = await requireSessionUser(request, env);
-  if (sessionResult.response) {
-    return sessionResult.response;
-  }
-
-  const topic = await buildNotificationRealtimeTopic(env, sessionResult.sessionUser.id);
-  return jsonResponse(200, { topic }, env, request);
-}
-
 async function loadSingleReview(env, reviewId, sessionUserId = null) {
   const reviewRows = await supabaseRequest(
     env,
@@ -1465,104 +1309,421 @@ async function handleCreateUserRoute(request, env) {
   return jsonResponse(201, createdRoute, env, request);
 }
 
-async function handleMarkNotificationRead(request, env, notificationId) {
+async function handleAdminSummary(request, env) {
+  const sessionUser = await readSessionUser(request, env);
+  if (!sessionUser || !sessionUser.isAdmin) {
+    return jsonResponse(403, { detail: '??? ???.' }, env, request);
+  }
+  return jsonResponse(200, await buildAdminSummary(env), env, request);
+}
+
+async function handleAdminPlaceVisibility(request, env, placeId) {
+  const sessionUser = await readSessionUser(request, env);
+  if (!sessionUser || !sessionUser.isAdmin) {
+    return jsonResponse(403, { detail: '???? ??? ? ???.' }, env, request);
+  }
+  const payload = await request.json().catch(() => null);
+  const body = {};
+  if (typeof payload?.isActive === 'boolean') body.is_active = payload.isActive;
+  if (typeof payload?.isManualOverride === 'boolean') body.is_manual_override = payload.isManualOverride;
+  body.updated_at = new Date().toISOString();
+  const updatedRows = await supabaseRequest(env, `map?slug=eq.${encodeFilterValue(placeId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+  const updatedRow = Array.isArray(updatedRows) ? updatedRows[0] : null;
+  if (!updatedRow) {
+    return jsonResponse(404, { detail: '??? ?? ? ???.' }, env, request);
+  }
+  const reviewRows = await supabaseRequest(env, `feed?select=feed_id&position_id=eq.${encodeFilterValue(updatedRow.position_id)}`);
+  return jsonResponse(200, {
+    id: updatedRow.slug,
+    name: updatedRow.name,
+    district: updatedRow.district,
+    category: normalizePlaceCategory(updatedRow.category, updatedRow.slug),
+    isActive: Boolean(updatedRow.is_active),
+    isManualOverride: Boolean(updatedRow.is_manual_override),
+    reviewCount: (reviewRows ?? []).length,
+    updatedAt: formatDateTime(updatedRow.updated_at),
+  }, env, request);
+}
+
+async function handleAdminImportPublicData(request, env) {
+  const sessionUser = await readSessionUser(request, env);
+  if (!sessionUser || !sessionUser.isAdmin) {
+    return jsonResponse(403, { detail: '관리자만 공공데이터를 다시 불러올 수 있어요.' }, env, request);
+  }
+
+  const sourceRows = await supabaseRequest(
+    env,
+    `public_data_source?select=name,last_imported_at&source_key=eq.${encodeFilterValue('jamissue-public-event-feed')}&limit=1`,
+  );
+  const source = sourceRows?.[0] ?? null;
+
+  return jsonResponse(200, {
+    importedPlaces: 0,
+    importedCourses: 0,
+    importedEvents: 0,
+    mode: 'scheduled',
+    detail: '공공 행사 동기화는 GitHub Actions 주간 작업으로 처리돼요.',
+    importedAt: source?.last_imported_at ?? null,
+  }, env, request);
+}
+
+async function handleMySummary(request, env) {
+  const sessionUser = await readSessionUser(request, env);
+  if (!sessionUser) {
+    return jsonResponse(401, { detail: "로그인이 필요해요." }, env, request);
+  }
+
+  const baseData = await loadBaseData(env, sessionUser.id);
+  const routes = await loadCommunityRoutes(env, { ownerUserId: sessionUser.id, sessionUserId: sessionUser.id });
+  const reviewItems = baseData.reviews.filter((review) => review.userId === sessionUser.id);
+  const reviewById = new Map(baseData.reviews.map((review) => [String(review.id), review]));
+  const notifications = await loadUserNotifications(env, sessionUser.id);
+  const myCommentRows = await supabaseRequest(
+    env,
+    `user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&user_id=eq.${encodeFilterValue(sessionUser.id)}&order=created_at.desc`,
+  );
+  const myComments = buildMyComments(myCommentRows ?? [], reviewById);
+  const collectedSet = new Set(baseData.collectedPlaceIds);
+  const visitedPlaces = baseData.places.filter((place) => collectedSet.has(place.id)).map(({ positionId, ...place }) => place);
+  const unvisitedPlaces = baseData.places.filter((place) => !collectedSet.has(place.id)).map(({ positionId, ...place }) => place);
+
+  return jsonResponse(200, {
+    user: sessionUser,
+    stats: {
+      reviewCount: reviewItems.length,
+      stampCount: baseData.stampLogs.length,
+      uniquePlaceCount: collectedSet.size,
+      totalPlaceCount: baseData.places.length,
+      routeCount: routes.length,
+    },
+    reviews: reviewItems,
+    comments: myComments,
+    notifications,
+    unreadNotificationCount: notifications.filter((notification) => !notification.isRead).length,
+    stampLogs: baseData.stampLogs,
+    travelSessions: baseData.travelSessions,
+    visitedPlaces,
+    unvisitedPlaces,
+    collectedPlaces: visitedPlaces,
+    routes,
+  }, env, request);
+}
+function getStampUnlockRadius(env) {
+  const parsed = Number(env.APP_STAMP_UNLOCK_RADIUS_METERS ?? '120');
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 120;
+}
+
+function calculateDistanceMeters(startLatitude, startLongitude, endLatitude, endLongitude) {
+  const earthRadiusMeters = 6_371_000;
+  const latitudeDelta = ((endLatitude - startLatitude) * Math.PI) / 180;
+  const longitudeDelta = ((endLongitude - startLongitude) * Math.PI) / 180;
+  const startLatitudeRadians = (startLatitude * Math.PI) / 180;
+  const endLatitudeRadians = (endLatitude * Math.PI) / 180;
+
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(startLatitudeRadians) * Math.cos(endLatitudeRadians) * Math.sin(longitudeDelta / 2) ** 2;
+
+  return earthRadiusMeters * (2 * Math.asin(Math.sqrt(haversine)));
+}
+
+function buildNearPlaceMessage(placeName, distanceMeters, unlockRadius) {
+  return `${placeName}까지 ${formatDistanceMeters(distanceMeters)} 남았어요. 반경 ${unlockRadius}m 안에 들어오면 열려요.`;
+}
+
+async function readJsonBody(request) {
+  try {
+    return await request.json();
+  } catch {
+    throw new Error('요청 형식이 올바르지 않아요.');
+  }
+}
+
+async function requireSessionUser(request, env) {
+  const sessionUser = await readSessionUser(request, env);
+  if (!sessionUser) {
+    return { response: jsonResponse(401, { detail: '로그인이 필요해요.' }, env, request) };
+  }
+  return { sessionUser };
+}
+
+async function readRouteRow(env, routeId) {
+  const rows = await supabaseRequest(env, `user_route?select=route_id,user_id,like_count&route_id=eq.${encodeFilterValue(routeId)}&limit=1`);
+  return rows?.[0] ?? null;
+}
+
+async function loadSingleReview(env, reviewId, sessionUserId = null) {
+  const reviewRows = await supabaseRequest(
+    env,
+    `feed?select=feed_id,position_id,user_id,stamp_id,body,mood,badge,image_url,created_at&feed_id=eq.${encodeFilterValue(reviewId)}&limit=1`,
+  );
+  const reviewRow = reviewRows?.[0] ?? null;
+  if (!reviewRow) {
+    return null;
+  }
+
+  const [commentRows, likeRows, placeRows, stampRows, userFeedLikeRows = []] = await Promise.all([
+    supabaseRequest(env, `user_comment?select=comment_id,feed_id,user_id,parent_id,body,is_deleted,created_at&feed_id=eq.${encodeFilterValue(reviewId)}&order=created_at.asc`),
+    supabaseRequest(env, `feed_like?select=feed_id,user_id&feed_id=eq.${encodeFilterValue(reviewId)}`),
+    supabaseRequest(env, `map?select=position_id,slug,name,district,category,latitude,longitude,summary,description,image_url,image_storage_path,vibe_tags,visit_time,route_hint,stamp_reward,hero_label,jam_color,accent_color,is_active&position_id=eq.${encodeFilterValue(reviewRow.position_id)}&limit=1`),
+    reviewRow.stamp_id
+      ? supabaseRequest(env, `user_stamp?select=stamp_id,user_id,position_id,travel_session_id,stamp_date,visit_ordinal,created_at&stamp_id=eq.${encodeFilterValue(reviewRow.stamp_id)}&limit=1`)
+      : Promise.resolve([]),
+    sessionUserId
+      ? supabaseRequest(env, `feed_like?select=feed_id&user_id=eq.${encodeFilterValue(sessionUserId)}&feed_id=eq.${encodeFilterValue(reviewId)}&limit=1`)
+      : Promise.resolve([]),
+  ]);
+  const reviewTravelSessionIds = [...new Set((stampRows ?? []).map((row) => row.travel_session_id).filter(Boolean).map((value) => String(value)))];
+  const reviewRouteRows = reviewTravelSessionIds.length > 0
+    ? await supabaseRequest(env, `user_route?select=route_id,travel_session_id&travel_session_id=${buildInFilter(reviewTravelSessionIds)}`)
+    : [];
+
+  const userIdsFilter = buildInFilter([reviewRow.user_id, ...commentRows.map((row) => row.user_id)]);
+  const userRows = userIdsFilter
+    ? await supabaseRequest(env, `user?select=user_id,nickname&user_id=${userIdsFilter}`)
+    : [];
+
+  const places = placeRows.map(mapPlace);
+  const placesByPositionId = new Map(places.map((place) => [place.positionId, place]));
+  const usersById = new Map(userRows.map((row) => [row.user_id, row]));
+  const stampRowsById = new Map((stampRows ?? []).map((row) => [String(row.stamp_id), row]));
+  const likedFeedIds = new Set((userFeedLikeRows ?? []).map((row) => String(row.feed_id)));
+
+  return (
+    mapReviewRows([reviewRow], commentRows ?? [], likeRows ?? [], usersById, placesByPositionId, stampRowsById, reviewRouteRows, likedFeedIds)[0] ??
+    null
+  );
+}
+
+function buildReviewInteractionDeps() {
+  return {
+    badgeByMood: BADGE_BY_MOOD,
+    countUnreadNotifications,
+    createUserNotification,
+    loadBaseData,
+    loadNotificationById,
+    loadSingleReview,
+    publishNotificationEvent,
+    readSessionUser,
+  };
+}
+
+async function handleToggleStamp(request, env) {
   const sessionResult = await requireSessionUser(request, env);
   if (sessionResult.response) {
     return sessionResult.response;
   }
 
-  const notificationRow = await readNotificationRow(env, notificationId);
-  if (!notificationRow) {
-    return jsonResponse(404, { detail: '알림을 찾지 못했어요.' }, env, request);
-  }
-  if (notificationRow.user_id !== sessionResult.sessionUser.id) {
-    return jsonResponse(403, { detail: '내 알림만 확인할 수 있어요.' }, env, request);
+  const payload = await readJsonBody(request);
+  const placeId = String(payload.placeId ?? "").trim();
+  const latitude = Number(payload.latitude);
+  const longitude = Number(payload.longitude);
+  if (!placeId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return jsonResponse(400, { detail: "장소와 현재 좌표가 필요해요." }, env, request);
   }
 
-  if (!notificationRow.is_read) {
-    const nowIso = new Date().toISOString();
-    await supabaseRequest(env, `user_notification?notification_id=eq.${encodeFilterValue(notificationId)}`, {
-      method: 'PATCH',
+  const baseData = await loadBaseData(env, sessionResult.sessionUser.id);
+  const place = baseData.places.find((item) => item.id === placeId);
+  if (!place) {
+    return jsonResponse(404, { detail: "장소를 찾지 못했어요." }, env, request);
+  }
+
+  const distanceMeters = calculateDistanceMeters(latitude, longitude, place.latitude, place.longitude);
+  const unlockRadius = getStampUnlockRadius(env);
+  if (distanceMeters > unlockRadius) {
+    return jsonResponse(403, { detail: buildNearPlaceMessage(place.name, distanceMeters, unlockRadius) }, env, request);
+  }
+
+  const stampDate = toSeoulDateKey();
+  const existingTodayRows = await supabaseRequest(env, `user_stamp?select=stamp_id&user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&position_id=eq.${encodeFilterValue(place.positionId)}&stamp_date=eq.${encodeFilterValue(stampDate)}&limit=1`);
+  if (existingTodayRows?.[0]) {
+    const nextBaseData = await loadBaseData(env, sessionResult.sessionUser.id);
+    return jsonResponse(200, {
+      collectedPlaceIds: nextBaseData.collectedPlaceIds,
+      logs: nextBaseData.stampLogs,
+      travelSessions: nextBaseData.travelSessions,
+    }, env, request);
+  }
+
+  const nowIso = new Date().toISOString();
+  const placeStampRows = await supabaseRequest(env, `user_stamp?select=stamp_id&user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&position_id=eq.${encodeFilterValue(place.positionId)}`);
+  const visitOrdinal = (placeStampRows?.length ?? 0) + 1;
+
+  const lastStampRows = await supabaseRequest(env, `user_stamp?select=stamp_id,travel_session_id,created_at&user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&order=created_at.desc&limit=1`);
+  const lastStampRow = lastStampRows?.[0] ?? null;
+  let travelSessionId = null;
+
+  if (lastStampRow) {
+    const gapMs = new Date(nowIso).getTime() - new Date(lastStampRow.created_at).getTime();
+    if (gapMs <= 1000 * 60 * 60 * 24) {
+      if (lastStampRow.travel_session_id) {
+        travelSessionId = Number(lastStampRow.travel_session_id);
+        const sessionRows = await supabaseRequest(env, `travel_session?select=stamp_count&travel_session_id=eq.${encodeFilterValue(travelSessionId)}&limit=1`);
+        const sessionRow = sessionRows?.[0] ?? null;
+        await supabaseRequest(env, `travel_session?travel_session_id=eq.${encodeFilterValue(travelSessionId)}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            ended_at: nowIso,
+            last_stamp_at: nowIso,
+            stamp_count: Number(sessionRow?.stamp_count ?? 0) + 1,
+            updated_at: nowIso,
+          }),
+        });
+      } else {
+        const createdSessions = await supabaseRequest(env, "travel_session?select=travel_session_id", {
+          method: "POST",
+          body: JSON.stringify({
+            user_id: sessionResult.sessionUser.id,
+            started_at: lastStampRow.created_at,
+            ended_at: nowIso,
+            last_stamp_at: nowIso,
+            stamp_count: 2,
+            created_at: nowIso,
+            updated_at: nowIso,
+          }),
+        });
+        travelSessionId = Number(createdSessions?.[0]?.travel_session_id);
+        await supabaseRequest(env, `user_stamp?stamp_id=eq.${encodeFilterValue(lastStampRow.stamp_id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ travel_session_id: travelSessionId }),
+        });
+      }
+    }
+  }
+
+  if (!travelSessionId) {
+    const createdSessions = await supabaseRequest(env, "travel_session?select=travel_session_id", {
+      method: "POST",
       body: JSON.stringify({
-        is_read: true,
-        read_at: nowIso,
+        user_id: sessionResult.sessionUser.id,
+        started_at: nowIso,
+        ended_at: nowIso,
+        last_stamp_at: nowIso,
+        stamp_count: 1,
+        created_at: nowIso,
         updated_at: nowIso,
       }),
     });
-    await publishNotificationEvent(env, sessionResult.sessionUser.id, 'notification.read', {
-      notificationId: String(notificationId),
-      unreadCount: await countUnreadNotifications(env, sessionResult.sessionUser.id),
-    });
+    travelSessionId = Number(createdSessions?.[0]?.travel_session_id);
   }
 
+  await supabaseRequest(env, "user_stamp?select=stamp_id", {
+    method: "POST",
+    body: JSON.stringify({
+      user_id: sessionResult.sessionUser.id,
+      position_id: Number(place.positionId),
+      travel_session_id: travelSessionId,
+      stamp_date: stampDate,
+      visit_ordinal: visitOrdinal,
+      created_at: nowIso,
+    }),
+  });
+
+  const nextBaseData = await loadBaseData(env, sessionResult.sessionUser.id);
   return jsonResponse(200, {
-    notificationId: String(notificationId),
-    read: true,
+    collectedPlaceIds: nextBaseData.collectedPlaceIds,
+    logs: nextBaseData.stampLogs,
+    travelSessions: nextBaseData.travelSessions,
   }, env, request);
 }
-
-async function handleMarkAllNotificationsRead(request, env) {
+async function handleCreateUserRoute(request, env) {
   const sessionResult = await requireSessionUser(request, env);
   if (sessionResult.response) {
     return sessionResult.response;
   }
 
-  const unreadRows = await supabaseRequest(
-    env,
-    `user_notification?select=notification_id&user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&is_read=eq.false`,
-  );
-  const updated = unreadRows?.length ?? 0;
+  const payload = await readJsonBody(request);
+  const travelSessionId = String(payload.travelSessionId ?? "").trim();
+  const title = String(payload.title ?? "").trim();
+  const description = String(payload.description ?? "").trim();
+  const mood = String(payload.mood ?? "").trim();
+  const isPublic = payload.isPublic !== false;
 
-  if (updated > 0) {
-    const nowIso = new Date().toISOString();
-    await supabaseRequest(
-      env,
-      `user_notification?user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&is_read=eq.false`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({
-          is_read: true,
-          read_at: nowIso,
-          updated_at: nowIso,
-        }),
-      },
-    );
-    await publishNotificationEvent(env, sessionResult.sessionUser.id, 'notification.all-read', {
-      updated,
-      unreadCount: 0,
-    });
+  if (!travelSessionId) {
+    return jsonResponse(400, { detail: "방향을 묶을 여행 세션이 필요해요." }, env, request);
+  }
+  if (!title) {
+    return jsonResponse(400, { detail: "경로 제목을 적어 주세요." }, env, request);
+  }
+  if (!description) {
+    return jsonResponse(400, { detail: "한 줄 소개를 적어 주세요." }, env, request);
   }
 
-  return jsonResponse(200, { updated }, env, request);
-}
-
-async function handleDeleteNotification(request, env, notificationId) {
-  const sessionResult = await requireSessionUser(request, env);
-  if (sessionResult.response) {
-    return sessionResult.response;
+  const sessionRows = await supabaseRequest(env, `travel_session?select=travel_session_id,user_id&travel_session_id=eq.${encodeFilterValue(travelSessionId)}&user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&limit=1`);
+  if (!sessionRows?.[0]) {
+    return jsonResponse(404, { detail: "여행 세션을 찾지 못했어요." }, env, request);
   }
 
-  const notificationRow = await readNotificationRow(env, notificationId);
-  if (!notificationRow) {
-    return jsonResponse(404, { detail: '알림을 찾지 못했어요.' }, env, request);
-  }
-  if (notificationRow.user_id !== sessionResult.sessionUser.id) {
-    return jsonResponse(403, { detail: '내 알림만 삭제할 수 있어요.' }, env, request);
+  const existingRouteRows = await supabaseRequest(env, `user_route?select=route_id&user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&travel_session_id=eq.${encodeFilterValue(travelSessionId)}&limit=1`);
+  if (existingRouteRows?.[0]) {
+    return jsonResponse(409, { detail: "이미 발행한 여행 코스예요." }, env, request);
   }
 
-  await supabaseRequest(env, `user_notification?notification_id=eq.${encodeFilterValue(notificationId)}`, {
-    method: 'DELETE',
-    headers: { Prefer: 'return=minimal' },
+  const sessionStampRows = await supabaseRequest(env, `user_stamp?select=position_id,created_at&travel_session_id=eq.${encodeFilterValue(travelSessionId)}&user_id=eq.${encodeFilterValue(sessionResult.sessionUser.id)}&order=created_at.asc`);
+  const orderedPositionIds = [];
+  const seenPositionIds = new Set();
+  for (const stampRow of sessionStampRows ?? []) {
+    const positionId = String(stampRow.position_id);
+    if (seenPositionIds.has(positionId)) {
+      continue;
+    }
+    seenPositionIds.add(positionId);
+    orderedPositionIds.push(positionId);
+  }
+  if (orderedPositionIds.length < 2) {
+    return jsonResponse(400, { detail: "코스에는 최소 두 곳 이상의 스탬프 기록이 필요해요." }, env, request);
+  }
+
+  const routeRows = await supabaseRequest(env, "user_route?select=route_id", {
+    method: "POST",
+    body: JSON.stringify({
+      user_id: sessionResult.sessionUser.id,
+      travel_session_id: Number(travelSessionId),
+      title,
+      description,
+      mood,
+      is_public: isPublic,
+      is_user_generated: true,
+      like_count: 0,
+    }),
   });
-  await publishNotificationEvent(env, sessionResult.sessionUser.id, 'notification.deleted', {
-    notificationId: String(notificationId),
-    unreadCount: await countUnreadNotifications(env, sessionResult.sessionUser.id),
+  const routeId = routeRows?.[0]?.route_id;
+
+  await supabaseRequest(env, "user_route_place?select=user_route_place_id", {
+    method: "POST",
+    body: JSON.stringify(orderedPositionIds.map((positionId, index) => ({
+      route_id: Number(routeId),
+      position_id: Number(positionId),
+      stop_order: index + 1,
+    }))),
   });
 
-  return jsonResponse(200, {
-    notificationId: String(notificationId),
-    deleted: true,
-  }, env, request);
+  const routes = await loadCommunityRoutes(env, { ownerUserId: sessionResult.sessionUser.id, sessionUserId: sessionResult.sessionUser.id });
+  const createdRoute = routes.find((route) => route.id === String(routeId)) ?? null;
+  const createdNotification = await createUserNotification(env, {
+    userId: sessionResult.sessionUser.id,
+    actorUserId: sessionResult.sessionUser.id,
+    type: 'route-published',
+    title: '새로운 코스가 발행되었습니다.',
+    body: title,
+    routeId,
+    metadata: {
+      travelSessionId,
+    },
+  });
+  if (createdNotification?.notification_id) {
+    const notification = await loadNotificationById(env, createdNotification.notification_id);
+    if (notification) {
+      await publishNotificationEvent(env, sessionResult.sessionUser.id, 'notification.created', {
+        notification,
+        unreadCount: await countUnreadNotifications(env, sessionResult.sessionUser.id),
+      });
+    }
+  }
+  return jsonResponse(201, createdRoute, env, request);
 }
 
 async function handleToggleCommunityRouteLike(request, env, routeId) {
