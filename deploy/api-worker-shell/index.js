@@ -4,10 +4,11 @@ const PROVIDERS = [
 ];
 
 const BADGE_BY_MOOD = {
-  설렘: '첫 방문',
-  친구랑: '친구 추천',
-  혼자서: '로컬 탐방',
-  야경픽: '야경 성공',
+  '설렘': '첫 방문',
+  '친구랑': '친구 추천',
+  '혼자서': '로컬 탐방',
+  '데이트': '데이트 코스',
+  '야경 맛집': '야경 성공',
 };
 
 const SESSION_COOKIE_NAME = 'jamissue_worker_session';
@@ -3207,7 +3208,7 @@ async function handleCreateReview(request, env) {
       stamp_id: Number(stampId),
       body,
       mood,
-      badge: BADGE_BY_MOOD[mood] ?? "현장 방문",
+      badge: BADGE_BY_MOOD[mood] ?? "\uD604\uC7A5 \uBC29\uBB38",
       image_url: imageUrl,
     }),
   });
@@ -3266,7 +3267,7 @@ async function handleUpdateReview(request, env, reviewId) {
     body: JSON.stringify({
       body,
       mood,
-      badge: BADGE_BY_MOOD[mood] ?? '?꾩옣 諛⑸Ц',
+      badge: BADGE_BY_MOOD[mood] ?? '\uD604\uC7A5 \uBC29\uBB38',
       updated_at: new Date().toISOString(),
     }),
   });
