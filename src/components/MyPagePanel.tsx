@@ -209,15 +209,16 @@ export function MyPagePanel({
     setReviewEditError(null);
   }
 
-  function cancelEditingReview() {
-    setEditingReviewId(null);
-    setEditingReviewBody('');
-    setEditingReviewMood('혼자서');
-    setEditingReviewFile(null);
-    setEditingReviewRemoveImage(false);
-    setEditingReviewPreviewUrl(null);
-    setReviewEditError(null);
-  }
+function cancelEditingReview() {
+  setEditingReviewId(null);
+  setEditingReviewBody('');
+  setEditingReviewMood('혼자서');
+  setEditingReviewFile(null);
+  setEditingReviewRemoveImage(false);
+  setEditingReviewPreviewUrl(null);
+  setReviewEditError(null);
+}
+
 
   const unpublishedSessions = useMemo(
     () => myPage?.travelSessions.filter((session) => session.canPublish && !session.publishedRouteId) ?? [],
@@ -543,69 +544,69 @@ export function MyPagePanel({
                             disabled={reviewUpdatingId === review.id}
                           />
                         </label>
-                        <div className="route-builder-field">
-                          <span>피드 이미지</span>
-                          {(editingReviewPreviewUrl || (review.imageUrl && !editingReviewRemoveImage)) && (
-                            <div style={{ position: 'relative' }}>
-                              <img
-                                src={editingReviewPreviewUrl ?? review.imageUrl ?? ''}
-                                alt={`${review.placeName} 피드 이미지`}
-                                className="review-card__image"
-                                style={{ width: '100%', maxHeight: '220px', objectFit: 'cover', borderRadius: '16px' }}
-                              />
-                              <button
-                                type="button"
-                                aria-label="이미지 제거"
-                                onClick={() => {
-                                  if (editingReviewFile) {
-                                    setEditingReviewFile(null);
-                                    setEditingReviewPreviewUrl(null);
-                                    return;
-                                  }
-                                  setEditingReviewRemoveImage(true);
-                                }}
-                                disabled={reviewUpdatingId === review.id}
-                                style={{
-                                  position: 'absolute',
-                                  top: '10px',
-                                  right: '10px',
-                                  width: '32px',
-                                  height: '32px',
-                                  borderRadius: '999px',
-                                  border: '1px solid rgba(255, 194, 210, 0.9)',
-                                  background: 'rgba(255, 255, 255, 0.96)',
-                                  color: 'var(--ink-700)',
-                                  fontSize: '18px',
-                                  lineHeight: 1,
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                ×
-                              </button>
-                            </div>
-                          )}
-                          <label className={reviewUpdatingId === review.id ? 'file-picker is-disabled' : 'file-picker'} htmlFor={`review-edit-image-${review.id}`}>
-                            <span>{editingReviewFile ? editingReviewFile.name : '사진을 골라주세요'}</span>
-                            <strong>{editingReviewFile || review.imageUrl ? '다시 선택' : '사진 선택'}</strong>
-                          </label>
-                          <input
-                            id={`review-edit-image-${review.id}`}
-                            type="file"
-                            accept="image/*"
-                            className="visually-hidden"
-                            disabled={reviewUpdatingId === review.id}
-                            onChange={(event) => {
-                              const nextFile = event.target.files?.[0] ?? null;
-                              setEditingReviewFile(nextFile);
-                              if (nextFile) {
-                                setEditingReviewRemoveImage(false);
-                              }
-                              event.currentTarget.value = '';
-                            }}
-                          />
-                          {review.imageUrl && editingReviewRemoveImage && !editingReviewFile && (
-                            <p className="section-copy">기존 이미지는 삭제되고 새 사진 1장만 다시 첨부할 수 있어요.</p>
-                          )}
+<div className="route-builder-field">
+  <span>피드 이미지</span>
+  {(editingReviewPreviewUrl || (review.imageUrl && !editingReviewRemoveImage)) && (
+    <div style={{ position: 'relative' }}>
+      <img
+        src={editingReviewPreviewUrl ?? review.imageUrl ?? ''}
+        alt={`${review.placeName} 피드 이미지`}
+        className="review-card__image"
+        style={{ width: '100%', maxHeight: '220px', objectFit: 'cover', borderRadius: '16px' }}
+      />
+      <button
+        type="button"
+        aria-label="이미지 제거"
+        onClick={() => {
+          if (editingReviewFile) {
+            setEditingReviewFile(null);
+            setEditingReviewPreviewUrl(null);
+            return;
+          }
+          setEditingReviewRemoveImage(true);
+        }}
+        disabled={reviewUpdatingId === review.id}
+        style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          width: '32px',
+          height: '32px',
+          borderRadius: '999px',
+          border: '1px solid rgba(255, 194, 210, 0.9)',
+          background: 'rgba(255, 255, 255, 0.96)',
+          color: 'var(--ink-700)',
+          fontSize: '18px',
+          lineHeight: 1,
+          cursor: 'pointer',
+        }}
+      >
+        ×
+      </button>
+    </div>
+  )}
+  <label className={reviewUpdatingId === review.id ? 'file-picker is-disabled' : 'file-picker'} htmlFor={`review-edit-image-${review.id}`}>
+    <span>{editingReviewFile ? editingReviewFile.name : '사진을 골라주세요'}</span>
+    <strong>{editingReviewFile || review.imageUrl ? '다시 선택' : '사진 선택'}</strong>
+  </label>
+  <input
+    id={`review-edit-image-${review.id}`}
+    type="file"
+    accept="image/*"
+    className="visually-hidden"
+    disabled={reviewUpdatingId === review.id}
+    onChange={(event) => {
+      const nextFile = event.target.files?.[0] ?? null;
+      setEditingReviewFile(nextFile);
+      if (nextFile) {
+        setEditingReviewRemoveImage(false);
+      }
+      event.currentTarget.value = '';
+    }}
+  />
+  {review.imageUrl && editingReviewRemoveImage && !editingReviewFile && (
+    <p className="section-copy">기존 이미지는 삭제되고 새 사진 1장만 다시 첨부할 수 있어요.</p>
+  )}
                         </div>
                         {reviewEditError ? <p className="form-error-copy">{reviewEditError}</p> : null}
                         <div className="review-card__actions review-card__actions--my-feed">
@@ -696,7 +697,6 @@ export function MyPagePanel({
                           <div>
                             <p className="eyebrow">TRAVEL SESSION</p>
                             <h4>{session.durationLabel}</h4>
-                          </div>
                           <span className="counter-pill">스탬프 {session.stampCount}개</span>
                         </div>
                         <div className="course-card__places community-route-places">
@@ -792,25 +792,4 @@ export function MyPagePanel({
     </section>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
