@@ -1087,6 +1087,27 @@ body {
   gap: 8px !important;
 }
 
+.place-drawer__header > div,
+.place-drawer__proof-copy,
+.route-hint-box,
+.review-composer > div,
+.place-drawer__preview-card,
+.place-drawer__preview-empty {
+  min-width: 0 !important;
+}
+
+.place-drawer__summary,
+.place-drawer__proof-copy p,
+.route-hint-box p,
+.review-composer .section-copy,
+.place-drawer__preview-body,
+.place-drawer__preview-empty .section-copy {
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+  line-break: strict !important;
+  text-wrap: pretty;
+}
+
 .place-drawer__proof-action {
   justify-items: stretch !important;
 }
