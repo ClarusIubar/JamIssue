@@ -86,6 +86,25 @@ function createManifest() {
   );
 }
 
+function createPagesHeaders() {
+  return `
+/index.html
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/app-config.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/manifest.webmanifest
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
+`.trimStart();
+}
+
 function createIconSvg() {
   return `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="${APP_NAME}">
@@ -148,6 +167,7 @@ async function writeStaticFiles(publicConfig, builtAssets) {
   await mkdir(siteDir, { recursive: true });
   await mkdir(iconsDir, { recursive: true });
   await writeFile(path.join(siteDir, "index.html"), createIndexHtml(builtAssets), "utf8");
+  await writeFile(path.join(siteDir, "_headers"), createPagesHeaders(), "utf8");
   await writeFile(path.join(siteDir, "manifest.webmanifest"), createManifest(), "utf8");
   await writeFile(path.join(iconsDir, "jamissue-icon.svg"), createIconSvg(), "utf8");
   await writeFile(

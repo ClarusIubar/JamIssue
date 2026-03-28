@@ -115,6 +115,23 @@ $manifest = @"
 }
 "@
 
+$pagesHeaders = @"
+/index.html
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/app-config.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/manifest.webmanifest
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
+"@
+
 $iconSvg = @"
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="$appName">
   <defs>
@@ -157,6 +174,7 @@ $indexHtml = @"
 $appConfig = "window.__JAMISSUE_CONFIG__ = " + ($publicConfig | ConvertTo-Json -Depth 3) + ";`n"
 
 Write-Utf8NoBom -Path (Join-Path $siteDir "index.html") -Content $indexHtml
+Write-Utf8NoBom -Path (Join-Path $siteDir "_headers") -Content $pagesHeaders
 Write-Utf8NoBom -Path (Join-Path $siteDir "manifest.webmanifest") -Content $manifest
 Write-Utf8NoBom -Path (Join-Path $iconsDir "jamissue-icon.svg") -Content $iconSvg
 Write-Utf8NoBom -Path (Join-Path $siteDir "app-config.js") -Content $appConfig
