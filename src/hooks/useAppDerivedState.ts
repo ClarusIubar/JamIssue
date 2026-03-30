@@ -86,7 +86,7 @@ export function useAppDerivedState({
       return false;
     }
 
-    return knownMyReviews.some((review) => review.stampId === todayStamp.id || review.visitedAt.startsWith(todayStamp.stampedDate));
+    return knownMyReviews.some((review) => review.placeId === todayStamp.placeId && (review.stampId === todayStamp.id || review.visitedAt.startsWith(todayStamp.stampedDate)));
   }, [knownMyReviews, sessionUser, todayStamp]);
 
   const canCreateReview = Boolean(sessionUser && selectedPlace && todayStamp && !hasCreatedReviewToday);
