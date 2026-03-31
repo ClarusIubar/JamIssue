@@ -3,7 +3,7 @@ import { useAutoLoadMore } from '../hooks/useAutoLoadMore';
 import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { FeedCommentSheet } from './FeedCommentSheet';
 import { ReviewList } from './ReviewList';
-import type { Review, SessionUser } from '../types';
+import type { ApiStatus, Comment, Review, SessionUser } from '../types';
 
 interface FeedTabProps {
   reviews: Review[];
@@ -15,6 +15,8 @@ interface FeedTabProps {
   commentMutatingId: string | null;
   deletingReviewId: string | null;
   activeCommentReviewId: string | null;
+  activeCommentReviewComments: Comment[];
+  activeCommentReviewStatus: ApiStatus;
   highlightedCommentId: string | null;
   highlightedReviewId: string | null;
   hasMore: boolean;
@@ -42,6 +44,8 @@ export function FeedTab({
   commentMutatingId,
   deletingReviewId,
   activeCommentReviewId,
+  activeCommentReviewComments,
+  activeCommentReviewStatus,
   highlightedCommentId,
   highlightedReviewId,
   hasMore,
@@ -128,6 +132,8 @@ export function FeedTab({
       </section>
       <FeedCommentSheet
         review={activeReview}
+        comments={activeCommentReviewComments}
+        commentsStatus={activeCommentReviewStatus}
         isOpen={activeCommentReviewId !== null}
         canWriteComment={Boolean(sessionUser)}
         currentUserId={sessionUser?.id ?? null}

@@ -1,6 +1,7 @@
 ﻿import { useCallback } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { getAdminSummary, getCommunityRoutes, getMySummary, getReviewFeedPage } from '../api/client';
+import { toReviewSummaryList } from '../lib/reviews';
 import type {
   AdminSummaryResponse,
   CommunityRouteSort,
@@ -71,7 +72,7 @@ export function useAppTabDataLoaders({
     }
 
     const page = await getReviewFeedPage({ limit: 10 });
-    setReviews(page.items);
+    setReviews(toReviewSummaryList(page.items));
     setFeedNextCursor(page.nextCursor);
     setFeedHasMore(Boolean(page.nextCursor));
     feedLoadedRef.current = true;
@@ -119,9 +120,13 @@ export function useAppTabDataLoaders({
 
     try {
       const nextMyPage = await getMySummary();
-      setMyPage(nextMyPage);
+      const nextMyPageSummary = {
+        ...nextMyPage,
+        reviews: toReviewSummaryList(nextMyPage.reviews),
+      };
+      setMyPage(nextMyPageSummary);
       setMyPageError(null);
-      return nextMyPage;
+      return nextMyPageSummary;
     } catch (error) {
       setMyPage(null);
       setMyPageError(error instanceof Error ? error.message : '마이페이지 정보를 불러오지 못했어요.');

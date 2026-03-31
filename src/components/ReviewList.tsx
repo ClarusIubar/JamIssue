@@ -126,19 +126,19 @@ export function ReviewList({
                   type="button"
                   className="review-action-button"
                   onClick={() => onOpenComments(review.id)}
-                  aria-label={`댓글 ${review.comments.length}개`}
+                  aria-label={`댓글 ${review.commentCount}개`}
                 >
                   <span className="review-action-button__icon" aria-hidden="true">
                     <CommentIcon />
                   </span>
-                  <span className="review-action-button__label">{review.comments.length}</span>
+                  <span className="review-action-button__label">{review.commentCount}</span>
                 </button>
               ) : (
                 <span className="review-action-button review-action-button--static" aria-hidden="true">
                   <span className="review-action-button__icon">
                     <CommentIcon />
                   </span>
-                  <span className="review-action-button__label">{review.comments.length}</span>
+                  <span className="review-action-button__label">{review.commentCount}</span>
                 </span>
               )}
             </div>

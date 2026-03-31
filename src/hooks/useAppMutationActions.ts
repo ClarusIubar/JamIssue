@@ -17,6 +17,7 @@ import {
   updateProfile,
   uploadReviewImage,
 } from '../api/client';
+import { countCommentsInThread } from '../lib/reviews';
 import { getCurrentDevicePosition } from '../lib/geolocation';
 import type {
   AdminSummaryResponse,
@@ -240,7 +241,7 @@ export function useAppMutationActions({
       patchReviewCollections(reviewId, (review) => ({
         ...review,
         comments: updatedComments,
-        commentCount: updatedComments.length,
+        commentCount: countCommentsInThread(updatedComments),
       }));
     } catch (error) {
       setNotice(formatErrorMessage(error));
@@ -262,7 +263,7 @@ export function useAppMutationActions({
       patchReviewCollections(reviewId, (review) => ({
         ...review,
         comments: updatedComments,
-        commentCount: updatedComments.length,
+        commentCount: countCommentsInThread(updatedComments),
       }));
       if (activeTab === 'my') {
         await refreshMyPageForUser(sessionUser, true);
@@ -287,7 +288,7 @@ export function useAppMutationActions({
       patchReviewCollections(reviewId, (review) => ({
         ...review,
         comments: updatedComments,
-        commentCount: updatedComments.length,
+        commentCount: countCommentsInThread(updatedComments),
       }));
       if (activeTab === 'my') {
         await refreshMyPageForUser(sessionUser, true);

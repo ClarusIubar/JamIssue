@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { toReviewSummary } from '../lib/reviews';
 import type {
   AdminSummaryResponse,
   AuthProvider,
@@ -64,22 +65,23 @@ export function useAppDataState(selectedPlaceId: string | null) {
   }
 
   function patchReviewCollections(reviewId: string, updater: (review: BootstrapResponse['reviews'][number]) => BootstrapResponse['reviews'][number]) {
-    setReviews((current) => current.map((review) => (review.id === reviewId ? updater(review) : review)));
-    setSelectedPlaceReviews((current) => current.map((review) => (review.id === reviewId ? updater(review) : review)));
+    setReviews((current) => current.map((review) => (review.id === reviewId ? toReviewSummary(updater(review)) : review)));
+    setSelectedPlaceReviews((current) => current.map((review) => (review.id === reviewId ? toReviewSummary(updater(review)) : review)));
     for (const placeId of Object.keys(placeReviewsCacheRef.current)) {
       placeReviewsCacheRef.current[placeId] = placeReviewsCacheRef.current[placeId].map((review) =>
-        review.id === reviewId ? updater(review) : review,
+        review.id === reviewId ? toReviewSummary(updater(review)) : review,
       );
     }
   }
 
   function upsertReviewCollections(review: BootstrapResponse['reviews'][number]) {
-    setReviews((current) => [review, ...current.filter((currentReview) => currentReview.id !== review.id)]);
+    const nextReview = toReviewSummary(review);
+    setReviews((current) => [nextReview, ...current.filter((currentReview) => currentReview.id !== review.id)]);
     if (selectedPlaceId === review.placeId) {
-      setSelectedPlaceReviews((current) => [review, ...current.filter((currentReview) => currentReview.id !== review.id)]);
+      setSelectedPlaceReviews((current) => [nextReview, ...current.filter((currentReview) => currentReview.id !== review.id)]);
     }
     const cachedPlaceReviews = placeReviewsCacheRef.current[review.placeId] ?? [];
-    placeReviewsCacheRef.current[review.placeId] = [review, ...cachedPlaceReviews.filter((currentReview) => currentReview.id !== review.id)];
+    placeReviewsCacheRef.current[review.placeId] = [nextReview, ...cachedPlaceReviews.filter((currentReview) => currentReview.id !== review.id)];
   }
 
   function resetReviewCaches() {

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { getFestivals, getMapBootstrap, getReviews } from '../api/client';
+import { toReviewSummaryList } from '../lib/reviews';
 import { clearAuthQueryParams } from './useAppRouteState';
 import type {
   AdminSummaryResponse,
@@ -138,8 +139,9 @@ export function useAppBootstrapLifecycle({
 
     void getReviews({ placeId: selectedPlaceId })
       .then((nextReviews) => {
-        placeReviewsCacheRef.current[selectedPlaceId] = nextReviews;
-        setSelectedPlaceReviews(nextReviews);
+        const nextReviewSummaries = toReviewSummaryList(nextReviews);
+        placeReviewsCacheRef.current[selectedPlaceId] = nextReviewSummaries;
+        setSelectedPlaceReviews(nextReviewSummaries);
       })
       .catch(reportBackgroundError);
   }, [activeTab, placeReviewsCacheRef, reportBackgroundError, selectedPlaceId, setSelectedPlaceReviews]);

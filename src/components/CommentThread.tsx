@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { Comment } from '../types';
 
 interface CommentThreadProps {
@@ -13,6 +13,17 @@ interface CommentThreadProps {
   onUpdateComment: (reviewId: string, commentId: string, body: string) => Promise<void>;
   onDeleteComment: (reviewId: string, commentId: string) => Promise<void>;
   onRequestLogin: () => void;
+}
+
+interface CommentComposerProps {
+  canWriteComment: boolean;
+  placeholder: string;
+  reviewId: string;
+  submittingReviewId: string | null;
+  onRequestLogin: () => void;
+  onSubmitComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
+  parentId?: string;
+  onSubmitted?: () => void;
 }
 
 interface CommentItemProps {
@@ -30,34 +41,47 @@ interface CommentItemProps {
   isReply?: boolean;
 }
 
-function normalizeRenderableComments(comments: Comment[]): Comment[] {
-  const hasLiveDescendant = (comment: Comment): boolean =>
-    comment.replies.some((reply) => !reply.isDeleted || hasLiveDescendant(reply));
+const CommentComposer = memo(function CommentComposer({
+  canWriteComment,
+  placeholder,
+  reviewId,
+  submittingReviewId,
+  onRequestLogin,
+  onSubmitComment,
+  parentId,
+  onSubmitted,
+}: CommentComposerProps) {
+  const [body, setBody] = useState('');
+  const isSubmitting = submittingReviewId === reviewId;
 
-  return comments.flatMap((comment) => {
-    const replies = normalizeRenderableComments(comment.replies);
-    if (comment.isDeleted) {
-      const nextComment = {
-        ...comment,
-        replies,
-      };
-      if (!hasLiveDescendant(nextComment)) {
-        return [];
-      }
-      return [
-        nextComment,
-      ];
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canWriteComment) {
+      onRequestLogin();
+      return;
     }
-    return [
-      {
-        ...comment,
-        replies,
-      },
-    ];
-  });
-}
 
-function CommentItem({
+    const trimmedBody = body.trim();
+    if (trimmedBody.length < 2) {
+      return;
+    }
+
+    await onSubmitComment(reviewId, trimmedBody, parentId);
+    setBody('');
+    onSubmitted?.();
+  }
+
+  return (
+    <form className="comment-thread__reply-form" onSubmit={handleSubmit}>
+      <input value={body} onChange={(event) => setBody(event.target.value)} placeholder={placeholder} />
+      <button type="submit" className="comment-thread__submit" disabled={isSubmitting || body.trim().length < 2}>
+        {isSubmitting ? '등록 중' : '등록'}
+      </button>
+    </form>
+  );
+});
+
+const CommentItem = memo(function CommentItem({
   comment,
   reviewId,
   canWriteComment,
@@ -73,7 +97,6 @@ function CommentItem({
 }: CommentItemProps) {
   const itemRef = useRef<HTMLLIElement | null>(null);
   const [replyOpen, setReplyOpen] = useState(false);
-  const [replyBody, setReplyBody] = useState('');
   const [editing, setEditing] = useState(false);
   const [editingBody, setEditingBody] = useState(comment.body);
 
@@ -89,40 +112,29 @@ function CommentItem({
     if (!isHighlighted) {
       return;
     }
+
     const frame = window.requestAnimationFrame(() => {
       itemRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [isHighlighted]);
 
-  async function handleReplySubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!canWriteComment) {
-      onRequestLogin();
-      return;
-    }
-    if (replyBody.trim().length < 2) {
-      return;
-    }
-    const parentId = isReply && comment.parentId ? comment.parentId : comment.id;
-    await onSubmitComment(reviewId, replyBody.trim(), parentId);
-    setReplyBody('');
-    setReplyOpen(false);
-  }
-
   async function handleEditSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (editingBody.trim().length < 2) {
+    const trimmedBody = editingBody.trim();
+    if (trimmedBody.length < 2) {
       return;
     }
-    await onUpdateComment(reviewId, comment.id, editingBody.trim());
+
+    await onUpdateComment(reviewId, comment.id, trimmedBody);
     setEditing(false);
   }
 
   async function handleDelete() {
-    if (!window.confirm('이 댓글을 삭제할까요?')) {
+    if (!window.confirm('댓글을 삭제할까요?')) {
       return;
     }
+
     await onDeleteComment(reviewId, comment.id);
   }
 
@@ -131,6 +143,7 @@ function CommentItem({
       onRequestLogin();
       return;
     }
+
     setReplyOpen((current) => !current);
   }
 
@@ -138,7 +151,7 @@ function CommentItem({
     <li ref={itemRef} className={isReply ? 'comment-thread__item comment-thread__item--reply' : 'comment-thread__item'}>
       {isReply && (
         <span className="comment-thread__reply-indent" aria-hidden="true">
-          ㄴ
+          ↳
         </span>
       )}
 
@@ -198,12 +211,16 @@ function CommentItem({
         </div>
 
         {!isReply && replyOpen && (
-          <form className="comment-thread__reply-form" onSubmit={handleReplySubmit}>
-            <input value={replyBody} onChange={(event) => setReplyBody(event.target.value)} placeholder="답글 내용을 적어 보세요" />
-            <button type="submit" className="comment-thread__submit" disabled={submittingReviewId === reviewId || replyBody.trim().length < 2}>
-              {submittingReviewId === reviewId ? '등록 중' : '등록'}
-            </button>
-          </form>
+          <CommentComposer
+            canWriteComment={canWriteComment}
+            placeholder="답글 내용을 적어 보세요"
+            reviewId={reviewId}
+            submittingReviewId={submittingReviewId}
+            onRequestLogin={onRequestLogin}
+            onSubmitComment={onSubmitComment}
+            parentId={comment.id}
+            onSubmitted={() => setReplyOpen(false)}
+          />
         )}
 
         {!isReply && comment.replies.length > 0 && (
@@ -230,7 +247,7 @@ function CommentItem({
       </div>
     </li>
   );
-}
+});
 
 export function CommentThread({
   comments,
@@ -245,34 +262,21 @@ export function CommentThread({
   onDeleteComment,
   onRequestLogin,
 }: CommentThreadProps) {
-  const [commentBody, setCommentBody] = useState('');
-  const renderableComments = normalizeRenderableComments(comments);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!canWriteComment) {
-      onRequestLogin();
-      return;
-    }
-    if (commentBody.trim().length < 2) {
-      return;
-    }
-    await onSubmitComment(reviewId, commentBody.trim());
-    setCommentBody('');
-  }
-
   return (
     <div className="comment-thread">
-      <form className="comment-thread__form" onSubmit={handleSubmit}>
-        <input value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder="댓글 내용을 적어 보세요" />
-        <button type="submit" className="comment-thread__submit" disabled={submittingReviewId === reviewId || commentBody.trim().length < 2}>
-          {submittingReviewId === reviewId ? '등록 중' : '등록'}
-        </button>
-      </form>
+      <CommentComposer
+        key={reviewId}
+        canWriteComment={canWriteComment}
+        placeholder="댓글 내용을 적어 보세요"
+        reviewId={reviewId}
+        submittingReviewId={submittingReviewId}
+        onRequestLogin={onRequestLogin}
+        onSubmitComment={onSubmitComment}
+      />
 
-      {renderableComments.length > 0 && (
+      {comments.length > 0 && (
         <ul className="comment-thread__list">
-          {renderableComments.map((comment) => (
+          {comments.map((comment) => (
             <CommentItem
               key={comment.id}
               comment={comment}

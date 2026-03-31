@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getAuthSession,
   getMyCommentsPage,
+  getReviewComments,
   getReviewFeedPage,
 } from './api/client';
+import { toReviewSummaryList } from './lib/reviews';
 import { AppMapStageView } from './components/AppMapStageView';
 import { AppPageStage } from './components/AppPageStage';
 import { BottomNav } from './components/BottomNav';
@@ -35,6 +37,7 @@ import { useNotificationStore } from './store/notification-store';
 import type {
   ApiStatus,
   Category,
+  Comment,
   Tab,
   UserNotification,
 } from './types';
@@ -120,6 +123,9 @@ export default function App() {
   const [myCommentsHasMore, setMyCommentsHasMore] = useState(false);
   const [myCommentsLoadingMore, setMyCommentsLoadingMore] = useState(false);
   const [myCommentsLoadedOnce, setMyCommentsLoadedOnce] = useState(false);
+  const [activeReviewComments, setActiveReviewComments] = useState<Comment[]>([]);
+  const [activeReviewCommentsStatus, setActiveReviewCommentsStatus] = useState<ApiStatus>('idle');
+  const commentThreadsCacheRef = useRef<Record<string, Comment[]>>({});
 
   const {
     bootstrapStatus,
@@ -301,7 +307,7 @@ export default function App() {
       const page = await getReviewFeedPage({ cursor: feedNextCursor, limit: 10 });
       setReviews((current) => {
         const existingIds = new Set(current.map((review) => review.id));
-        const nextItems = page.items.filter((review) => !existingIds.has(review.id));
+        const nextItems = toReviewSummaryList(page.items).filter((review) => !existingIds.has(review.id));
         return [...current, ...nextItems];
       });
       setFeedNextCursor(page.nextCursor);
@@ -345,6 +351,48 @@ export default function App() {
       setMyCommentsLoadingMore(false);
     }
   }, [myCommentsHasMore, myCommentsLoadingMore, myCommentsNextCursor, myPage, sessionUser, setMyCommentsHasMore, setMyCommentsLoadedOnce, setMyCommentsLoadingMore, setMyCommentsNextCursor, setMyPage]);
+
+  useEffect(() => {
+    if (!activeCommentReviewId) {
+      setActiveReviewComments([]);
+      setActiveReviewCommentsStatus('idle');
+      return;
+    }
+
+    let cancelled = false;
+    const cachedComments = commentThreadsCacheRef.current[activeCommentReviewId];
+    if (cachedComments) {
+      setActiveReviewComments(cachedComments);
+      setActiveReviewCommentsStatus('ready');
+    } else {
+      setActiveReviewComments([]);
+      setActiveReviewCommentsStatus('loading');
+    }
+
+    void getReviewComments(activeCommentReviewId)
+      .then((comments) => {
+        if (cancelled) {
+          return;
+        }
+        commentThreadsCacheRef.current[activeCommentReviewId] = comments;
+        setActiveReviewComments(comments);
+        setActiveReviewCommentsStatus('ready');
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        if (!cachedComments) {
+          setActiveReviewCommentsStatus('error');
+        }
+        setNotice(formatErrorMessage(error));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCommentReviewId]);
+
   useAppFeedbackEffects({
     selectedPlace,
     selectedPlaceDistanceMeters,
@@ -421,6 +469,22 @@ export default function App() {
     formatErrorMessage,
   });
 
+  const syncReviewComments = useCallback((reviewId: string, comments: Comment[]) => {
+    commentThreadsCacheRef.current[reviewId] = comments;
+    if (activeCommentReviewId === reviewId) {
+      setActiveReviewComments(comments);
+      setActiveReviewCommentsStatus('ready');
+    }
+  }, [activeCommentReviewId]);
+
+  const clearReviewComments = useCallback((reviewId: string) => {
+    delete commentThreadsCacheRef.current[reviewId];
+    if (activeCommentReviewId === reviewId) {
+      setActiveReviewComments([]);
+      setActiveReviewCommentsStatus('idle');
+    }
+  }, [activeCommentReviewId]);
+
   const {
     handleCreateReview,
     handleUpdateReview,
@@ -456,6 +520,8 @@ export default function App() {
     upsertReviewCollections,
     placeReviewsCacheRef,
     handleCloseReviewComments,
+    syncReviewComments,
+    clearReviewComments,
     formatErrorMessage,
   });
 
@@ -702,6 +768,8 @@ export default function App() {
               commentMutatingId={commentMutatingId}
               deletingReviewId={deletingReviewId}
               activeCommentReviewId={activeCommentReviewId}
+              activeCommentReviewComments={activeReviewComments}
+              activeCommentReviewStatus={activeReviewCommentsStatus}
               highlightedCommentId={highlightedCommentId}
               highlightedReviewId={highlightedReviewId}
               feedHasMore={feedHasMore}

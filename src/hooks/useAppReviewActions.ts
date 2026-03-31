@@ -9,7 +9,9 @@ import {
   updateReview,
   uploadReviewImage,
 } from '../api/client';
+import { countCommentsInThread, toReviewSummary } from '../lib/reviews';
 import type {
+  Comment,
   DrawerState,
   MyPageResponse,
   Place,
@@ -52,6 +54,8 @@ interface UseAppReviewActionsParams {
   upsertReviewCollections: (review: Review) => void;
   placeReviewsCacheRef: MutableRefObject<Record<string, Review[]>>;
   handleCloseReviewComments: () => void;
+  syncReviewComments: (reviewId: string, comments: Comment[]) => void;
+  clearReviewComments: (reviewId: string) => void;
   formatErrorMessage: (error: unknown) => string;
 }
 
@@ -82,6 +86,8 @@ export function useAppReviewActions({
   upsertReviewCollections,
   placeReviewsCacheRef,
   handleCloseReviewComments,
+  syncReviewComments,
+  clearReviewComments,
   formatErrorMessage,
 }: UseAppReviewActionsParams) {
   async function handleCreateReview(payload: { stampId: string; body: string; mood: ReviewMood; file: File | null }) {
@@ -144,14 +150,15 @@ export function useAppReviewActions({
       mood: payload.mood,
       imageUrl,
     });
-    patchReviewCollections(reviewId, () => updatedReview);
+    const summarizedReview = toReviewSummary(updatedReview);
+    patchReviewCollections(reviewId, () => summarizedReview);
     setMyPage((current) => {
       if (!current) {
         return current;
       }
       return {
         ...current,
-        reviews: current.reviews.map((review) => (review.id === reviewId ? updatedReview : review)),
+        reviews: current.reviews.map((review) => (review.id === reviewId ? summarizedReview : review)),
         comments: current.comments.map((comment) => (
           comment.reviewId === reviewId
             ? { ...comment, reviewBody: updatedReview.body }
@@ -172,10 +179,10 @@ export function useAppReviewActions({
     setCommentSubmittingReviewId(reviewId);
     try {
       const updatedComments = await createComment(reviewId, { body, parentId: parentId ?? null });
+      syncReviewComments(reviewId, updatedComments);
       patchReviewCollections(reviewId, (review) => ({
         ...review,
-        comments: updatedComments,
-        commentCount: updatedComments.length,
+        commentCount: countCommentsInThread(updatedComments),
       }));
     } catch (error) {
       setNotice(formatErrorMessage(error));
@@ -194,10 +201,10 @@ export function useAppReviewActions({
     setCommentMutatingId(commentId);
     try {
       const updatedComments = await updateComment(reviewId, commentId, { body });
+      syncReviewComments(reviewId, updatedComments);
       patchReviewCollections(reviewId, (review) => ({
         ...review,
-        comments: updatedComments,
-        commentCount: updatedComments.length,
+        commentCount: countCommentsInThread(updatedComments),
       }));
       if (activeTab === 'my') {
         await refreshMyPageForUser(sessionUser, true);
@@ -219,10 +226,10 @@ export function useAppReviewActions({
     setCommentMutatingId(commentId);
     try {
       const updatedComments = await deleteComment(reviewId, commentId);
+      syncReviewComments(reviewId, updatedComments);
       patchReviewCollections(reviewId, (review) => ({
         ...review,
-        comments: updatedComments,
-        commentCount: updatedComments.length,
+        commentCount: countCommentsInThread(updatedComments),
       }));
       if (activeTab === 'my') {
         await refreshMyPageForUser(sessionUser, true);
@@ -247,6 +254,7 @@ export function useAppReviewActions({
     setDeletingReviewId(reviewId);
     try {
       await deleteReview(reviewId);
+      clearReviewComments(reviewId);
       setReviews((current) => current.filter((review) => review.id !== reviewId));
       setSelectedPlaceReviews((current) => current.filter((review) => review.id !== reviewId));
       for (const placeId of Object.keys(placeReviewsCacheRef.current)) {

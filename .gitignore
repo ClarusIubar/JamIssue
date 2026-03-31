@@ -47,6 +47,13 @@ sample/
 .python-site/
 .python-temp/
 .tmp-python-embed.zip
+.tools/
+.npm-cache/
+.tmp/
+.pytest-tmp/
+backend/.pytest-tmp/
+backend/pytest-*/
+preview/local-preview*
 .pytest_cache/
 pytest-cache-files-*/
 backend/pytest-cache-files-*/

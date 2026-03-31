@@ -10,7 +10,7 @@ from ..repository_normalized import (
     delete_comment,
     delete_review,
     get_review_comments,
-    get_unread_notification_count,
+    get_unread_notification_counts,
     toggle_review_like,
 )
 
@@ -56,13 +56,14 @@ def read_review_comments_service(db: Session, review_id: str):
 def create_comment_service(db: Session, review_id: str, payload: CommentCreate, session_user: SessionUser):
     try:
         comments, notifications = create_comment_with_notifications(db, review_id, payload, session_user.id, session_user.nickname)
+        unread_counts = get_unread_notification_counts(db, [recipient_user_id for recipient_user_id, _ in notifications])
         for recipient_user_id, notification in notifications:
             notification_broker.publish(
                 recipient_user_id,
                 {
                     "event": "notification.created",
                     "notification": notification.model_dump(by_alias=True),
-                    "unreadCount": get_unread_notification_count(db, recipient_user_id),
+                    "unreadCount": unread_counts.get(recipient_user_id, 0),
                 },
             )
         return comments

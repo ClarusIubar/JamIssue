@@ -58,6 +58,7 @@ from .repository_support import (
     LEGACY_PROVIDERS,
     build_comment_tree,
     build_session_duration_label,
+    count_visible_comments,
     ensure_stamp_can_be_collected,
     format_date,
     format_datetime,
@@ -406,8 +407,14 @@ def _build_stamp_state(db: Session, user_id: str | None) -> StampState:
     )
 
 
-def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
-    comments = list(feed.comments or [])
+def to_review_out(
+    feed: Feed,
+    current_user_id: str | None = None,
+    *,
+    comment_count: int | None = None,
+    include_comments: bool = True,
+) -> ReviewOut:
+    comments = list(feed.comments or []) if include_comments else []
     likes = list(feed.likes or [])
     liked_by_me = any(like.user_id == current_user_id for like in likes) if current_user_id else False
     visit_number = feed.stamp.visit_ordinal if feed.stamp else 1
@@ -427,7 +434,7 @@ def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
         badge=feed.badge,
         visitedAt=format_datetime(feed.created_at),
         imageUrl=feed.image_url,
-        commentCount=len(comments),
+        commentCount=comment_count if comment_count is not None else count_visible_comments(comments),
         likeCount=len(likes),
         likedByMe=liked_by_me,
         stampId=str(feed.stamp_id) if feed.stamp_id else None,
@@ -435,7 +442,7 @@ def to_review_out(feed: Feed, current_user_id: str | None = None) -> ReviewOut:
         visitLabel=format_visit_label(visit_number),
         travelSessionId=str(feed.stamp.travel_session_id) if feed.stamp and feed.stamp.travel_session_id else None,
         hasPublishedRoute=has_published_route,
-        comments=build_comment_tree(comments),
+        comments=build_comment_tree(comments) if include_comments else [],
     )
 
 
@@ -471,6 +478,8 @@ def list_reviews(
     place_id: str | None = None,
     user_id: str | None = None,
     current_user_id: str | None = None,
+    *,
+    include_comments: bool = False,
 ) -> list[ReviewOut]:
     stmt = (
         select(Feed)
@@ -479,16 +488,43 @@ def list_reviews(
             joinedload(Feed.place),
             joinedload(Feed.stamp).joinedload(UserStamp.travel_session).joinedload(TravelSession.routes),
             joinedload(Feed.likes),
-            joinedload(Feed.comments).joinedload(UserComment.user),
         )
         .order_by(Feed.created_at.desc(), Feed.feed_id.desc())
     )
+    if include_comments:
+        stmt = stmt.options(joinedload(Feed.comments).joinedload(UserComment.user))
     if place_id:
         stmt = stmt.join(Feed.place).where(MapPlace.slug == place_id)
     if user_id:
         stmt = stmt.where(Feed.user_id == user_id)
     feeds = db.scalars(stmt).unique().all()
-    return [to_review_out(feed, current_user_id=current_user_id) for feed in feeds]
+    if include_comments:
+        return [to_review_out(feed, current_user_id=current_user_id, include_comments=True) for feed in feeds]
+
+    comment_count_by_feed_id: dict[int, int] = {}
+    if feeds:
+        feed_ids = [feed.feed_id for feed in feeds]
+        comments = db.scalars(
+            select(UserComment)
+            .where(UserComment.feed_id.in_(feed_ids))
+            .order_by(UserComment.feed_id.asc(), UserComment.created_at.asc(), UserComment.comment_id.asc())
+        ).all()
+        comments_by_feed_id: dict[int, list[UserComment]] = defaultdict(list)
+        for comment in comments:
+            comments_by_feed_id[comment.feed_id].append(comment)
+        comment_count_by_feed_id = {
+            feed_id: count_visible_comments(comments_by_feed_id.get(feed_id, []))
+            for feed_id in feed_ids
+        }
+    return [
+        to_review_out(
+            feed,
+            current_user_id=current_user_id,
+            comment_count=comment_count_by_feed_id.get(feed.feed_id, 0),
+            include_comments=False,
+        )
+        for feed in feeds
+    ]
 
 
 def get_review_comments(db: Session, review_id: str) -> list[CommentOut]:
@@ -883,6 +919,21 @@ def get_unread_notification_count(db: Session, user_id: str) -> int:
     )
 
 
+def get_unread_notification_counts(db: Session, user_ids: list[str]) -> dict[str, int]:
+    if not user_ids:
+        return {}
+
+    counts = {
+        user_id: int(total)
+        for user_id, total in db.execute(
+            select(UserNotification.user_id, func.count(UserNotification.notification_id))
+            .where(UserNotification.user_id.in_(user_ids), UserNotification.is_read.is_(False))
+            .group_by(UserNotification.user_id)
+        ).all()
+    }
+    return {user_id: counts.get(user_id, 0) for user_id in user_ids}
+
+
 def create_user_notification(
     db: Session,
     *,
@@ -985,7 +1036,7 @@ def get_my_page(db: Session, user_id: str, is_admin: bool) -> MyPageResponse:
     if not user:
         raise ValueError("사용자 정보를 찾을 수 없어요.")
 
-    reviews = list_reviews(db, user_id=user_id, current_user_id=user_id)
+    reviews = list_reviews(db, user_id=user_id, current_user_id=user_id, include_comments=False)
     stamp_state = get_stamps(db, user_id)
     active_places = db.scalars(select(MapPlace).where(MapPlace.is_active.is_(True)).order_by(MapPlace.position_id.asc())).all()
     visited_place_ids = set(stamp_state.collected_place_ids)
@@ -1023,7 +1074,7 @@ def get_bootstrap(db: Session, user_id: str | None) -> BootstrapResponse:
     places = list_places(db)
     return BootstrapResponse(
         places=places,
-        reviews=list_reviews(db, current_user_id=user_id),
+        reviews=list_reviews(db, current_user_id=user_id, include_comments=False),
         courses=list_courses(db),
         stamps=get_stamps(db, user_id),
         hasRealData=bool(places),

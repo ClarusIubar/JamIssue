@@ -84,6 +84,68 @@ def test_review_comment_and_my_page_flow(tmp_path: Path):
     assert my_page.stamp_logs[0].place_id == 'hanbat-forest'
 
 
+def test_list_reviews_omits_comment_tree_by_default(tmp_path: Path):
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    stamp_state = claim_stamp_for(session, 'user-owner', 'hanbat-forest')
+    review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', stampId=stamp_id_for_place(stamp_state, 'hanbat-forest'), body='댓글 트리 제외 테스트', mood='설렘', imageUrl=None),
+        'user-owner',
+        '소희',
+    )
+    create_comment(session, review.id, CommentCreate(body='루트 댓글', parentId=None), 'user-commenter', '민서')
+
+    reviews = list_reviews(session, current_user_id='user-owner')
+
+    assert reviews[0].comment_count == 1
+    assert reviews[0].comments == []
+
+
+def test_list_reviews_matches_visible_comment_count_after_soft_delete(tmp_path: Path):
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    stamp_state = claim_stamp_for(session, 'user-owner', 'hanbat-forest')
+    review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', stampId=stamp_id_for_place(stamp_state, 'hanbat-forest'), body='soft delete count test', mood='설렘', imageUrl=None),
+        'user-owner',
+        '소희',
+    )
+    create_comment(session, review.id, CommentCreate(body='곧 지워질 댓글', parentId=None), 'user-owner', '소희')
+    comment = session.scalars(select(UserComment).where(UserComment.feed_id == int(review.id))).one()
+    delete_comment(session, review.id, str(comment.comment_id), 'user-owner')
+
+    reviews = list_reviews(session, current_user_id='user-owner')
+
+    assert reviews[0].comment_count == 0
+    assert reviews[0].comments == []
+
+
+def test_list_reviews_counts_deleted_parent_when_live_reply_keeps_thread_visible(tmp_path: Path):
+    session = build_session(tmp_path)
+    load_seed_data(session)
+
+    stamp_state = claim_stamp_for(session, 'user-owner', 'hanbat-forest')
+    review = create_review(
+        session,
+        ReviewCreate(placeId='hanbat-forest', stampId=stamp_id_for_place(stamp_state, 'hanbat-forest'), body='visible deleted parent count test', mood='설렘', imageUrl=None),
+        'user-owner',
+        '소희',
+    )
+    create_comment(session, review.id, CommentCreate(body='부모 댓글', parentId=None), 'user-parent', '민서')
+    parent = session.scalars(select(UserComment).where(UserComment.body == '부모 댓글')).one()
+    create_comment(session, review.id, CommentCreate(body='살아 있는 답글', parentId=str(parent.comment_id)), 'user-child', '가은')
+    delete_comment(session, review.id, str(parent.comment_id), 'user-parent')
+
+    reviews = list_reviews(session, current_user_id='user-owner')
+
+    assert reviews[0].comment_count == 2
+    assert reviews[0].comments == []
+
+
 def test_review_allows_different_places_on_same_day(tmp_path: Path):
     session = build_session(tmp_path)
     load_seed_data(session)

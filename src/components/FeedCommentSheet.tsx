@@ -1,9 +1,11 @@
 ﻿import { useRef } from 'react';
 import { CommentThread } from './CommentThread';
-import type { Review } from '../types';
+import type { ApiStatus, Comment, Review } from '../types';
 
 interface FeedCommentSheetProps {
   review: Review | null;
+  comments: Comment[];
+  commentsStatus: ApiStatus;
   isOpen: boolean;
   canWriteComment: boolean;
   currentUserId?: string | null;
@@ -21,6 +23,8 @@ interface FeedCommentSheetProps {
 
 export function FeedCommentSheet({
   review,
+  comments,
+  commentsStatus,
   isOpen,
   canWriteComment,
   currentUserId = null,
@@ -100,19 +104,23 @@ export function FeedCommentSheet({
 
             <div className="feed-comment-sheet__divider" />
 
-            <CommentThread
-              comments={review.comments}
-              canWriteComment={canWriteComment}
-              currentUserId={currentUserId}
-              submittingReviewId={submittingReviewId}
-              mutatingCommentId={mutatingCommentId}
-              highlightedCommentId={highlightedCommentId}
-              reviewId={review.id}
-              onSubmitComment={onSubmitComment}
-              onUpdateComment={onUpdateComment}
-              onDeleteComment={onDeleteComment}
-              onRequestLogin={onRequestLogin}
-            />
+            {commentsStatus === 'loading' ? (
+              <p className="comment-thread__empty">댓글을 불러오는 중이에요.</p>
+            ) : (
+              <CommentThread
+                comments={comments}
+                canWriteComment={canWriteComment}
+                currentUserId={currentUserId}
+                submittingReviewId={submittingReviewId}
+                mutatingCommentId={mutatingCommentId}
+                highlightedCommentId={highlightedCommentId}
+                reviewId={review.id}
+                onSubmitComment={onSubmitComment}
+                onUpdateComment={onUpdateComment}
+                onDeleteComment={onDeleteComment}
+                onRequestLogin={onRequestLogin}
+              />
+            )}
           </>
         )}
       </div>

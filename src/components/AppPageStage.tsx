@@ -5,7 +5,9 @@ import { FeedTab } from './FeedTab';
 import { MyPagePanel } from './MyPagePanel';
 import type {
   AdminSummaryResponse,
+  ApiStatus,
   AuthProvider,
+  Comment,
   CommunityRouteSort,
   Course,
   FestivalItem,
@@ -30,6 +32,8 @@ interface AppPageStageProps {
   commentMutatingId: string | null;
   deletingReviewId: string | null;
   activeCommentReviewId: string | null;
+  activeCommentReviewComments: Comment[];
+  activeCommentReviewStatus: ApiStatus;
   highlightedCommentId: string | null;
   highlightedReviewId: string | null;
   feedHasMore: boolean;
@@ -96,6 +100,8 @@ export const AppPageStage = memo(function AppPageStage({
   commentMutatingId,
   deletingReviewId,
   activeCommentReviewId,
+  activeCommentReviewComments,
+  activeCommentReviewStatus,
   highlightedCommentId,
   highlightedReviewId,
   feedHasMore,
@@ -163,6 +169,8 @@ export const AppPageStage = memo(function AppPageStage({
           commentMutatingId={commentMutatingId}
           deletingReviewId={deletingReviewId}
           activeCommentReviewId={activeCommentReviewId}
+          activeCommentReviewComments={activeCommentReviewComments}
+          activeCommentReviewStatus={activeCommentReviewStatus}
           highlightedCommentId={highlightedCommentId}
           highlightedReviewId={highlightedReviewId}
           hasMore={feedHasMore && !feedPlaceFilterId}
