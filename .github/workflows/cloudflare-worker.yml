@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - main-dev
   pull_request:
     branches:
       - main
+      - main-dev
   workflow_dispatch:
 
 permissions:
@@ -29,8 +31,21 @@ jobs:
         with:
           node-version: "20"
       - run: npm install -g wrangler@4.74.0
+      - name: Resolve worker deploy environment
+        shell: bash
+        run: |
+          if [ "${{ github.base_ref }}" = "main-dev" ]; then
+            echo "WORKER_ENV=dev" >> "$GITHUB_ENV"
+          else
+            echo "WORKER_ENV=production" >> "$GITHUB_ENV"
+          fi
       - name: Validate worker bundle
-        run: wrangler deploy --dry-run
+        run: |
+          if [ "${WORKER_ENV}" = "dev" ]; then
+            wrangler deploy --dry-run --env dev
+          else
+            wrangler deploy --dry-run
+          fi
 
   deploy-worker:
     if: github.event_name != 'pull_request'
@@ -44,8 +59,21 @@ jobs:
         with:
           node-version: "20"
       - run: npm install -g wrangler@4.74.0
-      - name: Deploy production worker
+      - name: Resolve worker deploy environment
+        shell: bash
+        run: |
+          if [ "${{ github.ref_name }}" = "main-dev" ]; then
+            echo "WORKER_ENV=dev" >> "$GITHUB_ENV"
+          else
+            echo "WORKER_ENV=production" >> "$GITHUB_ENV"
+          fi
+      - name: Deploy worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: wrangler deploy
+        run: |
+          if [ "${WORKER_ENV}" = "dev" ]; then
+            wrangler deploy --env dev
+          else
+            wrangler deploy
+          fi

@@ -24,3 +24,24 @@ APP_ENV = "worker-first"
 [[routes]]
 pattern = "api.daejeon.jamissue.com"
 custom_domain = true
+
+[env.dev]
+name = "daejeon-jamissue-api-dev"
+
+[env.dev.vars]
+APP_ORIGIN_API_URL = ""
+APP_NAVER_LOGIN_CLIENT_ID = "eiMR4RuAFWOIIoXoxmnN"
+APP_FRONTEND_URL = "https://dev.jamissue.com"
+APP_CORS_ORIGINS = "https://dev.jamissue.com"
+APP_NAVER_LOGIN_CALLBACK_URL = "https://api.dev.jamissue.com/api/auth/naver/callback"
+APP_STORAGE_BACKEND = "supabase"
+APP_SUPABASE_URL = "https://ifofgcaqrgtiurzqhiyy.supabase.co"
+APP_SUPABASE_STORAGE_BUCKET = "review-images"
+APP_PUBLIC_EVENT_CITY_KEYWORD = "대전"
+APP_STAMP_UNLOCK_RADIUS_METERS = "120"
+APP_SESSION_HTTPS = "true"
+APP_ENV = "worker-first-dev"
+
+[[env.dev.routes]]
+pattern = "api.dev.jamissue.com"
+custom_domain = true
