@@ -163,12 +163,36 @@ textarea {
   width: min(332px, calc(100vw - 40px));
   max-height: min(62vh, 520px);
   overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 151, 187, 0.72) rgba(255, 241, 246, 0.92);
   padding: 14px;
   border-radius: 24px;
   border: 1px solid rgba(255, 197, 217, 0.42);
   background: rgba(255, 252, 249, 0.98);
   box-shadow: 0 20px 42px rgba(66, 40, 60, 0.18);
   backdrop-filter: blur(18px);
+}
+
+.global-notification-panel::-webkit-scrollbar {
+  width: 10px;
+}
+
+.global-notification-panel::-webkit-scrollbar-track {
+  margin: 16px 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 244, 248, 0.96), rgba(255, 249, 251, 0.88));
+}
+
+.global-notification-panel::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid rgba(255, 244, 248, 0.96);
+  background: linear-gradient(180deg, rgba(255, 138, 178, 0.92), rgba(255, 111, 161, 0.82));
+  box-shadow: 0 4px 10px rgba(255, 123, 168, 0.22);
+}
+
+.global-notification-panel::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(255, 126, 170, 0.96), rgba(255, 96, 150, 0.88));
 }
 
 .map-stage {
