@@ -1,12 +1,9 @@
 name: production-smoke
 
 on:
-  workflow_run:
-    workflows:
-      - cloudflare-pages
-      - cloudflare-worker
-    types:
-      - completed
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -15,13 +12,6 @@ permissions:
 
 jobs:
   smoke:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event.workflow_run.event == 'push' &&
-        github.event.workflow_run.head_branch == 'main' &&
-        github.event.workflow_run.conclusion == 'success'
-      )
     runs-on: ubuntu-latest
     env:
       SMOKE_BASE_URL: https://daejeon.jamissue.com
@@ -29,8 +19,8 @@ jobs:
       SMOKE_RETRY_ATTEMPTS: 5
       SMOKE_RETRY_DELAY_MS: 15000
       REQUIRED_WORKFLOWS: cloudflare-pages,cloudflare-worker
-      WORKFLOW_RUN_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
-      WORKFLOW_RUN_BRANCH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || github.event.workflow_run.head_branch }}
+      WORKFLOW_RUN_SHA: ${{ github.sha }}
+      WORKFLOW_RUN_BRANCH: ${{ github.ref_name }}
     steps:
       - uses: actions/github-script@v7
         id: await-deployments
