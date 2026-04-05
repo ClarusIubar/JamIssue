@@ -1,4 +1,4 @@
-name: production-deploy
+name: production-smoke
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-deploy-${{ github.ref }}
+  group: production-smoke-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
