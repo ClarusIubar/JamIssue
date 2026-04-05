@@ -40,6 +40,7 @@ interface AppMapStageViewProps {
   initialMapViewport: { lat: number; lng: number; zoom: number };
   onOpenPlaceFeed: () => void;
   onOpenPlace: (placeId: string) => void;
+  onOpenRoutePreviewPlace: (placeId: string) => void;
   onOpenFestival: (festivalId: string) => void;
   onCloseDrawer: () => void;
   onClearRoutePreview: () => void;

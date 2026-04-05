@@ -45,6 +45,7 @@ interface MapTabStageProps {
   initialMapCenter?: { lat: number; lng: number };
   initialMapZoom?: number;
   onOpenPlace: (placeId: string) => void;
+  onOpenRoutePreviewPlace: (placeId: string) => void;
   onOpenFestival: (festivalId: string) => void;
   onCloseDrawer: () => void;
   onExpandPlaceDrawer: () => void;
@@ -88,6 +89,7 @@ export function MapTabStage({
   initialMapCenter,
   initialMapZoom,
   onOpenPlace,
+  onOpenRoutePreviewPlace,
   onOpenFestival,
   onCloseDrawer,
   onExpandPlaceDrawer,
@@ -174,10 +176,15 @@ export function MapTabStage({
             </button>
           </div>
           <div className="course-card__places community-route-places map-route-preview-card__places">
-            {routePreview.placeNames.map((placeName, index) => (
-              <span key={routePreview.id + '-' + placeName + '-' + index} className="soft-tag">
-                {index + 1}. {placeName}
-              </span>
+            {routePreview.placeIds.map((placeId, index) => (
+              <button
+                key={routePreview.id + '-' + placeId}
+                type="button"
+                className="soft-tag soft-tag--button course-card__place"
+                onClick={() => onOpenRoutePreviewPlace(placeId)}
+              >
+                {index + 1}. {routePreview.placeNames[index] ?? placeId}
+              </button>
             ))}
           </div>
         </section>

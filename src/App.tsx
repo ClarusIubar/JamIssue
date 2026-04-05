@@ -630,6 +630,14 @@ export default function App() {
     commitRouteState({ tab: 'map', placeId: null, festivalId, drawerState: 'partial' }, 'push', { routePreview: null });
   }, [commitRouteState, setSelectedRoutePreview]);
 
+  const handleMapOpenRoutePreviewPlace = useCallback((placeId: string) => {
+    commitRouteState(
+      { tab: 'map', placeId, festivalId: null, drawerState: 'partial' },
+      'push',
+      { routePreview: selectedRoutePreview },
+    );
+  }, [commitRouteState, selectedRoutePreview]);
+
   const handleClearRoutePreview = useCallback(() => {
     setSelectedRoutePreview(null);
     commitRouteState(
@@ -748,6 +756,7 @@ export default function App() {
               initialMapViewport={initialMapViewport}
               onOpenPlaceFeed={handleMapOpenPlaceFeed}
               onOpenPlace={handleMapOpenPlace}
+              onOpenRoutePreviewPlace={handleMapOpenRoutePreviewPlace}
               onOpenFestival={handleMapOpenFestival}
               onCloseDrawer={closeDrawer}
               onClearRoutePreview={handleClearRoutePreview}
