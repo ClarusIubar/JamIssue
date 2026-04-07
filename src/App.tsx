@@ -663,36 +663,45 @@ export default function App() {
               adminLoading={adminLoading}
               commentsHasMore={myCommentsHasMore}
               commentsLoadingMore={myCommentsLoadingMore}
-              onLoadMoreFeed={loadMoreFeedReviews}
-              onToggleReviewLike={handleToggleReviewLike}
-              onCreateComment={handleCreateComment}
-              onUpdateComment={handleUpdateComment}
-              onDeleteComment={handleDeleteComment}
-              onDeleteReview={handleDeleteReview}
-              onRequestLogin={handleRequestLogin}
-              onClearPlaceFilter={handleClearPlaceFilter}
-              onOpenPlace={handleOpenPlaceWithReturn}
-              onOpenComments={handleOpenReviewComments}
-              onCloseComments={handleCloseReviewComments}
-              onChangeRouteSort={handleChangeRouteSort}
-              onToggleRouteLike={handleToggleRouteLike}
-              onOpenRoutePreview={handleOpenRoutePreview}
-              onChangeMyPageTab={setMyPageTab}
-              onLogin={startProviderLogin}
-              onRetryMyPage={handleRetryMyPage}
-              onLogout={handleLogout}
-              onSaveNickname={handleUpdateProfile}
-              onPublishRoute={handlePublishRoute}
-              onOpenCommentFromMyPage={handleOpenCommentFromMyPage}
-              onOpenReview={handleOpenReviewWithReturn}
-              onUpdateReview={handleUpdateReview}
-              onMarkNotificationRead={handleMarkNotificationRead}
-              onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
-              onDeleteNotification={handleDeleteNotification}
-              onLoadMoreComments={loadMoreMyComments}
-              onRefreshAdmin={handleRefreshAdminImport}
-              onToggleAdminPlace={handleToggleAdminPlace}
-              onToggleAdminManualOverride={handleToggleAdminManualOverride}
+              sharedActions={{
+                onRequestLogin: handleRequestLogin,
+                onOpenPlace: handleOpenPlaceWithReturn,
+              }}
+              feedActions={{
+                onLoadMoreFeed: loadMoreFeedReviews,
+                onToggleReviewLike: handleToggleReviewLike,
+                onCreateComment: handleCreateComment,
+                onUpdateComment: handleUpdateComment,
+                onDeleteComment: handleDeleteComment,
+                onDeleteReview: handleDeleteReview,
+                onClearPlaceFilter: handleClearPlaceFilter,
+                onOpenComments: handleOpenReviewComments,
+                onCloseComments: handleCloseReviewComments,
+              }}
+              courseActions={{
+                onChangeRouteSort: handleChangeRouteSort,
+                onToggleRouteLike: handleToggleRouteLike,
+                onOpenRoutePreview: handleOpenRoutePreview,
+              }}
+              myPageActions={{
+                onChangeMyPageTab: setMyPageTab,
+                onLogin: startProviderLogin,
+                onRetryMyPage: handleRetryMyPage,
+                onLogout: handleLogout,
+                onSaveNickname: handleUpdateProfile,
+                onPublishRoute: handlePublishRoute,
+                onOpenCommentFromMyPage: handleOpenCommentFromMyPage,
+                onOpenReview: handleOpenReviewWithReturn,
+                onUpdateReview: handleUpdateReview,
+                onDeleteReview: handleDeleteReview,
+                onMarkNotificationRead: handleMarkNotificationRead,
+                onMarkAllNotificationsRead: handleMarkAllNotificationsRead,
+                onDeleteNotification: handleDeleteNotification,
+                onLoadMoreComments: loadMoreMyComments,
+                onRefreshAdmin: handleRefreshAdminImport,
+                onToggleAdminPlace: handleToggleAdminPlace,
+                onToggleAdminManualOverride: handleToggleAdminManualOverride,
+              }}
             />
           )}
 

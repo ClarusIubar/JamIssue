@@ -57,36 +57,45 @@ interface AppPageStageProps {
   adminLoading: boolean;
   commentsHasMore: boolean;
   commentsLoadingMore: boolean;
-  onLoadMoreFeed: () => Promise<void>;
-  onToggleReviewLike: (reviewId: string) => Promise<void>;
-  onCreateComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
-  onUpdateComment: (reviewId: string, commentId: string, body: string) => Promise<void>;
-  onDeleteComment: (reviewId: string, commentId: string) => Promise<void>;
-  onDeleteReview: (reviewId: string) => Promise<void>;
-  onRequestLogin: () => void;
-  onClearPlaceFilter: () => void;
-  onOpenPlace: (placeId: string) => void;
-  onOpenComments: (reviewId: string, commentId?: string | null) => void;
-  onCloseComments: () => void;
-  onChangeRouteSort: (sort: CommunityRouteSort) => void;
-  onToggleRouteLike: (routeId: string) => Promise<void>;
-  onOpenRoutePreview: (route: RoutePreview) => void;
-  onChangeMyPageTab: (tab: MyPageTabKey) => void;
-  onLogin: (provider: 'naver' | 'kakao') => void;
-  onRetryMyPage: () => Promise<void>;
-  onLogout: () => Promise<void>;
-  onSaveNickname: (nickname: string) => Promise<void>;
-  onPublishRoute: (payload: { travelSessionId: string; title: string; description: string; mood: string }) => Promise<void>;
-  onOpenCommentFromMyPage: (reviewId: string, commentId: string) => void;
-  onOpenReview: (reviewId: string) => Promise<void>;
-  onUpdateReview: (reviewId: string, payload: { body: string; mood: ReviewMood; file?: File | null; removeImage?: boolean }) => Promise<void>;
-  onMarkNotificationRead: (notificationId: string) => Promise<void>;
-  onMarkAllNotificationsRead: () => Promise<void>;
-  onDeleteNotification: (notificationId: string) => Promise<void>;
-  onLoadMoreComments: (initial?: boolean) => Promise<void>;
-  onRefreshAdmin: () => Promise<void>;
-  onToggleAdminPlace: (placeId: string, nextValue: boolean) => Promise<void>;
-  onToggleAdminManualOverride: (placeId: string, nextValue: boolean) => Promise<void>;
+  sharedActions: {
+    onRequestLogin: () => void;
+    onOpenPlace: (placeId: string) => void;
+  };
+  feedActions: {
+    onLoadMoreFeed: () => Promise<void>;
+    onToggleReviewLike: (reviewId: string) => Promise<void>;
+    onCreateComment: (reviewId: string, body: string, parentId?: string) => Promise<void>;
+    onUpdateComment: (reviewId: string, commentId: string, body: string) => Promise<void>;
+    onDeleteComment: (reviewId: string, commentId: string) => Promise<void>;
+    onDeleteReview: (reviewId: string) => Promise<void>;
+    onClearPlaceFilter: () => void;
+    onOpenComments: (reviewId: string, commentId?: string | null) => void;
+    onCloseComments: () => void;
+  };
+  courseActions: {
+    onChangeRouteSort: (sort: CommunityRouteSort) => void;
+    onToggleRouteLike: (routeId: string) => Promise<void>;
+    onOpenRoutePreview: (route: RoutePreview) => void;
+  };
+  myPageActions: {
+    onChangeMyPageTab: (tab: MyPageTabKey) => void;
+    onLogin: (provider: 'naver' | 'kakao') => void;
+    onRetryMyPage: () => Promise<void>;
+    onLogout: () => Promise<void>;
+    onSaveNickname: (nickname: string) => Promise<void>;
+    onPublishRoute: (payload: { travelSessionId: string; title: string; description: string; mood: string }) => Promise<void>;
+    onOpenCommentFromMyPage: (reviewId: string, commentId: string) => void;
+    onOpenReview: (reviewId: string) => Promise<void>;
+    onUpdateReview: (reviewId: string, payload: { body: string; mood: ReviewMood; file?: File | null; removeImage?: boolean }) => Promise<void>;
+    onDeleteReview: (reviewId: string) => Promise<void>;
+    onMarkNotificationRead: (notificationId: string) => Promise<void>;
+    onMarkAllNotificationsRead: () => Promise<void>;
+    onDeleteNotification: (notificationId: string) => Promise<void>;
+    onLoadMoreComments: (initial?: boolean) => Promise<void>;
+    onRefreshAdmin: () => Promise<void>;
+    onToggleAdminPlace: (placeId: string, nextValue: boolean) => Promise<void>;
+    onToggleAdminManualOverride: (placeId: string, nextValue: boolean) => Promise<void>;
+  };
 }
 
 export const AppPageStage = memo(function AppPageStage({
@@ -125,36 +134,10 @@ export const AppPageStage = memo(function AppPageStage({
   adminLoading,
   commentsHasMore,
   commentsLoadingMore,
-  onLoadMoreFeed,
-  onToggleReviewLike,
-  onCreateComment,
-  onUpdateComment,
-  onDeleteComment,
-  onDeleteReview,
-  onRequestLogin,
-  onClearPlaceFilter,
-  onOpenPlace,
-  onOpenComments,
-  onCloseComments,
-  onChangeRouteSort,
-  onToggleRouteLike,
-  onOpenRoutePreview,
-  onChangeMyPageTab,
-  onLogin,
-  onRetryMyPage,
-  onLogout,
-  onSaveNickname,
-  onPublishRoute,
-  onOpenCommentFromMyPage,
-  onOpenReview,
-  onUpdateReview,
-  onMarkNotificationRead,
-  onMarkAllNotificationsRead,
-  onDeleteNotification,
-  onLoadMoreComments,
-  onRefreshAdmin,
-  onToggleAdminPlace,
-  onToggleAdminManualOverride,
+  sharedActions,
+  feedActions,
+  courseActions,
+  myPageActions,
 }: AppPageStageProps) {
   return (
     <div className="page-stage">
@@ -175,17 +158,17 @@ export const AppPageStage = memo(function AppPageStage({
           highlightedReviewId={highlightedReviewId}
           hasMore={feedHasMore && !feedPlaceFilterId}
           loadingMore={feedLoadingMore}
-          onLoadMore={onLoadMoreFeed}
-          onToggleReviewLike={onToggleReviewLike}
-          onCreateComment={onCreateComment}
-          onUpdateComment={onUpdateComment}
-          onDeleteComment={onDeleteComment}
-          onDeleteReview={onDeleteReview}
-          onRequestLogin={onRequestLogin}
-          onClearPlaceFilter={onClearPlaceFilter}
-          onOpenPlace={onOpenPlace}
-          onOpenComments={onOpenComments}
-          onCloseComments={onCloseComments}
+          onLoadMore={feedActions.onLoadMoreFeed}
+          onToggleReviewLike={feedActions.onToggleReviewLike}
+          onCreateComment={feedActions.onCreateComment}
+          onUpdateComment={feedActions.onUpdateComment}
+          onDeleteComment={feedActions.onDeleteComment}
+          onDeleteReview={feedActions.onDeleteReview}
+          onRequestLogin={sharedActions.onRequestLogin}
+          onClearPlaceFilter={feedActions.onClearPlaceFilter}
+          onOpenPlace={sharedActions.onOpenPlace}
+          onOpenComments={feedActions.onOpenComments}
+          onCloseComments={feedActions.onCloseComments}
         />
       )}
 
@@ -199,11 +182,11 @@ export const AppPageStage = memo(function AppPageStage({
           sessionUser={sessionUser}
           routeLikeUpdatingId={routeLikeUpdatingId}
           placeNameById={placeNameById}
-          onChangeSort={onChangeRouteSort}
-          onToggleLike={onToggleRouteLike}
-          onOpenPlace={onOpenPlace}
-          onOpenRoutePreview={onOpenRoutePreview}
-          onRequestLogin={onRequestLogin}
+          onChangeSort={courseActions.onChangeRouteSort}
+          onToggleLike={courseActions.onToggleRouteLike}
+          onOpenPlace={sharedActions.onOpenPlace}
+          onOpenRoutePreview={courseActions.onOpenRoutePreview}
+          onRequestLogin={sharedActions.onRequestLogin}
         />
       )}
 
@@ -222,26 +205,26 @@ export const AppPageStage = memo(function AppPageStage({
           adminSummary={adminSummary}
           adminBusyPlaceId={adminBusyPlaceId}
           adminLoading={adminLoading}
-          onChangeTab={onChangeMyPageTab}
-          onLogin={onLogin}
-          onRetry={onRetryMyPage}
-          onLogout={onLogout}
-          onSaveNickname={onSaveNickname}
-          onPublishRoute={onPublishRoute}
-          onOpenPlace={onOpenPlace}
-          onOpenComment={onOpenCommentFromMyPage}
-          onOpenReview={onOpenReview}
-          onUpdateReview={onUpdateReview}
-          onDeleteReview={onDeleteReview}
-          onMarkNotificationRead={onMarkNotificationRead}
-          onMarkAllNotificationsRead={onMarkAllNotificationsRead}
-          onDeleteNotification={onDeleteNotification}
+          onChangeTab={myPageActions.onChangeMyPageTab}
+          onLogin={myPageActions.onLogin}
+          onRetry={myPageActions.onRetryMyPage}
+          onLogout={myPageActions.onLogout}
+          onSaveNickname={myPageActions.onSaveNickname}
+          onPublishRoute={myPageActions.onPublishRoute}
+          onOpenPlace={sharedActions.onOpenPlace}
+          onOpenComment={myPageActions.onOpenCommentFromMyPage}
+          onOpenReview={myPageActions.onOpenReview}
+          onUpdateReview={myPageActions.onUpdateReview}
+          onDeleteReview={myPageActions.onDeleteReview}
+          onMarkNotificationRead={myPageActions.onMarkNotificationRead}
+          onMarkAllNotificationsRead={myPageActions.onMarkAllNotificationsRead}
+          onDeleteNotification={myPageActions.onDeleteNotification}
           commentsHasMore={commentsHasMore}
           commentsLoadingMore={commentsLoadingMore}
-          onLoadMoreComments={onLoadMoreComments}
-          onRefreshAdmin={onRefreshAdmin}
-          onToggleAdminPlace={onToggleAdminPlace}
-          onToggleAdminManualOverride={onToggleAdminManualOverride}
+          onLoadMoreComments={myPageActions.onLoadMoreComments}
+          onRefreshAdmin={myPageActions.onRefreshAdmin}
+          onToggleAdminPlace={myPageActions.onToggleAdminPlace}
+          onToggleAdminManualOverride={myPageActions.onToggleAdminManualOverride}
         />
       )}
     </div>
