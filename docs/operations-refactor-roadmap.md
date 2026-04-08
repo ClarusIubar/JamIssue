@@ -19,7 +19,7 @@
 
 ## 1. 운영 스모크 테스트 자동화
 
-상태: TODO
+상태: DONE
 우선순위: 높음
 성격: 운영 체계 / 배포 안정성
 
@@ -34,18 +34,20 @@
 ### 목표
 배포 직후 핵심 사용자 흐름의 실패를 자동으로 감지합니다.
 
-### TODO
-- [ ] 배포 후 호출할 공용 헬스 체크 시나리오 정의
-- [ ] 최소 검증 대상 API 목록 확정
-  - [ ] `/api/health`
-  - [ ] `/api/map-bootstrap`
-  - [ ] `/api/review-feed`
-  - [ ] `/api/community-routes`
-  - [ ] `/api/auth/providers`
+### 완료
+- [x] 배포/스모크 순서를 단일 workflow로 고정
+- [x] 배포 후 public smoke 실행
+- [x] 핵심 API 응답 검증
+  - [x] `/api/health`
+  - [x] `/api/map-bootstrap`
+  - [x] `/api/review-feed`
+  - [x] `/api/community-routes`
+  - [x] `/api/auth/providers`
+- [x] 실패 시 요약 로그 출력
+
+### 남은 후속
 - [ ] 인증 없는 public smoke와 인증 필요한 protected smoke 분리
-- [ ] `jamissue.growgardens.app` 기준 브라우저 수준 smoke 시나리오 초안 작성
-- [ ] 실패 시 바로 볼 수 있는 로그/요약 출력 형식 정의
-- [ ] CI 또는 배포 후 수동 원클릭 스크립트 경로 결정
+- [ ] 브라우저 수준 smoke 시나리오 확장
 
 ### 완료 조건
 - 배포 후 최소 1개의 자동 스모크가 실행된다.
@@ -54,7 +56,7 @@
 
 ## 2. 프론트 store를 auth/map/review/my로 분리
 
-상태: TODO
+상태: IN PROGRESS
 우선순위: 중간
 성격: 프론트 구조 표준화
 
@@ -86,9 +88,17 @@
   - 내 스탬프/피드/댓글/코스 데이터
   - 마이페이지 스크롤 복원 상태
 
-### TODO
+### 진행됨
+- [x] `review-ui-store` 1차 분리
+  - [x] feed place filter
+  - [x] active comment review id
+  - [x] highlighted comment/review id
+- [x] `my-page-store` 1차 분리
+  - [x] my page active tab
+
+### 남은 TODO
 - [ ] 현재 `app-ui-store`, `app-runtime-store` 상태 필드 목록 정리
-- [ ] 각 필드를 도메인별로 재분류
+- [ ] `auth-store`, `map-store` 후보 분리
 - [ ] 기존 selector/액션이 어떤 컴포넌트에서 쓰이는지 매핑
 - [ ] store 분리 후 컴포넌트별 의존 범위 최소화
 - [ ] 전역 notice 같은 cross-cutting 상태는 별도 `ui-shell` 또는 `app-shell` 계층으로 유지할지 결정
@@ -101,7 +111,7 @@
 
 ## 3. `repository_normalized.py`를 도메인별로 분리
 
-상태: TODO
+상태: IN PROGRESS
 우선순위: 중간
 성격: 백엔드 구조 표준화
 
@@ -130,10 +140,14 @@
 - `ReviewService`
 - `CommentService`
 
-### TODO
+### 진행됨
+- [x] review/comment domain repository facade 1차 추가
+- [x] `review_service.py`가 review facade를 우선 사용하도록 변경
+
+### 남은 TODO
 - [ ] `repository_normalized.py` 공개 함수 목록 분류
 - [ ] route/service가 직접 쓰는 함수와 내부 전용 함수를 구분
-- [ ] 리뷰/댓글/스탬프 도메인부터 파일 또는 클래스 단위로 분리
+- [ ] 리뷰/댓글 외 `profile/stamp/my-page` 도메인 facade 추가
 - [ ] 문자열/예외/ID 파서 공통 모듈 유지 기준 정리
 - [ ] 서비스가 repository 세부 구현 대신 도메인 인터페이스에 의존하도록 조정
 
@@ -148,6 +162,7 @@
   - `npm run typecheck`
   - `npm run build`
   - `backend/.venv/Scripts/python.exe -m pytest tests`
+- 프론트 훅/스토어 리팩토링 중 실제로 쓰이지 않는 중복 모듈은 즉시 제거합니다.
 - 한 번에 전부 하지 않고, 도메인 하나씩 독립 커밋으로 나눕니다.
 - 운영 경로를 건드리는 작업은 배포 전 smoke 절차가 먼저 있어야 합니다.
 

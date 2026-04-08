@@ -5,15 +5,15 @@ from sqlalchemy.orm import Session
 
 from ..models import CommentCreate, ReviewCreate, ReviewLikeResponse, ReviewOut, SessionUser, UserNotificationOut
 from ..notification_broker import notification_broker
-from ..repository_normalized import (
-    create_comment_with_notifications,
-    create_review,
-    delete_comment,
-    delete_review,
-    get_review_comments,
-    get_unread_notification_counts,
-    toggle_review_like,
+from ..repositories.review_repository import (
+    create_review_comment_with_notifications,
+    create_review_entry,
+    delete_review_comment,
+    delete_review_entry,
+    list_review_comments,
+    toggle_review_like_entry,
 )
+from ..repository_normalized import get_unread_notification_counts
 
 _PLACE_NOT_FOUND_TOKEN = "장소"
 _ENTITY_NOT_FOUND_TOKEN = "찾을 수"
@@ -84,34 +84,34 @@ def _publish_comment_notifications(
 
 def create_review_service(db: Session, payload: ReviewCreate, session_user: SessionUser) -> ReviewOut:
     return _run_with_policy(
-        lambda: create_review(db, payload, session_user.id, session_user.nickname),
+        lambda: create_review_entry(db, payload, session_user.id, session_user.nickname),
         not_found_tokens=(_PLACE_NOT_FOUND_TOKEN,),
     )
 
 
 def delete_review_service(db: Session, review_id: str, session_user: SessionUser) -> None:
     _run_delete_with_policy(
-        lambda: delete_review(db, review_id, session_user.id, is_admin=session_user.is_admin),
+        lambda: delete_review_entry(db, review_id, session_user.id, is_admin=session_user.is_admin),
     )
 
 
 def toggle_review_like_service(db: Session, review_id: str, session_user: SessionUser) -> ReviewLikeResponse:
     return _run_with_policy(
-        lambda: toggle_review_like(db, review_id, session_user.id, session_user.nickname),
+        lambda: toggle_review_like_entry(db, review_id, session_user.id, session_user.nickname),
         not_found_tokens=(_ENTITY_NOT_FOUND_TOKEN,),
     )
 
 
 def read_review_comments_service(db: Session, review_id: str):
     return _run_with_policy(
-        lambda: get_review_comments(db, review_id),
+        lambda: list_review_comments(db, review_id),
         not_found_tokens=(),
     )
 
 
 def create_comment_service(db: Session, review_id: str, payload: CommentCreate, session_user: SessionUser):
     comments, notifications = _run_with_policy(
-        lambda: create_comment_with_notifications(db, review_id, payload, session_user.id, session_user.nickname),
+        lambda: create_review_comment_with_notifications(db, review_id, payload, session_user.id, session_user.nickname),
         not_found_tokens=(_ENTITY_NOT_FOUND_TOKEN,),
     )
     _publish_comment_notifications(db, notifications)
@@ -120,5 +120,5 @@ def create_comment_service(db: Session, review_id: str, payload: CommentCreate, 
 
 def delete_comment_service(db: Session, review_id: str, comment_id: str, session_user: SessionUser):
     return _run_delete_with_policy(
-        lambda: delete_comment(db, review_id, comment_id, session_user.id, is_admin=session_user.is_admin),
+        lambda: delete_review_comment(db, review_id, comment_id, session_user.id, is_admin=session_user.is_admin),
     )

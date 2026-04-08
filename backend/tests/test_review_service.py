@@ -38,7 +38,7 @@ def test_create_review_service_maps_missing_place_to_404(monkeypatch):
     def failing_create_review(*_args, **_kwargs):
         raise ValueError("\uc7a5\uc18c\ub97c \ucc3e\uc744 \uc218 \uc5c6\uc5b4\uc694.")
 
-    monkeypatch.setattr(review_service, "create_review", failing_create_review)
+    monkeypatch.setattr(review_service, "create_review_entry", failing_create_review)
 
     with pytest.raises(HTTPException) as caught:
         review_service.create_review_service(
@@ -66,7 +66,7 @@ def test_create_comment_service_publishes_notifications(monkeypatch):
 
     monkeypatch.setattr(
         review_service,
-        "create_comment_with_notifications",
+        "create_review_comment_with_notifications",
         lambda *_args, **_kwargs: (comments, notifications),
     )
     monkeypatch.setattr(
@@ -112,7 +112,7 @@ def test_create_comment_service_maps_missing_review_to_404(monkeypatch):
     def failing_create_comment(*_args, **_kwargs):
         raise ValueError("\ub9ac\ubdf0\ub97c \ucc3e\uc744 \uc218 \uc5c6\uc5b4\uc694.")
 
-    monkeypatch.setattr(review_service, "create_comment_with_notifications", failing_create_comment)
+    monkeypatch.setattr(review_service, "create_review_comment_with_notifications", failing_create_comment)
 
     with pytest.raises(HTTPException) as caught:
         review_service.create_comment_service(
@@ -129,7 +129,7 @@ def test_create_comment_service_maps_invalid_reply_target_to_400(monkeypatch):
     def failing_create_comment(*_args, **_kwargs):
         raise ValueError("같은 리뷰의 댓글에만 답글을 달 수 있어요.")
 
-    monkeypatch.setattr(review_service, "create_comment_with_notifications", failing_create_comment)
+    monkeypatch.setattr(review_service, "create_review_comment_with_notifications", failing_create_comment)
 
     with pytest.raises(HTTPException) as caught:
         review_service.create_comment_service(
@@ -146,7 +146,7 @@ def test_toggle_review_like_service_maps_missing_review_to_404(monkeypatch):
     def failing_toggle_review_like(*_args, **_kwargs):
         raise ValueError("\ub9ac\ubdf0\ub97c \ucc3e\uc744 \uc218 \uc5c6\uc5b4\uc694.")
 
-    monkeypatch.setattr(review_service, "toggle_review_like", failing_toggle_review_like)
+    monkeypatch.setattr(review_service, "toggle_review_like_entry", failing_toggle_review_like)
 
     with pytest.raises(HTTPException) as caught:
         review_service.toggle_review_like_service(
@@ -162,7 +162,7 @@ def test_delete_review_service_maps_permission_error_to_403(monkeypatch):
     def failing_delete_review(*_args, **_kwargs):
         raise PermissionError("forbidden")
 
-    monkeypatch.setattr(review_service, "delete_review", failing_delete_review)
+    monkeypatch.setattr(review_service, "delete_review_entry", failing_delete_review)
 
     with pytest.raises(HTTPException) as caught:
         review_service.delete_review_service(
@@ -178,7 +178,7 @@ def test_delete_comment_service_maps_permission_error_to_403(monkeypatch):
     def failing_delete_comment(*_args, **_kwargs):
         raise PermissionError("forbidden")
 
-    monkeypatch.setattr(review_service, "delete_comment", failing_delete_comment)
+    monkeypatch.setattr(review_service, "delete_review_comment", failing_delete_comment)
 
     with pytest.raises(HTTPException) as caught:
         review_service.delete_comment_service(
@@ -195,7 +195,7 @@ def test_delete_comment_service_maps_missing_comment_to_404(monkeypatch):
     def failing_delete_comment(*_args, **_kwargs):
         raise ValueError("missing")
 
-    monkeypatch.setattr(review_service, "delete_comment", failing_delete_comment)
+    monkeypatch.setattr(review_service, "delete_review_comment", failing_delete_comment)
 
     with pytest.raises(HTTPException) as caught:
         review_service.delete_comment_service(
@@ -212,7 +212,7 @@ def test_read_review_comments_service_maps_invalid_review_id_to_400(monkeypatch)
     def failing_get_review_comments(*_args, **_kwargs):
         raise ValueError("리뷰 ID 형식이 올바르지 않아요.")
 
-    monkeypatch.setattr(review_service, "get_review_comments", failing_get_review_comments)
+    monkeypatch.setattr(review_service, "list_review_comments", failing_get_review_comments)
 
     with pytest.raises(HTTPException) as caught:
         review_service.read_review_comments_service(

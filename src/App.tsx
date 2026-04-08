@@ -34,7 +34,9 @@ import { useAppStageActions } from './hooks/useAppStageActions';
 import { useAppPagePaginationActions } from './hooks/useAppPagePaginationActions';
 import { useAppPageStageActions } from './hooks/useAppPageStageActions';
 import { useAppUIStore } from './store/app-ui-store';
+import { useMyPageStore } from './store/my-page-store';
 import { useNotificationStore } from './store/notification-store';
+import { useReviewUIStore } from './store/review-ui-store';
 import type {
   ApiStatus,
   Category,
@@ -82,18 +84,18 @@ export default function App() {
 
   const [initialMapViewport] = useState(getInitialMapViewport);
 
-  const myPageTab = useAppUIStore((state) => state.myPageTab);
-  const setMyPageTab = useAppUIStore((state) => state.setMyPageTab);
-  const feedPlaceFilterId = useAppUIStore((state) => state.feedPlaceFilterId);
-  const setFeedPlaceFilterId = useAppUIStore((state) => state.setFeedPlaceFilterId);
+  const myPageTab = useMyPageStore((state) => state.myPageTab);
+  const setMyPageTab = useMyPageStore((state) => state.setMyPageTab);
+  const feedPlaceFilterId = useReviewUIStore((state) => state.feedPlaceFilterId);
+  const setFeedPlaceFilterId = useReviewUIStore((state) => state.setFeedPlaceFilterId);
   const activeCategory = useAppUIStore((state) => state.activeCategory);
   const setActiveCategory = useAppUIStore((state) => state.setActiveCategory);
-  const activeCommentReviewId = useAppUIStore((state) => state.activeCommentReviewId);
-  const setActiveCommentReviewId = useAppUIStore((state) => state.setActiveCommentReviewId);
-  const highlightedCommentId = useAppUIStore((state) => state.highlightedCommentId);
-  const setHighlightedCommentId = useAppUIStore((state) => state.setHighlightedCommentId);
-  const highlightedReviewId = useAppUIStore((state) => state.highlightedReviewId);
-  const setHighlightedReviewId = useAppUIStore((state) => state.setHighlightedReviewId);
+  const activeCommentReviewId = useReviewUIStore((state) => state.activeCommentReviewId);
+  const setActiveCommentReviewId = useReviewUIStore((state) => state.setActiveCommentReviewId);
+  const highlightedCommentId = useReviewUIStore((state) => state.highlightedCommentId);
+  const setHighlightedCommentId = useReviewUIStore((state) => state.setHighlightedCommentId);
+  const highlightedReviewId = useReviewUIStore((state) => state.highlightedReviewId);
+  const setHighlightedReviewId = useReviewUIStore((state) => state.setHighlightedReviewId);
   const selectedRoutePreview = useAppUIStore((state) => state.selectedRoutePreview);
   const setSelectedRoutePreview = useAppUIStore((state) => state.setSelectedRoutePreview);
   const returnView = useAppUIStore((state) => state.returnView);
