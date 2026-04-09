@@ -135,6 +135,8 @@ export default function App() {
   const myCommentsHasMore = useAppRuntimeStore((state) => state.myCommentsHasMore);
   const myCommentsLoadingMore = useAppRuntimeStore((state) => state.myCommentsLoadingMore);
   const myCommentsLoadedOnce = useAppRuntimeStore((state) => state.myCommentsLoadedOnce);
+  const bootstrapStatus = useAppRuntimeStore((state) => state.bootstrapStatus);
+  const bootstrapError = useAppRuntimeStore((state) => state.bootstrapError);
 
   useEffect(() => {
     const initialNotice = getInitialNotice();
@@ -147,10 +149,6 @@ export default function App() {
   const providers = useAuthStore((state) => state.providers);
 
   const {
-    bootstrapStatus,
-    setBootstrapStatus,
-    bootstrapError,
-    setBootstrapError,
     places,
     setPlaces,
     festivals,
@@ -345,8 +343,6 @@ export default function App() {
     communityRouteSort,
     myCommentsLoadedOnce,
     placeReviewsCacheRef,
-    setBootstrapStatus,
-    setBootstrapError,
     setPlaces,
     setFestivals,
     setStampState,

@@ -8,7 +8,6 @@ import { useAppRouteStore } from '../store/app-route-store';
 import { clearAuthQueryParams } from './useAppRouteState';
 import type {
   AdminSummaryResponse,
-  ApiStatus,
   FestivalItem,
   MyPageResponse,
   Place,
@@ -28,8 +27,6 @@ interface UseAppBootstrapLifecycleParams {
   communityRouteSort: 'popular' | 'latest';
   myCommentsLoadedOnce: boolean;
   placeReviewsCacheRef: MutableRefObject<Record<string, Review[]>>;
-  setBootstrapStatus: (status: ApiStatus) => void;
-  setBootstrapError: (message: string | null) => void;
   setPlaces: Dispatch<SetStateAction<Place[]>>;
   setFestivals: Dispatch<SetStateAction<FestivalItem[]>>;
   setStampState: Dispatch<SetStateAction<StampState>>;
@@ -58,8 +55,6 @@ export function useAppBootstrapLifecycle({
   communityRouteSort,
   myCommentsLoadedOnce,
   placeReviewsCacheRef,
-  setBootstrapStatus,
-  setBootstrapError,
   setPlaces,
   setFestivals,
   setStampState,
@@ -79,6 +74,8 @@ export function useAppBootstrapLifecycle({
 }: UseAppBootstrapLifecycleParams) {
   const setSessionUser = useAuthStore((state) => state.setSessionUser);
   const setProviders = useAuthStore((state) => state.setProviders);
+  const setBootstrapStatus = useAppRuntimeStore((state) => state.setBootstrapStatus);
+  const setBootstrapError = useAppRuntimeStore((state) => state.setBootstrapError);
   const setSelectedPlaceId = useAppRouteStore((state) => state.setSelectedPlaceId);
   const setSelectedFestivalId = useAppRouteStore((state) => state.setSelectedFestivalId);
   const setNotice = useAppRuntimeStore((state) => state.setNotice);
