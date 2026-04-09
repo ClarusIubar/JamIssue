@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
-import { getFestivals, getMapBootstrap, getReviews } from '../api/client';
-import { toReviewSummaryList } from '../lib/reviews';
+import { getFestivals, getMapBootstrap } from '../api/client';
 import { useAuthStore } from '../store/auth-store';
 import { useAppRuntimeStore } from '../store/app-runtime-store';
 import { useAppRouteStore } from '../store/app-route-store';
+import { useAppTabWarmup } from './useAppTabWarmup';
+import { useSelectedPlaceReviewSync } from './useSelectedPlaceReviewSync';
 import { clearAuthQueryParams } from './useAppRouteState';
 import type {
   AdminSummaryResponse,
@@ -113,65 +114,29 @@ export function useAppBootstrapLifecycle({
     reportBackgroundErrorRef.current = reportBackgroundError;
   }, [reportBackgroundError]);
 
-  useEffect(() => {
-    if (!selectedPlaceId || activeTab !== 'map') {
-      setSelectedPlaceReviews([]);
-      return;
-    }
-
-    const cachedReviews = placeReviewsCacheRef.current[selectedPlaceId];
-    if (cachedReviews) {
-      setSelectedPlaceReviews(cachedReviews);
-      return;
-    }
-
-    void getReviews({ placeId: selectedPlaceId })
-      .then((nextReviews) => {
-        const nextReviewSummaries = toReviewSummaryList(nextReviews);
-        placeReviewsCacheRef.current[selectedPlaceId] = nextReviewSummaries;
-        setSelectedPlaceReviews(nextReviewSummaries);
-      })
-      .catch(reportBackgroundError);
-  }, [activeTab, placeReviewsCacheRef, reportBackgroundError, selectedPlaceId, setSelectedPlaceReviews]);
-
-  useEffect(() => {
-    if (activeTab === 'feed') {
-      void ensureFeedReviews().catch(reportBackgroundError);
-      return;
-    }
-
-    if (activeTab === 'course') {
-      void fetchCommunityRoutes(communityRouteSort).catch(reportBackgroundError);
-      return;
-    }
-
-    if (activeTab === 'my') {
-      if (sessionUser && myPage === null) {
-        void refreshMyPageForUser(sessionUser, true).catch(reportBackgroundError);
-      }
-      if (sessionUser?.isAdmin && myPageTab === 'admin' && adminSummary === null) {
-        void refreshAdminSummary().catch(reportBackgroundError);
-      }
-      if (sessionUser && myPage && myPageTab === 'comments' && !myCommentsLoadedOnce) {
-        void loadMoreMyComments(true);
-      }
-    }
-  }, [
+  useSelectedPlaceReviewSync({
     activeTab,
-    adminSummary,
-    communityRouteSort,
-    ensureCuratedCourses,
-    ensureFeedReviews,
-    fetchCommunityRoutes,
-    loadMoreMyComments,
-    myCommentsLoadedOnce,
+    selectedPlaceId,
+    placeReviewsCacheRef,
+    setSelectedPlaceReviews,
+    reportBackgroundError,
+  });
+
+  useAppTabWarmup({
+    activeTab,
+    sessionUser,
     myPage,
     myPageTab,
-    refreshAdminSummary,
+    adminSummary,
+    communityRouteSort,
+    myCommentsLoadedOnce,
+    ensureFeedReviews,
+    fetchCommunityRoutes,
     refreshMyPageForUser,
+    refreshAdminSummary,
+    loadMoreMyComments,
     reportBackgroundError,
-    sessionUser,
-  ]);
+  });
 
   useEffect(() => {
     let active = true;
