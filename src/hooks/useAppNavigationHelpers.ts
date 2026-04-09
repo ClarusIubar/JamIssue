@@ -25,6 +25,7 @@ interface UseAppNavigationHelpersParams {
   setActiveCommentReviewId: (reviewId: string | null) => void;
   setHighlightedCommentId: (commentId: string | null) => void;
   setHighlightedReviewId: (reviewId: string | null) => void;
+  setHighlightedRouteId: (routeId: string | null) => void;
   setReturnView: (value: ReturnViewState | null) => void;
   setSelectedRoutePreview: (route: RoutePreview | null) => void;
   setFeedPlaceFilterId: (placeId: string | null) => void;
@@ -67,6 +68,7 @@ export function useAppNavigationHelpers({
   setActiveCommentReviewId,
   setHighlightedCommentId,
   setHighlightedReviewId,
+  setHighlightedRouteId,
   setReturnView,
   setSelectedRoutePreview,
   setFeedPlaceFilterId,
@@ -191,6 +193,18 @@ export function useAppNavigationHelpers({
     handleOpenReviewComments(reviewId, commentId);
   }
 
+  function handleOpenCommunityRouteWithReturn(routeId: string) {
+    if (activeTab !== 'course') {
+      setReturnView(snapshotReturnView());
+    }
+    setHighlightedRouteId(routeId);
+    setSelectedRoutePreview(null);
+    setHighlightedReviewId(null);
+    setHighlightedCommentId(null);
+    setActiveCommentReviewId(null);
+    goToTab('course');
+  }
+
   return {
     handleOpenReviewComments,
     handleCloseReviewComments,
@@ -200,5 +214,6 @@ export function useAppNavigationHelpers({
     handleOpenReviewWithReturn,
     handleOpenPlaceFeedWithReturn,
     handleOpenCommentWithReturn,
+    handleOpenCommunityRouteWithReturn,
   };
 }

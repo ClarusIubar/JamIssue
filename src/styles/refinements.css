@@ -1087,6 +1087,12 @@ body {
   margin: 0 !important;
 }
 
+.community-route-card--highlighted {
+  border-color: rgba(255, 127, 168, 0.34) !important;
+  background: rgba(255, 248, 251, 0.98) !important;
+  box-shadow: 0 0 0 4px rgba(255, 206, 222, 0.28) !important;
+}
+
 /* 2026-03-21 my feed highlight */
 .review-card--highlighted {
   border-color: rgba(255, 127, 168, 0.34) !important;

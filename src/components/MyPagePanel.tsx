@@ -28,6 +28,7 @@ interface MyPagePanelProps {
   reviewActions: {
     onOpenPlace: (placeId: string) => void;
     onOpenComment: (reviewId: string, commentId: string) => void;
+    onOpenRoute: (routeId: string) => Promise<void>;
     onOpenReview: (reviewId: string) => void;
     onUpdateReview: (reviewId: string, payload: { body: string; mood: ReviewMood; file?: File | null; removeImage?: boolean }) => Promise<void>;
     onDeleteReview: (reviewId: string) => Promise<void>;
@@ -100,6 +101,7 @@ export function MyPagePanel({
   const {
     onOpenPlace,
     onOpenComment,
+    onOpenRoute,
     onOpenReview,
     onUpdateReview,
     onDeleteReview,
@@ -415,6 +417,7 @@ export function MyPagePanel({
                 routeSubmitting={routeSubmitting}
                 routeError={routeError}
                 onOpenPlace={onOpenPlace}
+                onOpenRoute={onOpenRoute}
                 onPublishRoute={onPublishRoute}
               />
             )}

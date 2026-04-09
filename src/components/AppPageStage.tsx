@@ -48,6 +48,7 @@ interface AppPageStageProps {
     communityRoutes: UserRoute[];
     communityRouteSort: CommunityRouteSort;
     routeLikeUpdatingId: string | null;
+    highlightedRouteId: string | null;
   };
   myPageData: {
     myPage: MyPageResponse | null;
@@ -93,6 +94,7 @@ interface AppPageStageProps {
     onSaveNickname: (nickname: string) => Promise<void>;
     onPublishRoute: (payload: { travelSessionId: string; title: string; description: string; mood: string }) => Promise<void>;
     onOpenCommentFromMyPage: (reviewId: string, commentId: string) => void;
+    onOpenRouteFromMyPage: (routeId: string) => Promise<void>;
     onOpenReview: (reviewId: string) => Promise<void>;
     onUpdateReview: (reviewId: string, payload: { body: string; mood: ReviewMood; file?: File | null; removeImage?: boolean }) => Promise<void>;
     onDeleteReview: (reviewId: string) => Promise<void>;
@@ -169,6 +171,7 @@ export const AppPageStage = memo(function AppPageStage({
           sort={courseData.communityRouteSort}
           sessionUser={sharedData.sessionUser}
           routeLikeUpdatingId={courseData.routeLikeUpdatingId}
+          highlightedRouteId={courseData.highlightedRouteId}
           placeNameById={sharedData.placeNameById}
           onChangeSort={courseActions.onChangeRouteSort}
           onToggleLike={courseActions.onToggleRouteLike}
@@ -199,6 +202,7 @@ export const AppPageStage = memo(function AppPageStage({
           reviewActions={{
             onOpenPlace: sharedActions.onOpenPlace,
             onOpenComment: myPageActions.onOpenCommentFromMyPage,
+            onOpenRoute: myPageActions.onOpenRouteFromMyPage,
             onOpenReview: myPageActions.onOpenReview,
             onUpdateReview: myPageActions.onUpdateReview,
             onDeleteReview: myPageActions.onDeleteReview,

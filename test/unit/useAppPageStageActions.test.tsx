@@ -12,6 +12,7 @@ describe('useAppPageStageActions', () => {
       setFeedPlaceFilterId,
       setCommunityRouteSort: vi.fn(),
       handleOpenCommentWithReturn: vi.fn(),
+      handleOpenCommunityRouteWithReturn: vi.fn(),
       fetchCommunityRoutes: vi.fn().mockResolvedValue(undefined),
       refreshMyPageForUser: vi.fn().mockResolvedValue(undefined),
       reportBackgroundError: vi.fn(),
@@ -33,6 +34,7 @@ describe('useAppPageStageActions', () => {
         setFeedPlaceFilterId: vi.fn(),
         setCommunityRouteSort: vi.fn(),
         handleOpenCommentWithReturn: vi.fn(),
+        handleOpenCommunityRouteWithReturn: vi.fn(),
         fetchCommunityRoutes: vi.fn().mockResolvedValue(undefined),
         refreshMyPageForUser,
         reportBackgroundError: vi.fn(),
@@ -62,6 +64,7 @@ describe('useAppPageStageActions', () => {
       setFeedPlaceFilterId: vi.fn(),
       setCommunityRouteSort,
       handleOpenCommentWithReturn: vi.fn(),
+      handleOpenCommunityRouteWithReturn: vi.fn(),
       fetchCommunityRoutes,
       refreshMyPageForUser: vi.fn().mockResolvedValue(undefined),
       reportBackgroundError,
@@ -84,6 +87,7 @@ describe('useAppPageStageActions', () => {
       setFeedPlaceFilterId: vi.fn(),
       setCommunityRouteSort: vi.fn(),
       handleOpenCommentWithReturn,
+      handleOpenCommunityRouteWithReturn: vi.fn(),
       fetchCommunityRoutes: vi.fn().mockResolvedValue(undefined),
       refreshMyPageForUser: vi.fn().mockResolvedValue(undefined),
       reportBackgroundError: vi.fn(),
@@ -94,5 +98,30 @@ describe('useAppPageStageActions', () => {
     });
 
     expect(handleOpenCommentWithReturn).toHaveBeenCalledWith('review-1', 'comment-1');
+  });
+
+  it('opens a published route from my-page through the course navigation helper', async () => {
+    const setCommunityRouteSort = vi.fn();
+    const fetchCommunityRoutes = vi.fn().mockResolvedValue(undefined);
+    const handleOpenCommunityRouteWithReturn = vi.fn();
+
+    const { result } = renderHook(() => useAppPageStageActions({
+      sessionUser: sessionUserFixture,
+      setFeedPlaceFilterId: vi.fn(),
+      setCommunityRouteSort,
+      handleOpenCommentWithReturn: vi.fn(),
+      handleOpenCommunityRouteWithReturn,
+      fetchCommunityRoutes,
+      refreshMyPageForUser: vi.fn().mockResolvedValue(undefined),
+      reportBackgroundError: vi.fn(),
+    }));
+
+    await act(async () => {
+      await result.current.handleOpenRouteFromMyPage('route-1');
+    });
+
+    expect(setCommunityRouteSort).toHaveBeenCalledWith('latest');
+    expect(fetchCommunityRoutes).toHaveBeenCalledWith('latest');
+    expect(handleOpenCommunityRouteWithReturn).toHaveBeenCalledWith('route-1');
   });
 });

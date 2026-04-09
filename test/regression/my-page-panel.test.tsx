@@ -25,6 +25,7 @@ function createPanelProps(activeTab: MyPageTabKey) {
     reviewActions: {
       onOpenPlace: vi.fn(),
       onOpenComment: vi.fn(),
+      onOpenRoute: vi.fn().mockResolvedValue(undefined),
       onOpenReview: vi.fn(),
       onUpdateReview: vi.fn().mockResolvedValue(undefined),
       onDeleteReview: vi.fn().mockResolvedValue(undefined),
@@ -66,5 +67,6 @@ describe('MyPagePanel regression', () => {
 
     rerender(<MyPagePanel {...createPanelProps('routes')} />);
     expect(screen.getByText(myPageFixture.routes[0].title)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '코스 탭에서 보기' })).toBeInTheDocument();
   });
 });

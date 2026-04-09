@@ -92,6 +92,8 @@ export default function App() {
   const setHighlightedCommentId = useReviewUIStore((state) => state.setHighlightedCommentId);
   const highlightedReviewId = useReviewUIStore((state) => state.highlightedReviewId);
   const setHighlightedReviewId = useReviewUIStore((state) => state.setHighlightedReviewId);
+  const highlightedRouteId = useReviewUIStore((state) => state.highlightedRouteId);
+  const setHighlightedRouteId = useReviewUIStore((state) => state.setHighlightedRouteId);
   const selectedRoutePreview = useAppMapStore((state) => state.selectedRoutePreview);
   const setSelectedRoutePreview = useAppMapStore((state) => state.setSelectedRoutePreview);
   const returnView = useAppUIStore((state) => state.returnView);
@@ -272,6 +274,7 @@ export default function App() {
     handleOpenReviewWithReturn,
     handleOpenPlaceFeedWithReturn,
     handleOpenCommentWithReturn,
+    handleOpenCommunityRouteWithReturn,
   } = useAppNavigationHelpers({
     activeTab,
     myPageTab,
@@ -288,6 +291,7 @@ export default function App() {
     setActiveCommentReviewId,
     setHighlightedCommentId,
     setHighlightedReviewId,
+    setHighlightedRouteId,
     setReturnView,
     setSelectedRoutePreview,
     setFeedPlaceFilterId,
@@ -505,11 +509,13 @@ export default function App() {
     handleChangeRouteSort,
     handleRetryMyPage,
     handleOpenCommentFromMyPage,
+    handleOpenRouteFromMyPage,
   } = useAppPageStageActions({
     sessionUser,
     setFeedPlaceFilterId,
     setCommunityRouteSort,
     handleOpenCommentWithReturn,
+    handleOpenCommunityRouteWithReturn,
     fetchCommunityRoutes,
     refreshMyPageForUser,
     reportBackgroundError,
@@ -614,6 +620,7 @@ export default function App() {
                 communityRoutes,
                 communityRouteSort,
                 routeLikeUpdatingId,
+                highlightedRouteId,
               }}
               myPageData={{
                 myPage: hydratedMyPage,
@@ -659,6 +666,7 @@ export default function App() {
                 onSaveNickname: handleUpdateProfile,
                 onPublishRoute: handlePublishRoute,
                 onOpenCommentFromMyPage: handleOpenCommentFromMyPage,
+                onOpenRouteFromMyPage: handleOpenRouteFromMyPage,
                 onOpenReview: handleOpenReviewWithReturn,
                 onUpdateReview: handleUpdateReview,
                 onDeleteReview: handleDeleteReview,

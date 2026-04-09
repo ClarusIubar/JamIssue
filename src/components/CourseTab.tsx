@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { HeartIcon } from './review/ReviewActionIcons';
 import type { CommunityRouteSort, Course, SessionUser, UserRoute } from '../types';
@@ -8,6 +9,7 @@ interface CourseTabProps {
   sort: CommunityRouteSort;
   sessionUser: SessionUser | null;
   routeLikeUpdatingId: string | null;
+  highlightedRouteId: string | null;
   placeNameById: Record<string, string>;
   onChangeSort: (sort: CommunityRouteSort) => void;
   onToggleLike: (routeId: string) => Promise<void>;
@@ -22,6 +24,7 @@ export function CourseTab({
   sort,
   sessionUser,
   routeLikeUpdatingId,
+  highlightedRouteId,
   placeNameById,
   onChangeSort,
   onToggleLike,
@@ -30,8 +33,20 @@ export function CourseTab({
   onRequestLogin,
 }: CourseTabProps) {
   const scrollRef = useScrollRestoration<HTMLElement>('course');
+  const routeRefs = useRef<Record<string, HTMLElement | null>>({});
   void courses;
   void placeNameById;
+
+  useEffect(() => {
+    if (!highlightedRouteId) {
+      return;
+    }
+    const target = routeRefs.current[highlightedRouteId];
+    if (!target) {
+      return;
+    }
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [highlightedRouteId]);
 
   return (
     <section ref={scrollRef} className="page-panel page-panel--scrollable">
@@ -62,7 +77,13 @@ export function CourseTab({
         </div>
         <div className="community-route-list">
           {communityRoutes.map((route) => (
-            <article key={route.id} className="community-route-card">
+            <article
+              key={route.id}
+              ref={(node) => {
+                routeRefs.current[route.id] = node;
+              }}
+              className={route.id === highlightedRouteId ? 'community-route-card community-route-card--highlighted' : 'community-route-card'}
+            >
               <div className="community-route-card__header community-route-card__header--feedlike">
                 <div className="community-route-card__title-block">
                   <div className="community-route-card__tag-row">

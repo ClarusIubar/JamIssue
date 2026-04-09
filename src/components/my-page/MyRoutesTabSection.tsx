@@ -19,6 +19,7 @@ interface MyRoutesTabSectionProps {
   routeSubmitting: boolean;
   routeError: string | null;
   onOpenPlace: (placeId: string) => void;
+  onOpenRoute: (routeId: string) => Promise<void>;
   onPublishRoute: (payload: { travelSessionId: string; title: string; description: string; mood: string }) => Promise<void>;
 }
 
@@ -38,6 +39,7 @@ export function MyRoutesTabSection({
   routeSubmitting,
   routeError,
   onOpenPlace,
+  onOpenRoute,
   onPublishRoute,
 }: MyRoutesTabSectionProps) {
   const [drafts, setDrafts] = useState<Record<string, DraftState>>({});
@@ -145,6 +147,11 @@ export function MyRoutesTabSection({
                   {index + 1}. {route.placeNames[index] ?? placeId}
                 </button>
               ))}
+            </div>
+            <div className="review-card__actions review-card__actions--course">
+              <button type="button" className="review-link-button" onClick={() => void onOpenRoute(route.id)}>
+                코스 탭에서 보기
+              </button>
             </div>
           </article>
         ))}
