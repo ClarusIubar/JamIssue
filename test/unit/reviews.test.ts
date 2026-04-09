@@ -96,7 +96,7 @@ describe('review helpers', () => {
       result.current.upsertReviewCollections(baseReview);
       result.current.patchReviewCollections(baseReview.id, (review) => ({
         ...review,
-        body: '?섏젙??蹂몃Ц',
+        body: '수정된 본문',
         commentCount: 1,
         comments: embeddedComments,
       }));
@@ -104,7 +104,7 @@ describe('review helpers', () => {
 
     expect(result.current.reviews[0]).toEqual({
       ...baseReview,
-      body: '?섏젙??蹂몃Ц',
+      body: '수정된 본문',
       commentCount: 1,
       comments: [],
     });

@@ -1,10 +1,10 @@
 ﻿-- JamIssue Supabase / Postgres schema
--- 2026-03-18 湲곗? ?뺢퇋?붾맂 ?ㅽ궎留?
--- ?듭떖 洹쒖튃:
--- 1. user_stamp??諛⑸Ц 濡쒓렇 ?뚯씠釉붿씠硫??좎쭨媛 ?ㅻⅤ硫?媛숈? ?μ냼???ㅼ떆 ?곷┰?????덈떎.
--- 2. stamp_id媛 ?덉뼱???꾧린(feed)瑜??묒꽦?????덈떎.
--- 3. 24?쒓컙 ?대궡???곗냽 ?ㅽ꺃?꾨뒗 媛숈? travel_session?쇰줈 臾띕뒗??
--- 4. user_route??媛쒕컻???먮젅?댁뀡 肄붿뒪? ?ъ슜???앹꽦 寃쎈줈瑜??④퍡 ?대릺, is_user_generated濡?援щ텇?쒕떎.
+-- 2026-03-18 기준 정리한 스키마
+-- 운영 규칙:
+-- 1. user_stamp는 방문 로그 테이블이며 날짜가 다르면 같은 장소도 다시 적립할 수 있다.
+-- 2. stamp_id가 있어야 후기(feed)를 작성할 수 있다.
+-- 3. 24시간 이내에 이어진 스탬프는 같은 travel_session으로 묶는다.
+-- 4. user_route는 공개 커뮤니티 코스와 사용자 생성 경로를 함께 표현하며, is_user_generated로 구분한다.
 
 create table if not exists public."user" (
   user_id varchar(64) primary key,
@@ -188,7 +188,7 @@ create table if not exists public.feed (
   stamp_id integer not null references public.user_stamp(stamp_id),
   body text not null,
   mood varchar(20) not null,
-  badge varchar(50) not null default '濡쒖뺄 硫붾え',
+  badge varchar(50) not null default '로컬 메모',
   image_url varchar(255),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
