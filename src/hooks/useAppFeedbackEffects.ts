@@ -1,5 +1,6 @@
 ﻿import { useEffect } from 'react';
 import { formatDistanceMeters } from '../lib/visits';
+import { useAppRuntimeStore } from '../store/app-runtime-store';
 import type { Place, SessionUser, StampLog } from '../types';
 
 interface UseAppFeedbackEffectsParams {
@@ -11,9 +12,6 @@ interface UseAppFeedbackEffectsParams {
   mapLocationMessage: string | null;
   stampUnlockRadiusMeters: number;
   noticeDismissDelayMs: number;
-  setStampActionMessage: (message: string) => void;
-  setNotice: (notice: string | null) => void;
-  setMapLocationMessage: (message: string | null) => void;
 }
 
 export function useAppFeedbackEffects({
@@ -25,10 +23,11 @@ export function useAppFeedbackEffects({
   mapLocationMessage,
   stampUnlockRadiusMeters,
   noticeDismissDelayMs,
-  setStampActionMessage,
-  setNotice,
-  setMapLocationMessage,
 }: UseAppFeedbackEffectsParams) {
+  const setStampActionMessage = useAppRuntimeStore((state) => state.setStampActionMessage);
+  const setNotice = useAppRuntimeStore((state) => state.setNotice);
+  const setMapLocationMessage = useAppRuntimeStore((state) => state.setMapLocationMessage);
+
   useEffect(() => {
     if (!selectedPlace) {
       setStampActionMessage('\uC7A5\uC18C\uB97C \uC120\uD0DD\uD558\uBA74 \uC624\uB298 \uC2A4\uD0EC\uD504 \uAC00\uB2A5 \uC5EC\uBD80\uB97C \uBC14\uB85C \uD655\uC778\uD560 \uC218 \uC788\uC5B4\uC694.');

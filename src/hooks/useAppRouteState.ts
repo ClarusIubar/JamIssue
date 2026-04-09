@@ -1,5 +1,6 @@
-﻿import { useCallback, useEffect } from 'react';
-import { useAppUIStore } from '../store/app-ui-store';
+import { useCallback, useEffect } from 'react';
+import { useAppMapStore } from '../store/app-map-store';
+import { useAppRouteStore } from '../store/app-route-store';
 import type { DrawerState, RoutePreview, Tab } from '../types';
 
 export type RouteState = {
@@ -186,29 +187,29 @@ function initializeRouteStore() {
     return;
   }
   const routeState = getInitialRouteState();
-  useAppUIStore.setState({
+  useAppRouteStore.setState({
     activeTab: routeState.tab,
     selectedPlaceId: routeState.tab === 'map' ? routeState.placeId : null,
     selectedFestivalId: routeState.tab === 'map' ? routeState.festivalId : null,
     drawerState: routeState.tab === 'map' ? routeState.drawerState : 'closed',
-    selectedRoutePreview: getRoutePreviewFromHistoryState(window.history.state),
   });
+  useAppMapStore.setState({ selectedRoutePreview: getRoutePreviewFromHistoryState(window.history.state) });
   routeStoreInitialized = true;
 }
 
 export function useAppRouteState() {
   initializeRouteStore();
 
-  const activeTab = useAppUIStore((state) => state.activeTab);
-  const drawerState = useAppUIStore((state) => state.drawerState);
-  const selectedPlaceId = useAppUIStore((state) => state.selectedPlaceId);
-  const selectedFestivalId = useAppUIStore((state) => state.selectedFestivalId);
-  const selectedRoutePreview = useAppUIStore((state) => state.selectedRoutePreview);
-  const setActiveTab = useAppUIStore((state) => state.setActiveTab);
-  const setDrawerState = useAppUIStore((state) => state.setDrawerState);
-  const setSelectedPlaceId = useAppUIStore((state) => state.setSelectedPlaceId);
-  const setSelectedFestivalId = useAppUIStore((state) => state.setSelectedFestivalId);
-  const setSelectedRoutePreview = useAppUIStore((state) => state.setSelectedRoutePreview);
+  const activeTab = useAppRouteStore((state) => state.activeTab);
+  const drawerState = useAppRouteStore((state) => state.drawerState);
+  const selectedPlaceId = useAppRouteStore((state) => state.selectedPlaceId);
+  const selectedFestivalId = useAppRouteStore((state) => state.selectedFestivalId);
+  const setActiveTab = useAppRouteStore((state) => state.setActiveTab);
+  const setDrawerState = useAppRouteStore((state) => state.setDrawerState);
+  const setSelectedPlaceId = useAppRouteStore((state) => state.setSelectedPlaceId);
+  const setSelectedFestivalId = useAppRouteStore((state) => state.setSelectedFestivalId);
+  const selectedRoutePreview = useAppMapStore((state) => state.selectedRoutePreview);
+  const setSelectedRoutePreview = useAppMapStore((state) => state.setSelectedRoutePreview);
 
   const applyRouteState = useCallback((routeState: RouteState, routePreview: RoutePreview | null = null) => {
     setActiveTab(routeState.tab);

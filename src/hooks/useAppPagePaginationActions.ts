@@ -1,6 +1,7 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import { getMyCommentsPage, getReviewFeedPage } from '../api/client';
 import { toReviewSummaryList } from '../lib/reviews';
+import { useAppRuntimeStore } from '../store/app-runtime-store';
 import type { MyPageResponse, Review, SessionUser } from '../types';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
@@ -8,44 +9,32 @@ type SetState<T> = Dispatch<SetStateAction<T>>;
 interface UseAppPagePaginationActionsParams {
   sessionUser: SessionUser | null;
   myPage: MyPageResponse | null;
-  feedNextCursor: string | null;
-  feedHasMore: boolean;
-  feedLoadingMore: boolean;
-  myCommentsNextCursor: string | null;
-  myCommentsHasMore: boolean;
-  myCommentsLoadingMore: boolean;
   setReviews: SetState<Review[]>;
   setMyPage: SetState<MyPageResponse | null>;
-  setFeedNextCursor: SetState<string | null>;
-  setFeedHasMore: SetState<boolean>;
-  setFeedLoadingMore: SetState<boolean>;
-  setMyCommentsNextCursor: SetState<string | null>;
-  setMyCommentsHasMore: SetState<boolean>;
-  setMyCommentsLoadingMore: SetState<boolean>;
-  setMyCommentsLoadedOnce: SetState<boolean>;
   reportBackgroundError: (error: unknown) => void;
 }
 
 export function useAppPagePaginationActions({
   sessionUser,
   myPage,
-  feedNextCursor,
-  feedHasMore,
-  feedLoadingMore,
-  myCommentsNextCursor,
-  myCommentsHasMore,
-  myCommentsLoadingMore,
   setReviews,
   setMyPage,
-  setFeedNextCursor,
-  setFeedHasMore,
-  setFeedLoadingMore,
-  setMyCommentsNextCursor,
-  setMyCommentsHasMore,
-  setMyCommentsLoadingMore,
-  setMyCommentsLoadedOnce,
   reportBackgroundError,
 }: UseAppPagePaginationActionsParams) {
+  const feedNextCursor = useAppRuntimeStore((state) => state.feedNextCursor);
+  const feedHasMore = useAppRuntimeStore((state) => state.feedHasMore);
+  const feedLoadingMore = useAppRuntimeStore((state) => state.feedLoadingMore);
+  const myCommentsNextCursor = useAppRuntimeStore((state) => state.myCommentsNextCursor);
+  const myCommentsHasMore = useAppRuntimeStore((state) => state.myCommentsHasMore);
+  const myCommentsLoadingMore = useAppRuntimeStore((state) => state.myCommentsLoadingMore);
+  const setFeedNextCursor = useAppRuntimeStore((state) => state.setFeedNextCursor);
+  const setFeedHasMore = useAppRuntimeStore((state) => state.setFeedHasMore);
+  const setFeedLoadingMore = useAppRuntimeStore((state) => state.setFeedLoadingMore);
+  const setMyCommentsNextCursor = useAppRuntimeStore((state) => state.setMyCommentsNextCursor);
+  const setMyCommentsHasMore = useAppRuntimeStore((state) => state.setMyCommentsHasMore);
+  const setMyCommentsLoadingMore = useAppRuntimeStore((state) => state.setMyCommentsLoadingMore);
+  const setMyCommentsLoadedOnce = useAppRuntimeStore((state) => state.setMyCommentsLoadedOnce);
+
   const loadMoreFeedReviews = useCallback(async () => {
     if (feedLoadingMore || !feedHasMore) {
       return;

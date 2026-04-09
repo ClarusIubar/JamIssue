@@ -10,6 +10,8 @@ import {
   uploadReviewImage,
 } from '../api/client';
 import { countCommentsInThread, toReviewSummary } from '../lib/reviews';
+import { useAppRuntimeStore } from '../store/app-runtime-store';
+import { useReviewUIStore } from '../store/review-ui-store';
 import type { RouteStateCommitOptions } from './useAppRouteState';
 import type {
   Comment,
@@ -34,17 +36,10 @@ interface UseAppReviewActionsParams {
   myPage: MyPageResponse | null;
   activeCommentReviewId: string | null;
   highlightedReviewId: string | null;
-  setReviewSubmitting: SetState<boolean>;
-  setReviewError: SetState<string | null>;
-  setCommentSubmittingReviewId: SetState<string | null>;
-  setCommentMutatingId: SetState<string | null>;
-  setDeletingReviewId: SetState<string | null>;
-  setReviewLikeUpdatingId: SetState<string | null>;
   setSelectedPlaceReviews: SetState<Review[]>;
   setReviews: SetState<Review[]>;
   setMyPage: SetState<MyPageResponse | null>;
   setNotice: (notice: string | null) => void;
-  setHighlightedReviewId: (reviewId: string | null) => void;
   goToTab: (nextTab: Tab, historyMode?: HistoryMode) => void;
   commitRouteState: (
     nextState: { tab: Tab; placeId: string | null; festivalId: string | null; drawerState: DrawerState },
@@ -70,17 +65,10 @@ export function useAppReviewActions({
   myPage,
   activeCommentReviewId,
   highlightedReviewId,
-  setReviewSubmitting,
-  setReviewError,
-  setCommentSubmittingReviewId,
-  setCommentMutatingId,
-  setDeletingReviewId,
-  setReviewLikeUpdatingId,
   setSelectedPlaceReviews,
   setReviews,
   setMyPage,
   setNotice,
-  setHighlightedReviewId,
   goToTab,
   commitRouteState,
   refreshMyPageForUser,
@@ -92,6 +80,14 @@ export function useAppReviewActions({
   clearReviewComments,
   formatErrorMessage,
 }: UseAppReviewActionsParams) {
+  const setReviewSubmitting = useAppRuntimeStore((state) => state.setReviewSubmitting);
+  const setReviewError = useAppRuntimeStore((state) => state.setReviewError);
+  const setCommentSubmittingReviewId = useAppRuntimeStore((state) => state.setCommentSubmittingReviewId);
+  const setCommentMutatingId = useAppRuntimeStore((state) => state.setCommentMutatingId);
+  const setDeletingReviewId = useAppRuntimeStore((state) => state.setDeletingReviewId);
+  const setReviewLikeUpdatingId = useAppRuntimeStore((state) => state.setReviewLikeUpdatingId);
+  const setHighlightedReviewId = useReviewUIStore((state) => state.setHighlightedReviewId);
+
   async function handleCreateReview(payload: { stampId: string; body: string; mood: ReviewMood; file: File | null }) {
     if (!sessionUser || !selectedPlace) {
       goToTab('my');

@@ -95,10 +95,23 @@
   - [x] highlighted comment/review id
 - [x] `my-page-store` 1차 분리
   - [x] my page active tab
+- [x] `auth-store` 1차 분리
+  - [x] session user
+  - [x] auth providers
+- [x] `app-map-store` 1차 분리
+  - [x] active category
+  - [x] selected route preview
+- [x] `app-route-store` 1차 분리
+  - [x] active tab
+  - [x] drawer state
+  - [x] selected place / festival id
+- [x] `app-runtime-store` 1차 정리
+  - [x] notice / current position / map location status
+  - [x] review / comment mutation flags
+  - [x] feed / my comments pagination flags
 
 ### 남은 TODO
-- [ ] 현재 `app-ui-store`, `app-runtime-store` 상태 필드 목록 정리
-- [ ] `auth-store`, `map-store` 후보 분리
+- [ ] 현재 `app-runtime-store`를 shell runtime과 page runtime으로 더 나눌지 결정
 - [ ] 기존 selector/액션이 어떤 컴포넌트에서 쓰이는지 매핑
 - [ ] store 분리 후 컴포넌트별 의존 범위 최소화
 - [ ] 전역 notice 같은 cross-cutting 상태는 별도 `ui-shell` 또는 `app-shell` 계층으로 유지할지 결정
@@ -143,11 +156,13 @@
 ### 진행됨
 - [x] review/comment domain repository facade 1차 추가
 - [x] `review_service.py`가 review facade를 우선 사용하도록 변경
+- [x] page domain repository facade 1차 추가
+- [x] `page_service.py`가 page facade를 우선 사용하도록 변경
 
 ### 남은 TODO
 - [ ] `repository_normalized.py` 공개 함수 목록 분류
 - [ ] route/service가 직접 쓰는 함수와 내부 전용 함수를 구분
-- [ ] 리뷰/댓글 외 `profile/stamp/my-page` 도메인 facade 추가
+- [ ] `profile/stamp/my-page` 전용 facade를 더 잘게 분리할지 결정
 - [ ] 문자열/예외/ID 파서 공통 모듈 유지 기준 정리
 - [ ] 서비스가 repository 세부 구현 대신 도메인 인터페이스에 의존하도록 조정
 

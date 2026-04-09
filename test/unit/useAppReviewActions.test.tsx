@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MyPageResponse, Review } from '../../src/types';
 import { useActiveReviewComments } from '../../src/hooks/useActiveReviewComments';
 import { useAppReviewActions } from '../../src/hooks/useAppReviewActions';
+import { useAppRuntimeStore } from '../../src/store/app-runtime-store';
+import { useReviewUIStore } from '../../src/store/review-ui-store';
 import { createReviewFixture, myPageFixture, placeFixture, sessionUserFixture } from '../fixtures/app-fixtures';
 
 vi.mock('../../src/api/client', () => ({
@@ -23,6 +25,17 @@ describe('useAppReviewActions', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(getReviewComments).mockResolvedValue([]);
+    useAppRuntimeStore.setState({
+      reviewSubmitting: false,
+      reviewError: null,
+      reviewLikeUpdatingId: null,
+      commentSubmittingReviewId: null,
+      commentMutatingId: null,
+      deletingReviewId: null,
+    });
+    useReviewUIStore.setState({
+      highlightedReviewId: null,
+    });
   });
 
   it('keeps my-page reviews summarized after editing a review', async () => {
@@ -80,17 +93,10 @@ describe('useAppReviewActions', () => {
       myPage: myPageState,
       activeCommentReviewId: null,
       highlightedReviewId: null,
-      setReviewSubmitting: vi.fn(),
-      setReviewError: vi.fn(),
-      setCommentSubmittingReviewId: vi.fn(),
-      setCommentMutatingId: vi.fn(),
-      setDeletingReviewId: vi.fn(),
-      setReviewLikeUpdatingId: vi.fn(),
       setSelectedPlaceReviews: vi.fn(),
       setReviews: vi.fn(),
       setMyPage,
       setNotice: vi.fn(),
-      setHighlightedReviewId: vi.fn(),
       goToTab: vi.fn(),
       commitRouteState: vi.fn(),
       refreshMyPageForUser: vi.fn(),

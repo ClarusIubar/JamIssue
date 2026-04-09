@@ -1,19 +1,16 @@
 ﻿import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { createUserRoute, toggleCommunityRouteLike } from '../api/client';
-import type { MyPageResponse, MyPageTabKey, SessionUser, Tab, UserRoute } from '../types';
+import { useAuthStore } from '../store/auth-store';
+import { useAppRuntimeStore } from '../store/app-runtime-store';
+import { useMyPageStore } from '../store/my-page-store';
+import type { MyPageResponse, SessionUser, Tab, UserRoute } from '../types';
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 type CommunityRoutesCache = Partial<Record<'popular' | 'latest', UserRoute[]>>;
 type HistoryMode = 'push' | 'replace';
 
 interface UseAppRouteActionsParams {
-  sessionUser: SessionUser | null;
-  setRouteLikeUpdatingId: SetState<string | null>;
-  setRouteSubmitting: SetState<boolean>;
-  setRouteError: SetState<string | null>;
   setMyPage: SetState<MyPageResponse | null>;
-  setNotice: (notice: string | null) => void;
-  setMyPageTab: (nextTab: MyPageTabKey) => void;
   communityRoutesCacheRef: MutableRefObject<CommunityRoutesCache>;
   patchCommunityRoutes: (routeId: string, updater: (route: UserRoute) => UserRoute) => void;
   refreshMyPageForUser: (user: SessionUser | null, force?: boolean) => Promise<MyPageResponse | null>;
@@ -22,19 +19,20 @@ interface UseAppRouteActionsParams {
 }
 
 export function useAppRouteActions({
-  sessionUser,
-  setRouteLikeUpdatingId,
-  setRouteSubmitting,
-  setRouteError,
   setMyPage,
-  setNotice,
-  setMyPageTab,
   communityRoutesCacheRef,
   patchCommunityRoutes,
   refreshMyPageForUser,
   formatErrorMessage,
   goToTab,
 }: UseAppRouteActionsParams) {
+  const sessionUser = useAuthStore((state) => state.sessionUser);
+  const setRouteLikeUpdatingId = useAppRuntimeStore((state) => state.setRouteLikeUpdatingId);
+  const setRouteSubmitting = useAppRuntimeStore((state) => state.setRouteSubmitting);
+  const setRouteError = useAppRuntimeStore((state) => state.setRouteError);
+  const setNotice = useAppRuntimeStore((state) => state.setNotice);
+  const setMyPageTab = useMyPageStore((state) => state.setMyPageTab);
+
   async function handleToggleRouteLike(routeId: string) {
     if (!sessionUser) {
       goToTab('my');

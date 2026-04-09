@@ -2,6 +2,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { getAdminSummary, getCommunityRoutes, getMySummary, getReviewFeedPage } from '../api/client';
 import { toReviewSummaryList } from '../lib/reviews';
+import { useAppRuntimeStore } from '../store/app-runtime-store';
 import type {
   AdminSummaryResponse,
   CommunityRouteSort,
@@ -26,13 +27,10 @@ interface UseAppTabDataLoadersParams {
   replaceCommunityRoutes: (nextRoutes: UserRoute[], sort?: CommunityRouteSort) => void;
   setCommunityRoutes: Dispatch<SetStateAction<UserRoute[]>>;
   setReviews: Dispatch<SetStateAction<Review[]>>;
-  setFeedHasMore: Dispatch<SetStateAction<boolean>>;
-  setFeedNextCursor: Dispatch<SetStateAction<string | null>>;
   setCourses: Dispatch<SetStateAction<Course[]>>;
   setAdminLoading: Dispatch<SetStateAction<boolean>>;
   setAdminSummary: Dispatch<SetStateAction<AdminSummaryResponse | null>>;
   setMyPage: Dispatch<SetStateAction<MyPageResponse | null>>;
-  setMyPageError: Dispatch<SetStateAction<string | null>>;
 }
 
 export function useAppTabDataLoaders({
@@ -46,14 +44,15 @@ export function useAppTabDataLoaders({
   replaceCommunityRoutes,
   setCommunityRoutes,
   setReviews,
-  setFeedHasMore,
-  setFeedNextCursor,
   setCourses,
   setAdminLoading,
   setAdminSummary,
   setMyPage,
-  setMyPageError,
 }: UseAppTabDataLoadersParams) {
+  const setFeedHasMore = useAppRuntimeStore((state) => state.setFeedHasMore);
+  const setFeedNextCursor = useAppRuntimeStore((state) => state.setFeedNextCursor);
+  const setMyPageError = useAppRuntimeStore((state) => state.setMyPageError);
+
   const fetchCommunityRoutes = useCallback(async (sort: CommunityRouteSort, force = false) => {
     const cached = communityRoutesCacheRef.current[sort];
     if (!force && cached) {

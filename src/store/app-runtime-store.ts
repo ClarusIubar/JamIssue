@@ -1,11 +1,6 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import type { ApiStatus } from '../types';
-
-type SetterValue<T> = T | ((current: T) => T);
-
-function resolveValue<T>(value: SetterValue<T>, current: T): T {
-  return typeof value === 'function' ? (value as (current: T) => T)(current) : value;
-}
+import { resolveValue, type SetterValue } from './store-utils';
 
 type Position = { latitude: number; longitude: number } | null;
 

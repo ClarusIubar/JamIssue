@@ -2,6 +2,7 @@
 import { claimStamp } from '../api/client';
 import { getCurrentDevicePosition } from '../lib/geolocation';
 import { formatDistanceMeters } from '../lib/visits';
+import { useAppRuntimeStore } from '../store/app-runtime-store';
 import type { ApiStatus, DrawerState, Place, SessionUser, StampState, Tab } from '../types';
 import type { RouteStateCommitOptions } from './useAppRouteState';
 
@@ -11,13 +12,7 @@ type SetState<T> = Dispatch<SetStateAction<T>>;
 interface UseAppMapActionsParams {
   sessionUser: SessionUser | null;
   setPlaces: SetState<Place[]>;
-  setCurrentPosition: SetState<{ latitude: number; longitude: number } | null>;
-  setMapLocationStatus: SetState<ApiStatus>;
-  setMapLocationMessage: SetState<string | null>;
-  setMapLocationFocusKey: SetState<number>;
-  setNotice: (notice: string | null) => void;
   setStampState: SetState<StampState>;
-  setStampActionStatus: SetState<ApiStatus>;
   goToTab: (nextTab: Tab, historyMode?: HistoryMode) => void;
   commitRouteState: (
     nextState: { tab: Tab; placeId: string | null; festivalId: string | null; drawerState: DrawerState },
@@ -31,18 +26,19 @@ interface UseAppMapActionsParams {
 export function useAppMapActions({
   sessionUser,
   setPlaces,
-  setCurrentPosition,
-  setMapLocationStatus,
-  setMapLocationMessage,
-  setMapLocationFocusKey,
-  setNotice,
   setStampState,
-  setStampActionStatus,
   goToTab,
   commitRouteState,
   refreshMyPageForUser,
   formatErrorMessage,
 }: UseAppMapActionsParams) {
+  const setCurrentPosition = useAppRuntimeStore((state) => state.setCurrentPosition);
+  const setMapLocationStatus = useAppRuntimeStore((state) => state.setMapLocationStatus);
+  const setMapLocationMessage = useAppRuntimeStore((state) => state.setMapLocationMessage);
+  const setMapLocationFocusKey = useAppRuntimeStore((state) => state.setMapLocationFocusKey);
+  const setNotice = useAppRuntimeStore((state) => state.setNotice);
+  const setStampActionStatus = useAppRuntimeStore((state) => state.setStampActionStatus);
+
   async function refreshCurrentPosition(shouldFocusMap: boolean) {
     setMapLocationStatus('loading');
     setMapLocationMessage('현재 위치를 확인하고 있어요.');
