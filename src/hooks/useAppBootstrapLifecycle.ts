@@ -2,11 +2,12 @@ import { useEffect, useRef } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { getFestivals, getMapBootstrap, getReviews } from '../api/client';
 import { toReviewSummaryList } from '../lib/reviews';
+import { useAuthStore } from '../store/auth-store';
+import { useAppRuntimeStore } from '../store/app-runtime-store';
+import { useAppRouteStore } from '../store/app-route-store';
 import { clearAuthQueryParams } from './useAppRouteState';
 import type {
   AdminSummaryResponse,
-  ApiStatus,
-  AuthProvider,
   FestivalItem,
   MyPageResponse,
   Place,
@@ -26,25 +27,11 @@ interface UseAppBootstrapLifecycleParams {
   communityRouteSort: 'popular' | 'latest';
   myCommentsLoadedOnce: boolean;
   placeReviewsCacheRef: MutableRefObject<Record<string, Review[]>>;
-  setBootstrapStatus: (status: ApiStatus) => void;
-  setBootstrapError: (message: string | null) => void;
   setPlaces: Dispatch<SetStateAction<Place[]>>;
   setFestivals: Dispatch<SetStateAction<FestivalItem[]>>;
   setStampState: Dispatch<SetStateAction<StampState>>;
   setHasRealData: Dispatch<SetStateAction<boolean>>;
-  setSessionUser: Dispatch<SetStateAction<SessionUser | null>>;
-  setProviders: Dispatch<SetStateAction<AuthProvider[]>>;
-  setSelectedPlaceId: Dispatch<SetStateAction<string | null>>;
-  setSelectedFestivalId: Dispatch<SetStateAction<string | null>>;
   setSelectedPlaceReviews: Dispatch<SetStateAction<Review[]>>;
-  setNotice: (message: string | null) => void;
-  setFeedNextCursor: Dispatch<SetStateAction<string | null>>;
-  setFeedHasMore: Dispatch<SetStateAction<boolean>>;
-  setFeedLoadingMore: Dispatch<SetStateAction<boolean>>;
-  setMyCommentsNextCursor: Dispatch<SetStateAction<string | null>>;
-  setMyCommentsHasMore: Dispatch<SetStateAction<boolean>>;
-  setMyCommentsLoadingMore: Dispatch<SetStateAction<boolean>>;
-  setMyCommentsLoadedOnce: Dispatch<SetStateAction<boolean>>;
   setMyPage: Dispatch<SetStateAction<MyPageResponse | null>>;
   resetReviewCaches: () => void;
   refreshMyPageForUser: (user: SessionUser | null, force?: boolean) => Promise<MyPageResponse | null>;
@@ -68,25 +55,11 @@ export function useAppBootstrapLifecycle({
   communityRouteSort,
   myCommentsLoadedOnce,
   placeReviewsCacheRef,
-  setBootstrapStatus,
-  setBootstrapError,
   setPlaces,
   setFestivals,
   setStampState,
   setHasRealData,
-  setSessionUser,
-  setProviders,
-  setSelectedPlaceId,
-  setSelectedFestivalId,
   setSelectedPlaceReviews,
-  setNotice,
-  setFeedNextCursor,
-  setFeedHasMore,
-  setFeedLoadingMore,
-  setMyCommentsNextCursor,
-  setMyCommentsHasMore,
-  setMyCommentsLoadingMore,
-  setMyCommentsLoadedOnce,
   setMyPage,
   resetReviewCaches,
   refreshMyPageForUser,
@@ -99,6 +72,21 @@ export function useAppBootstrapLifecycle({
   formatErrorMessage,
   reportBackgroundError,
 }: UseAppBootstrapLifecycleParams) {
+  const setSessionUser = useAuthStore((state) => state.setSessionUser);
+  const setProviders = useAuthStore((state) => state.setProviders);
+  const setBootstrapStatus = useAppRuntimeStore((state) => state.setBootstrapStatus);
+  const setBootstrapError = useAppRuntimeStore((state) => state.setBootstrapError);
+  const setSelectedPlaceId = useAppRouteStore((state) => state.setSelectedPlaceId);
+  const setSelectedFestivalId = useAppRouteStore((state) => state.setSelectedFestivalId);
+  const setNotice = useAppRuntimeStore((state) => state.setNotice);
+  const setFeedNextCursor = useAppRuntimeStore((state) => state.setFeedNextCursor);
+  const setFeedHasMore = useAppRuntimeStore((state) => state.setFeedHasMore);
+  const setFeedLoadingMore = useAppRuntimeStore((state) => state.setFeedLoadingMore);
+  const setMyCommentsNextCursor = useAppRuntimeStore((state) => state.setMyCommentsNextCursor);
+  const setMyCommentsHasMore = useAppRuntimeStore((state) => state.setMyCommentsHasMore);
+  const setMyCommentsLoadingMore = useAppRuntimeStore((state) => state.setMyCommentsLoadingMore);
+  const setMyCommentsLoadedOnce = useAppRuntimeStore((state) => state.setMyCommentsLoadedOnce);
+
   const refreshMyPageForUserRef = useRef(refreshMyPageForUser);
   const resetReviewCachesRef = useRef(resetReviewCaches);
   const goToTabRef = useRef(goToTab);

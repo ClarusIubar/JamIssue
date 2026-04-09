@@ -71,8 +71,6 @@ export default function App() {
     drawerState,
     selectedPlaceId,
     selectedFestivalId,
-    setSelectedPlaceId,
-    setSelectedFestivalId,
     commitRouteState,
     goToTab,
     openPlace,
@@ -132,20 +130,13 @@ export default function App() {
   const setMyPageError = useAppRuntimeStore((state) => state.setMyPageError);
   const isLoggingOut = useAppRuntimeStore((state) => state.isLoggingOut);
   const setIsLoggingOut = useAppRuntimeStore((state) => state.setIsLoggingOut);
-  const feedNextCursor = useAppRuntimeStore((state) => state.feedNextCursor);
-  const setFeedNextCursor = useAppRuntimeStore((state) => state.setFeedNextCursor);
   const feedHasMore = useAppRuntimeStore((state) => state.feedHasMore);
-  const setFeedHasMore = useAppRuntimeStore((state) => state.setFeedHasMore);
   const feedLoadingMore = useAppRuntimeStore((state) => state.feedLoadingMore);
-  const setFeedLoadingMore = useAppRuntimeStore((state) => state.setFeedLoadingMore);
-  const myCommentsNextCursor = useAppRuntimeStore((state) => state.myCommentsNextCursor);
-  const setMyCommentsNextCursor = useAppRuntimeStore((state) => state.setMyCommentsNextCursor);
   const myCommentsHasMore = useAppRuntimeStore((state) => state.myCommentsHasMore);
-  const setMyCommentsHasMore = useAppRuntimeStore((state) => state.setMyCommentsHasMore);
   const myCommentsLoadingMore = useAppRuntimeStore((state) => state.myCommentsLoadingMore);
-  const setMyCommentsLoadingMore = useAppRuntimeStore((state) => state.setMyCommentsLoadingMore);
   const myCommentsLoadedOnce = useAppRuntimeStore((state) => state.myCommentsLoadedOnce);
-  const setMyCommentsLoadedOnce = useAppRuntimeStore((state) => state.setMyCommentsLoadedOnce);
+  const bootstrapStatus = useAppRuntimeStore((state) => state.bootstrapStatus);
+  const bootstrapError = useAppRuntimeStore((state) => state.bootstrapError);
 
   useEffect(() => {
     const initialNotice = getInitialNotice();
@@ -155,15 +146,9 @@ export default function App() {
     setNotice((current) => current ?? initialNotice);
   }, [setNotice]);
   const sessionUser = useAuthStore((state) => state.sessionUser);
-  const setSessionUser = useAuthStore((state) => state.setSessionUser);
   const providers = useAuthStore((state) => state.providers);
-  const setProviders = useAuthStore((state) => state.setProviders);
 
   const {
-    bootstrapStatus,
-    setBootstrapStatus,
-    bootstrapError,
-    setBootstrapError,
     places,
     setPlaces,
     festivals,
@@ -358,25 +343,11 @@ export default function App() {
     communityRouteSort,
     myCommentsLoadedOnce,
     placeReviewsCacheRef,
-    setBootstrapStatus,
-    setBootstrapError,
     setPlaces,
     setFestivals,
     setStampState,
     setHasRealData,
-    setSessionUser,
-    setProviders,
-    setSelectedPlaceId,
-    setSelectedFestivalId,
     setSelectedPlaceReviews,
-    setNotice,
-    setFeedNextCursor,
-    setFeedHasMore,
-    setFeedLoadingMore,
-    setMyCommentsNextCursor,
-    setMyCommentsHasMore,
-    setMyCommentsLoadingMore,
-    setMyCommentsLoadedOnce,
     setMyPage,
     resetReviewCaches,
     refreshMyPageForUser,

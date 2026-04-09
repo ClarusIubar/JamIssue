@@ -10,8 +10,6 @@ import type {
 } from '../types';
 
 export function useAppDataState(selectedPlaceId: string | null) {
-  const [bootstrapStatus, setBootstrapStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
-  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [places, setPlaces] = useState<BootstrapResponse['places']>([]);
   const [festivals, setFestivals] = useState<FestivalItem[]>([]);
   const [reviews, setReviews] = useState<BootstrapResponse['reviews']>([]);
@@ -80,10 +78,6 @@ export function useAppDataState(selectedPlaceId: string | null) {
   }
 
   return {
-    bootstrapStatus,
-    setBootstrapStatus,
-    bootstrapError,
-    setBootstrapError,
     places,
     setPlaces,
     festivals,

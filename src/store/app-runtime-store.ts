@@ -5,6 +5,8 @@ import { resolveValue, type SetterValue } from './store-utils';
 type Position = { latitude: number; longitude: number } | null;
 
 type AppRuntimeState = {
+  bootstrapStatus: ApiStatus;
+  bootstrapError: string | null;
   notice: string | null;
   currentPosition: Position;
   mapLocationStatus: ApiStatus;
@@ -32,6 +34,8 @@ type AppRuntimeState = {
   myCommentsHasMore: boolean;
   myCommentsLoadingMore: boolean;
   myCommentsLoadedOnce: boolean;
+  setBootstrapStatus: (value: SetterValue<ApiStatus>) => void;
+  setBootstrapError: (value: SetterValue<string | null>) => void;
   setNotice: (value: SetterValue<string | null>) => void;
   setCurrentPosition: (value: SetterValue<Position>) => void;
   setMapLocationStatus: (value: SetterValue<ApiStatus>) => void;
@@ -62,6 +66,8 @@ type AppRuntimeState = {
 };
 
 export const useAppRuntimeStore = create<AppRuntimeState>((set) => ({
+  bootstrapStatus: 'idle',
+  bootstrapError: null,
   notice: null,
   currentPosition: null,
   mapLocationStatus: 'idle',
@@ -89,6 +95,8 @@ export const useAppRuntimeStore = create<AppRuntimeState>((set) => ({
   myCommentsHasMore: false,
   myCommentsLoadingMore: false,
   myCommentsLoadedOnce: false,
+  setBootstrapStatus: (value) => set((state) => ({ bootstrapStatus: resolveValue(value, state.bootstrapStatus) })),
+  setBootstrapError: (value) => set((state) => ({ bootstrapError: resolveValue(value, state.bootstrapError) })),
   setNotice: (value) => set((state) => ({ notice: resolveValue(value, state.notice) })),
   setCurrentPosition: (value) => set((state) => ({ currentPosition: resolveValue(value, state.currentPosition) })),
   setMapLocationStatus: (value) => set((state) => ({ mapLocationStatus: resolveValue(value, state.mapLocationStatus) })),
