@@ -1,4 +1,4 @@
-﻿"""JamIssue FastAPI ?醫뤿탣?귐???곷?筌욊쑴??癒?뿯??덈뼄."""
+﻿"""JamIssue FastAPI 애플리케이션 진입점입니다."""
 
 import asyncio
 import json
@@ -174,7 +174,7 @@ SUPPORTED_PROVIDERS = tuple(PROVIDER_LABELS.keys())
 
 @app.on_event("startup")
 def on_startup() -> None:
-    """嚥≪뮇類?揶쏆뮆而??띻펾?癒?퐣????낆쨮???遺얠젂?怨뺚봺?? 疫꿸퀡??DB??餓Β??쑵鍮??덈뼄."""
+    """로컬 개발 환경에서는 업로드 경로와 데이터베이스를 준비합니다."""
 
     if settings.storage_backend == "local":
         settings.upload_path.mkdir(parents=True, exist_ok=True)
@@ -199,7 +199,7 @@ def get_session_user(request: Request, app_settings: Settings = Depends(get_sett
 
 def require_session_user(session_user: SessionUser | None = Depends(get_session_user)) -> SessionUser:
     if not session_user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="嚥≪뮄??紐꾩뵠 ?袁⑹뒄??곸뒄.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인이 필요합니다.")
     return session_user
 
 
@@ -208,7 +208,7 @@ def require_admin_user(
     app_settings: Settings = Depends(get_settings),
 ) -> SessionUser:
     if not app_settings.is_admin(session_user.id):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="?온?귐딆쁽 亦낅슦釉???袁⑹뒄??곸뒄.")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="관리자 권한이 필요합니다.")
     return session_user.model_copy(update={"is_admin": True})
 
 
@@ -271,7 +271,7 @@ def start_login(
     app_settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
     if provider not in SUPPORTED_PROVIDERS:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="筌왖?癒곕릭筌왖 ??낅뮉 嚥≪뮄?????볥궗?癒?굙??")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="지원하지 않는 로그인 제공자입니다.")
 
     request.session["post_login_redirect"] = next or app_settings.frontend_url
     request.session.pop("oauth_link_user_id", None)
@@ -281,11 +281,11 @@ def start_login(
         if not app_settings.provider_enabled(provider):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"{PROVIDER_LABELS[provider]} 嚥≪뮄?????쇱젟????쑴堉???됰선??",
+                detail=f"{PROVIDER_LABELS[provider]} 로그인이 아직 설정되지 않았습니다.",
             )
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=f"{PROVIDER_LABELS[provider]} 嚥≪뮄????怨뚭퍙?? ??띻펾 癰궰??롮춸 餓Β??쑬留??怨밴묶??됱뒄.",
+            detail=f"{PROVIDER_LABELS[provider]} 로그인은 아직 구현되지 않았습니다.",
         )
 
     state = generate_oauth_state()
@@ -302,7 +302,7 @@ def start_link_login(
     app_settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
     if provider not in SUPPORTED_PROVIDERS:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="筌왖?癒곕릭筌왖 ??낅뮉 嚥≪뮄?????볥궗?癒?굙??")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="지원하지 않는 로그인 제공자입니다.")
 
     request.session["post_login_redirect"] = next or app_settings.frontend_url
     request.session["oauth_link_user_id"] = session_user.id
@@ -312,11 +312,11 @@ def start_link_login(
         if not app_settings.provider_enabled(provider):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"{PROVIDER_LABELS[provider]} 嚥≪뮄?????쇱젟????쑴堉???됰선??",
+                detail=f"{PROVIDER_LABELS[provider]} 로그인이 아직 설정되지 않았습니다.",
             )
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=f"{PROVIDER_LABELS[provider]} ?④쑴???怨뚭퍙?? ??띻펾 癰궰??롮춸 餓Β??쑬留??怨밴묶??됱뒄.",
+            detail=f"{PROVIDER_LABELS[provider]} 계정 연결은 아직 구현되지 않았습니다.",
         )
 
     state = generate_oauth_state()
