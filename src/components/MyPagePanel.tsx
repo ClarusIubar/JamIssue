@@ -129,7 +129,7 @@ export function MyPagePanel({
   const [notificationBusyId, setNotificationBusyId] = useState<string | null>(null);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
-  const scrollRef = useScrollRestoration<HTMLElement>(`my:${activeTab}`);
+  const scrollRef = useScrollRestoration<HTMLElement>('my');
   const commentsLoadMoreRef = useAutoLoadMore({
     enabled: activeTab === 'comments' && commentsHasMore,
     loading: commentsLoadingMore,
