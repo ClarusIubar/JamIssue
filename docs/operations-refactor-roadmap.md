@@ -158,15 +158,42 @@
 ### 진행됨
 - [x] review/comment domain repository facade 1차 추가
 - [x] `review_service.py`가 review facade를 우선 사용하도록 변경
-- [x] page domain repository facade 1차 추가
-- [x] `page_service.py`가 page facade를 우선 사용하도록 변경
+- [x] `my-page` service/repository 경계 분리
+  - [x] `my_page_service.py`
+  - [x] `my_page_repository.py`
+- [x] `stamp` service/repository 경계 분리
+  - [x] `stamp_service.py`
+  - [x] `stamp_repository.py`
+- [x] `place` service/repository 경계 분리
+  - [x] `place_service.py`
+  - [x] `place_repository.py`
+- [x] `course` service/repository 경계 분리
+  - [x] `course_service.py`
+  - [x] `course_repository.py`
+- [x] `bootstrap` service/repository 경계 분리
+  - [x] `bootstrap_service.py`
+  - [x] `bootstrap_repository.py`
+- [x] `page_service.py`, `page_repository.py` 제거
+- [x] service facade 계약 테스트 추가
+  - [x] anonymous user 전달값
+  - [x] admin flag 전달값
+  - [x] not-found / forbidden 매핑
 
 ### 남은 TODO
-- [ ] `repository_normalized.py` 공개 함수 목록 분류
-- [ ] route/service가 직접 쓰는 함수와 내부 전용 함수를 구분
-- [ ] `profile/stamp/my-page` 전용 facade를 더 잘게 분리할지 결정
-- [ ] 문자열/예외/ID 파서 공통 모듈 유지 기준 정리
-- [ ] 서비스가 repository 세부 구현 대신 도메인 인터페이스에 의존하도록 조정
+- [ ] `repository_normalized.py` 공개 함수 목록을 `review/comment/profile/stamp/bootstrap/place/course/my-page` 기준으로 재분류
+- [ ] `profile` 경계 분리 여부 결정
+- [ ] review mutation 쪽 문자열 토큰 기반 예외 분류를 공통 helper로 정리할지 결정
+- [ ] facade별 import surface를 더 줄일 필요가 있는지 재평가
+- [ ] 순차 PR 머지 후 `main` 기준으로 잔여 dead code와 문서 drift 재점검
+
+### 현재 순차 PR 권장 순서
+1. `codex/my-page-service-split`
+2. `codex/stamp-service-split`
+3. `codex/place-service-split`
+4. `codex/course-service-split`
+5. `codex/bootstrap-service-split`
+6. `codex/page-boundary-cleanup`
+7. `codex/facade-contract-tests`
 
 ### 완료 조건
 - `repository_normalized.py`가 더 이상 프로젝트의 만능 파일이 아니다.
