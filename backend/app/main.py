@@ -83,10 +83,9 @@ from .services.my_page_service import read_my_page_service
 from .services.page_service import (
     read_bootstrap_service,
     read_courses_service,
-    read_place_service,
-    read_places_service,
     read_reviews_service,
 )
+from .services.place_service import read_place_service, read_places_service
 from .services.stamp_service import (
     read_stamps_service,
     toggle_stamp_service,
