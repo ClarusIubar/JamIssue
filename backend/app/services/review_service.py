@@ -10,6 +10,7 @@ from ..repositories.review_repository import (
     create_review_entry,
     delete_review_comment,
     delete_review_entry,
+    list_review_entries,
     list_review_comments,
     toggle_review_like_entry,
 )
@@ -87,6 +88,10 @@ def create_review_service(db: Session, payload: ReviewCreate, session_user: Sess
         lambda: create_review_entry(db, payload, session_user.id, session_user.nickname),
         not_found_tokens=(_PLACE_NOT_FOUND_TOKEN,),
     )
+
+
+def read_reviews_service(db: Session, place_id: str | None, user_id: str | None, session_user: SessionUser | None):
+    return list_review_entries(db, place_id=place_id, user_id=user_id, current_user_id=session_user.id if session_user else None)
 
 
 def delete_review_service(db: Session, review_id: str, session_user: SessionUser) -> None:

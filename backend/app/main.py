@@ -80,9 +80,6 @@ from .services.auth_service import (
     update_profile_session_payload,
 )
 from .services.my_page_service import read_my_page_service
-from .services.page_service import (
-    read_reviews_service,
-)
 from .services.bootstrap_service import read_bootstrap_service
 from .services.course_service import read_courses_service
 from .services.place_service import read_place_service, read_places_service
@@ -101,6 +98,7 @@ from .services.review_service import (
     create_review_service,
     delete_comment_service,
     delete_review_service,
+    read_reviews_service,
     read_review_comments_service,
     toggle_review_like_service,
 )
