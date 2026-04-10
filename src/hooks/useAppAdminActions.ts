@@ -1,5 +1,6 @@
 ﻿import type { Dispatch, SetStateAction } from 'react';
 import { getFestivals, getMapBootstrap, importPublicData, updatePlaceVisibility } from '../api/client';
+import { useAppShellRuntimeStore } from '../store/app-shell-runtime-store';
 import type {
   AdminSummaryResponse,
   FestivalItem,
@@ -17,7 +18,6 @@ interface UseAppAdminActionsParams {
   setPlaces: SetState<Place[]>;
   setStampState: SetState<StampState>;
   setHasRealData: SetState<boolean>;
-  setNotice: (notice: string | null) => void;
   setAdminLoading: SetState<boolean>;
   setFestivals: SetState<FestivalItem[]>;
   refreshAdminSummary: (force?: boolean) => Promise<AdminSummaryResponse | null>;
@@ -31,12 +31,13 @@ export function useAppAdminActions({
   setPlaces,
   setStampState,
   setHasRealData,
-  setNotice,
   setAdminLoading,
   setFestivals,
   refreshAdminSummary,
   formatErrorMessage,
 }: UseAppAdminActionsParams) {
+  const setNotice = useAppShellRuntimeStore((state) => state.setNotice);
+
   async function handleToggleAdminPlace(placeId: string, nextValue: boolean) {
     if (!sessionUser?.isAdmin) {
       return;

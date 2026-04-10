@@ -20,16 +20,15 @@ import { useAppBootstrapLifecycle } from './hooks/useAppBootstrapLifecycle';
 import { useAppAuthActions } from './hooks/useAppAuthActions';
 import { useAppAdminActions } from './hooks/useAppAdminActions';
 import { useAppFeedbackEffects } from './hooks/useAppFeedbackEffects';
+import { useGlobalNotifications } from './hooks/useGlobalNotifications';
 import { useAppMapActions } from './hooks/useAppMapActions';
 import { useAppNavigationHelpers } from './hooks/useAppNavigationHelpers';
-import { useNotificationLifecycle } from './hooks/useNotificationLifecycle';
 import { useAppReviewActions } from './hooks/useAppReviewActions';
 import { useAppRouteActions } from './hooks/useAppRouteActions';
 import { useAppShellNavigation } from './hooks/useAppShellNavigation';
 import { useAppTabDataLoaders } from './hooks/useAppTabDataLoaders';
 import { useAppViewModels } from './hooks/useAppViewModels';
 import { useActiveReviewComments } from './hooks/useActiveReviewComments';
-import { useNotificationActions } from './hooks/useNotificationActions';
 import { useAppStageActions } from './hooks/useAppStageActions';
 import { useAppPagePaginationActions } from './hooks/useAppPagePaginationActions';
 import { useAppPageStageActions } from './hooks/useAppPageStageActions';
@@ -39,7 +38,6 @@ import { useAppPageRuntimeStore } from './store/app-page-runtime-store';
 import { useAppShellRuntimeStore } from './store/app-shell-runtime-store';
 import { useAppUIStore } from './store/app-ui-store';
 import { useMyPageStore } from './store/my-page-store';
-import { useNotificationStore } from './store/notification-store';
 import { useReviewUIStore } from './store/review-ui-store';
 import type { Tab } from './types';
 
@@ -58,15 +56,6 @@ function reportBackgroundError(error: unknown) {
 }
 
 export default function App() {
-  const notifications = useNotificationStore((state) => state.notifications);
-  const unreadNotificationCount = useNotificationStore((state) => state.unreadCount);
-  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
-  const connectNotifications = useNotificationStore((state) => state.connect);
-  const disconnectNotifications = useNotificationStore((state) => state.disconnect);
-  const hydrateNotifications = useNotificationStore((state) => state.hydrate);
-  const markNotificationReadInStore = useNotificationStore((state) => state.markRead);
-  const markAllNotificationsReadInStore = useNotificationStore((state) => state.markAllRead);
-  const deleteNotificationInStore = useNotificationStore((state) => state.deleteNotification);
   const {
     activeTab,
     drawerState,
@@ -190,42 +179,6 @@ export default function App() {
   } = useAppDataState(selectedPlaceId);
 
   const {
-    filteredPlaces,
-    hydratedMyPage,
-    selectedPlace,
-    routePreviewPlaces,
-    selectedFestival,
-    todayStamp,
-    latestStamp,
-    visitCount,
-    selectedPlaceDistanceMeters,
-    hasCreatedReviewToday,
-    canCreateReview,
-    placeNameById,
-    globalStatus,
-    reviewProofMessage,
-  } = useAppViewModels({
-    places,
-    festivals,
-    reviews,
-    selectedPlaceReviews,
-    selectedPlaceId,
-    selectedFestivalId,
-    selectedRoutePreview,
-    activeCategory,
-    myPage,
-    notifications,
-    unreadNotificationCount,
-    stampState,
-    currentPosition,
-    sessionUser,
-    notice,
-    bootstrapStatus,
-    bootstrapError,
-    mapLocationStatus,
-    mapLocationMessage,
-  });
-  const {
     startProviderLogin,
     handleUpdateProfile,
     handleLogout,
@@ -234,15 +187,6 @@ export default function App() {
     formatErrorMessage,
   });
 
-
-  useNotificationLifecycle({
-    sessionUser,
-    myPage,
-    fetchNotifications,
-    connectNotifications,
-    disconnectNotifications,
-    hydrateNotifications,
-  });
   const {
     fetchCommunityRoutes,
     ensureFeedReviews,
@@ -302,6 +246,59 @@ export default function App() {
     openPlace,
     openFestival,
     upsertReviewCollections,
+  });
+
+  const {
+    notifications,
+    unreadNotificationCount,
+    handleMarkNotificationRead,
+    handleMarkAllNotificationsRead,
+    handleDeleteNotification,
+    handleOpenGlobalNotification,
+  } = useGlobalNotifications({
+    sessionUser,
+    myPage,
+    goToTab,
+    setMyPageTab,
+    handleOpenCommentWithReturn,
+    handleOpenReviewWithReturn,
+  });
+
+  const {
+    filteredPlaces,
+    hydratedMyPage,
+    selectedPlace,
+    routePreviewPlaces,
+    selectedFestival,
+    todayStamp,
+    latestStamp,
+    visitCount,
+    selectedPlaceDistanceMeters,
+    hasCreatedReviewToday,
+    canCreateReview,
+    placeNameById,
+    globalStatus,
+    reviewProofMessage,
+  } = useAppViewModels({
+    places,
+    festivals,
+    reviews,
+    selectedPlaceReviews,
+    selectedPlaceId,
+    selectedFestivalId,
+    selectedRoutePreview,
+    activeCategory,
+    myPage,
+    notifications,
+    unreadNotificationCount,
+    stampState,
+    currentPosition,
+    sessionUser,
+    notice,
+    bootstrapStatus,
+    bootstrapError,
+    mapLocationStatus,
+    mapLocationMessage,
   });
 
   const {
@@ -426,21 +423,6 @@ export default function App() {
   });
 
   const {
-    handleMarkNotificationRead,
-    handleMarkAllNotificationsRead,
-    handleDeleteNotification,
-    handleOpenGlobalNotification,
-  } = useNotificationActions({
-    markNotificationReadInStore,
-    markAllNotificationsReadInStore,
-    deleteNotificationInStore,
-    handleOpenCommentWithReturn,
-    handleOpenReviewWithReturn,
-    goToTab,
-    setMyPageTab,
-  });
-
-  const {
     handleToggleAdminPlace,
     handleToggleAdminManualOverride,
     handleRefreshAdminImport,
@@ -451,7 +433,6 @@ export default function App() {
     setPlaces,
     setStampState,
     setHasRealData,
-    setNotice,
     setAdminLoading,
     setFestivals,
     refreshAdminSummary,
