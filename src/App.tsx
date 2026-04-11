@@ -14,9 +14,15 @@ import {
 import { useAppDataState } from './hooks/useAppDataState';
 import { useAppPageRuntimeState } from './hooks/useAppPageRuntimeState';
 import { useAppShellRuntimeState } from './hooks/useAppShellRuntimeState';
-import { useAppDomainState } from './hooks/useAppDomainState';
 import { useAppShellCoordinator } from './hooks/useAppShellCoordinator';
 import { useAppStageProps } from './hooks/useAppStageProps';
+import { useAuthDomainState } from './hooks/useAuthDomainState';
+import { useMapCategoryState } from './hooks/useMapCategoryState';
+import { useMyPageDomainState } from './hooks/useMyPageDomainState';
+import { useReturnViewDomainState } from './hooks/useReturnViewDomainState';
+import { useReviewFilterState } from './hooks/useReviewFilterState';
+import { useReviewHighlightState } from './hooks/useReviewHighlightState';
+import { useRoutePreviewState } from './hooks/useRoutePreviewState';
 import type { Tab } from './types';
 
 export default function App() {
@@ -24,7 +30,24 @@ export default function App() {
 
   const [initialMapViewport] = useState(getInitialMapViewport);
 
-  const domainState = useAppDomainState();
+  const myPageState = useMyPageDomainState();
+  const reviewFilterState = useReviewFilterState();
+  const reviewHighlightState = useReviewHighlightState();
+  const mapCategoryState = useMapCategoryState();
+  const routePreviewState = useRoutePreviewState();
+  const returnViewState = useReturnViewDomainState();
+  const authState = useAuthDomainState();
+
+  const domainState = {
+    ...myPageState,
+    ...reviewFilterState,
+    ...reviewHighlightState,
+    ...mapCategoryState,
+    ...routePreviewState,
+    ...returnViewState,
+    ...authState,
+  };
+
   const shellRuntimeState = useAppShellRuntimeState();
   const pageRuntimeState = useAppPageRuntimeState();
   const dataState = useAppDataState(routeState.selectedPlaceId);

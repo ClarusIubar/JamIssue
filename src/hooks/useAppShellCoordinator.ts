@@ -4,10 +4,16 @@ import {
   getInitialMapViewport,
   type useAppRouteState,
 } from './useAppRouteState';
-import type { useAppDomainState } from './useAppDomainState';
+import type { useAuthDomainState } from './useAuthDomainState';
 import type { useAppShellRuntimeState } from './useAppShellRuntimeState';
 import type { useAppPageRuntimeState } from './useAppPageRuntimeState';
 import type { useAppDataState } from './useAppDataState';
+import type { useMapCategoryState } from './useMapCategoryState';
+import type { useMyPageDomainState } from './useMyPageDomainState';
+import type { useReturnViewDomainState } from './useReturnViewDomainState';
+import type { useReviewFilterState } from './useReviewFilterState';
+import type { useReviewHighlightState } from './useReviewHighlightState';
+import type { useRoutePreviewState } from './useRoutePreviewState';
 import { useAppAuthActions } from './useAppAuthActions';
 import { useAppTabDataLoaders } from './useAppTabDataLoaders';
 import { useAppNavigationHelpers } from './useAppNavigationHelpers';
@@ -40,7 +46,14 @@ function reportBackgroundError(error: unknown) {
 }
 
 type RouteState = ReturnType<typeof useAppRouteState>;
-type DomainState = ReturnType<typeof useAppDomainState>;
+type DomainState =
+  & ReturnType<typeof useMyPageDomainState>
+  & ReturnType<typeof useReviewFilterState>
+  & ReturnType<typeof useReviewHighlightState>
+  & ReturnType<typeof useMapCategoryState>
+  & ReturnType<typeof useRoutePreviewState>
+  & ReturnType<typeof useReturnViewDomainState>
+  & ReturnType<typeof useAuthDomainState>;
 type ShellRuntimeState = ReturnType<typeof useAppShellRuntimeState>;
 type PageRuntimeState = ReturnType<typeof useAppPageRuntimeState>;
 type DataState = ReturnType<typeof useAppDataState>;
