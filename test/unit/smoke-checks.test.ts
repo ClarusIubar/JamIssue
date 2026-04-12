@@ -6,11 +6,13 @@ import {
   resolveApiBaseUrl,
 } from '../../scripts/run-smoke-checks.mjs';
 import {
-  createProtectedSmokeChecks,
   getProtectedAuthHeaders,
   getProtectedSmokeSkipReason,
   isProtectedSmokeEnabled,
   PROTECTED_SMOKE_ENDPOINTS,
+} from '../../scripts/smoke/protected.mjs';
+import {
+  createProtectedSmokeChecks,
   runProtectedSmokeSuite,
 } from '../../scripts/run-protected-smoke-checks.mjs';
 
@@ -93,6 +95,14 @@ describe('run-smoke-checks helpers', () => {
     ]);
 
     delete process.env.SMOKE_AUTH_BEARER_TOKEN;
+  });
+
+  it('keeps protected endpoint definitions in the shared contract module', () => {
+    expect(PROTECTED_SMOKE_ENDPOINTS.map((endpoint) => endpoint.path)).toEqual([
+      '/api/auth/me',
+      '/api/my/summary',
+      '/api/my/notifications',
+    ]);
   });
 
   it('reports whether protected smoke is enabled from the token env', () => {

@@ -60,6 +60,7 @@
   - `/api/my/summary`
   - `/api/my/notifications`
 - public smoke와 protected smoke는 서로 독립적으로 결과를 남긴다.
+- protected smoke 엔드포인트 목록과 skip 규칙은 `scripts/smoke/protected.mjs`를 단일 계약 원본으로 사용한다.
 
 ### 완료 조건
 - 배포 후 최소 1개의 자동 스모크가 실행된다.
