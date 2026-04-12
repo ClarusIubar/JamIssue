@@ -1,13 +1,13 @@
 # JamIssue
 
-대전 지역의 방문 피드, 스탬프, 코스, 행사 정보를 한 흐름으로 다루는 로컬 가이드 서비스입니다.
+JamIssue는 대전 지역 방문 피드, 스탬프, 코스, 축제 정보를 한 앱 안에서 연결하는 모바일 웹 서비스입니다.
 
 - 서비스 주소: [https://daejeon.jamissue.com](https://daejeon.jamissue.com)
 - 프론트엔드: Cloudflare Pages
 - API: Cloudflare Worker
-- 데이터/스토리지: Supabase
+- 데이터 저장소: Supabase
 
-## 운영 기준
+## 운영 구조
 
 - 기본 배포 브랜치: `main`
 - 프론트 도메인: `https://daejeon.jamissue.com`
@@ -15,72 +15,99 @@
 - Pages 프로젝트: `daejeon-jamissue-pages`
 - Worker 프로젝트: `daejeon-jamissue-api`
 
-## 배포 흐름
-
-### PR to `main`
-
-- 프론트 검증
-  - `npm ci`
-  - `npm run typecheck`
-  - `npm run build`
-- 백엔드 검증
-  - `pytest`
-- Pages preview 배포
-- Worker 배포 검증 (`wrangler deploy --dry-run` 또는 validate-worker)
-
-### Push to `main`
-
-- `ci` 실행
-- Pages production 배포
-- Worker production 배포
-- `production-smoke` 실행
-  - 배포 후 공개 API와 프론트 진입 상태를 다시 확인
-
-## 런타임 구조
-
-JamIssue는 Pages + Worker + Supabase 조합을 기본 운영 경계로 사용합니다.
-
-### 진입점
-
-- 사용자는 Pages 프론트엔드에 접속합니다.
-- 프론트는 공개 API를 Worker 도메인으로 호출합니다.
-- Worker가 공개 API의 기본 진입점입니다.
-- FastAPI origin은 보조 origin 역할만 맡습니다.
-
-### 책임 분리
+JamIssue는 현재 `Pages + Worker + Supabase` 조합을 기준으로 운영합니다.
 
 - Pages
   - 정적 프론트 번들 제공
-  - 런타임 공개 설정 주입
+  - 공개 런타임 설정 주입
 - Worker
   - 공개 API 진입점
-  - 인증, 리뷰/댓글, 스탬프, 코스, 행사, 알림, 마이페이지 처리
-  - 필요 시 origin으로 프록시
-- FastAPI origin
-  - Worker가 아직 직접 처리하지 않는 보조 경로
-  - 내부/보조 로직 처리
+  - 인증, 리뷰/댓글, 스탬프, 코스, 축제, 알림, 마이페이지 처리
 - Supabase
   - 운영 DB
   - 이미지 스토리지
-  - Realtime 기반 알림/동기화 보조
+  - 일부 실시간 보조 기능
 
-## 운영 스모크 체크
+## 배포 파이프라인
 
-배포 성공만으로 운영 정상 동작으로 보지 않습니다. `production-smoke`가 아래 경로를 다시 확인합니다.
+### PR
 
+PR에서는 아래 검증이 먼저 실행됩니다.
+
+- `backend`
+- `frontend`
+- `deploy-pages`
+- `validate-worker`
+
+### `main` push
+
+`main`에 반영되면 아래 순서로 운영 배포와 검증이 이어집니다.
+
+1. `deploy-pages`
+2. `deploy-worker`
+3. `smoke`
+4. `protected-smoke`
+
+현재 운영 smoke는 커스텀 도메인이 아니라 실제 배포 origin을 기준으로 확인합니다.
+
+- Pages origin: `https://daejeon-jamissue-pages.pages.dev`
+- Worker origin: `https://daejeon-jamissue-api.yhh4433.workers.dev`
+
+## Smoke 체크
+
+### Public smoke
+
+공개 경로가 정상인지 확인합니다.
+
+- `GET /`
+- `GET /app-config.js`
 - `GET /api/health`
 - `GET /api/auth/providers`
 - `GET /api/map-bootstrap`
-- `GET /api/review-feed`
+- `GET /api/review-feed?limit=1`
 - `GET /api/community-routes`
 - `GET /api/festivals`
+- `GET /api/my/summary` 비로그인 상태 응답
 
-## 지역 행사 동기화
+### Protected smoke
 
-- GitHub Actions: `public-event-sync.yml`
-- 기본 실행 시각: 매주 일요일 03:00 KST
-- 대전시 공개 행사 데이터를 수집해 DB에 upsert
-- 프론트와 API는 원본 사이트를 직접 긁지 않고 저장된 데이터만 조회
+보호 경로는 `SMOKE_AUTH_BEARER_TOKEN`이 있을 때만 실행합니다.
+
+- 토큰이 없으면 실패가 아니라 `skip` 처리
+- 토큰이 있으면 인증이 필요한 운영 경로를 실제로 확인
+
+로컬에서 실행할 수 있는 명령:
+
+```powershell
+npm.cmd run smoke:public
+npm.cmd run smoke:protected
+```
+
+## 로컬 검증
+
+프론트 검증:
+
+```powershell
+cd D:\JamIssue
+npm.cmd install
+npm.cmd run typecheck
+npm.cmd run build
+npm.cmd run test:all
+```
+
+백엔드 검증:
+
+```powershell
+cd D:\JamIssue\backend
+python -m pytest tests
+```
+
+공공 행사 동기화 dry-run:
+
+```powershell
+cd D:\JamIssue
+node scripts/sync-daejeon-events.mjs --dry-run
+```
 
 ## 주요 환경 변수
 
@@ -94,6 +121,7 @@ CLOUDFLARE_API_TOKEN=<Cloudflare API token>
 CLOUDFLARE_ACCOUNT_ID=<Cloudflare account id>
 EVENT_IMPORT_TOKEN=<random long token>
 PUBLIC_SUPABASE_ANON_KEY=<SUPABASE_ANON_KEY>
+SMOKE_AUTH_BEARER_TOKEN=<protected smoke token>
 ```
 
 ### GitHub Repository Variables
@@ -133,28 +161,13 @@ APP_NAVER_LOGIN_CLIENT_SECRET=<NAVER_LOGIN_CLIENT_SECRET>
 APP_EVENT_IMPORT_TOKEN=<same value as GitHub EVENT_IMPORT_TOKEN>
 ```
 
-## 로컬 확인 명령
-
-```powershell
-cd D:\JamIssue
-npm.cmd install
-npm.cmd run typecheck
-npm.cmd run build
-node scripts/sync-daejeon-events.mjs --dry-run
-```
-
-```powershell
-cd D:\JamIssue\backend
-python -m pytest tests
-```
-
 ## 참고 문서
 
-- [문서 안내](D:/JamIssue/docs/README.md)
-- [배포 런북](D:/JamIssue/docs/growgardens-deploy-runbook.md)
-- [운영 리팩터링 로드맵](D:/JamIssue/docs/operations-refactor-roadmap.md)
-- [백엔드 README](D:/JamIssue/backend/README.md)
+- [문서 안내](/D:/JamIssue/docs/README.md)
+- [배포 런북](/D:/JamIssue/docs/growgardens-deploy-runbook.md)
+- [운영 리팩토링 로드맵](/D:/JamIssue/docs/operations-refactor-roadmap.md)
+- [백엔드 README](/D:/JamIssue/backend/README.md)
 
 ## CI 메모
 
-문서만 수정해서 바로 반영할 때는 커밋 메시지에 `[skip ci]`를 포함하면 GitHub Actions를 건너뜁니다.
+문서만 수정해서 Actions를 돌릴 필요가 없을 때는 커밋 메시지에 `[skip ci]`를 포함하면 됩니다.
