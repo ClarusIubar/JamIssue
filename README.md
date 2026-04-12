@@ -10,8 +10,12 @@ JamIssue는 대전 장소를 지도에서 탐색하고, 스탬프를 찍은 뒤 
 
 ## 배포 기준
 
+- 팀 구현 기준 브랜치: `team/main`
+- 백업/보관 브랜치: `main`
 - 실제 운영 반영 기준은 `origin/codex/production-deploy` 입니다.
-- `main`은 통합/정리용으로 사용할 수 있지만, 운영 화면과 API는 `codex/production-deploy`를 기준으로 확인해야 합니다.
+- 운영 배포 브랜치: `codex/production-deploy`
+- `team/main`은 팀에서 실제 구현을 쌓아가는 기준 브랜치입니다.
+- `main`은 보여주기용/백업용 브랜치로 취급하며, 구현의 source of truth로 보지 않습니다.
 - UI 수정 후 “코드는 바뀌었는데 live가 그대로”인 경우, 먼저 현재 변경이 `origin/codex/production-deploy`에 올라갔는지 확인해야 합니다.
 
 ## 핵심 사용자 흐름

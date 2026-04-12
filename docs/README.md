@@ -9,6 +9,9 @@
 
 ## 2. 배포 기준 문서
 - [growgardens-deploy-runbook.md](/D:/Code305/JamIssue/docs/growgardens-deploy-runbook.md)
+  - `team/main` 팀 구현 기준
+  - `main` 백업 브랜치 원칙
+  - `codex/production-deploy` 운영 배포 기준
   - Supabase SQL 적용 순서
   - Pages / Worker 환경변수와 시크릿
   - 운영 도메인 기준 배포 메모

@@ -1,6 +1,10 @@
 ﻿# JamIssue growgardens 운영 런북
 
-기준 브랜치: `codex/production-deploy`
+팀 구현 기준 브랜치: `team/main`
+
+백업 브랜치: `main`
+
+운영 배포 브랜치: `codex/production-deploy`
 
 현재 운영 구조는 다음과 같습니다.
 
@@ -15,6 +19,11 @@ API
 Optional
 -> FastAPI origin fallback
 ```
+
+브랜치 운영 원칙:
+- `team/main`은 팀 구현을 누적하는 기준 브랜치입니다.
+- `main`은 백업/보관용 브랜치입니다.
+- 실제 운영 반영 기준은 `codex/production-deploy`입니다.
 
 ## 현재 Worker가 직접 처리하는 범위
 
