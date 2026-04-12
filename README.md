@@ -8,28 +8,48 @@
 
 ## 운영 기준
 
-- 배포 브랜치: `main`
+- 팀 구현 기준 브랜치: `team/main`
+- 백업/보관 브랜치: `main`
+- 운영 배포 브랜치: `codex/production-deploy`
 - 프런트 도메인: `https://daejeon.jamissue.com`
 - API 도메인: `https://api.daejeon.jamissue.com`
 - Pages 프로젝트: `daejeon-jamissue-pages`
 - Worker 프로젝트: `daejeon-jamissue-api`
 - 데이터 저장소: Supabase
 
+### 브랜치 운영 원칙
+
+- `team/main`은 팀에서 실제 구현을 쌓아가는 기준 브랜치입니다.
+- `main`은 보여주기용/백업용 브랜치로 취급하며, 구현의 source of truth로 보지 않습니다.
+- 운영 배포는 `codex/production-deploy`를 별도 축으로 관리합니다.
+- 따라서 `team/main`, `main`, `codex/production-deploy`는 각각 역할이 다르며 서로 같은 승격 단계로 취급하지 않습니다.
+
 ## 배포 흐름
 
-### PR to `main`
+### PR to `codex/production-deploy`
 
 - 프런트 `npm ci`, `npm run typecheck`, `npm run build`
 - 백엔드 `pytest`
 - Pages preview 배포
 - Worker `wrangler deploy --dry-run`
 
-### Push to `main`
+### Push to `codex/production-deploy`
 
 - 프런트/백엔드 검증
 - `daejeon-jamissue-pages` production 배포
 - `daejeon-jamissue-api` production 배포
 - `production-smoke.yml`로 운영 스모크 체크 실행
+
+### Push to `team/main`
+
+- 팀 구현의 기준선으로 취급합니다.
+- 기능 개발, 팀 작업 통합, 구현 누적은 이 브랜치를 중심으로 진행합니다.
+- 운영 배포 기준 브랜치와는 별개입니다.
+
+### Push to `main`
+
+- 백업/보관 목적 브랜치로 취급합니다.
+- 팀 구현 기준선이나 운영 배포 기준선으로 간주하지 않습니다.
 
 ## 런타임 호출 경계
 

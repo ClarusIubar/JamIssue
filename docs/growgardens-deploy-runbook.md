@@ -1,13 +1,17 @@
 # JamIssue 배포 런북
 
-기준 브랜치: `main`
+팀 구현 기준 브랜치: `team/main`
+
+백업 브랜치: `main`
+
+운영 배포 브랜치: `codex/production-deploy`
 
 이 문서는 팀 저장소를 Cloudflare Pages + Cloudflare Workers + Supabase 조합으로 운영할 때 필요한 설정과 점검 순서를 정리합니다.
 
 ## 1. 현재 운영 구조
 
 ```text
-GitHub main
+GitHub codex/production-deploy
 -> GitHub Actions
 -> Cloudflare Pages (daejeon-jamissue-pages)
 -> Cloudflare Worker (daejeon-jamissue-api)
@@ -17,7 +21,13 @@ GitHub main
 운영 기준:
 - 프런트: `https://daejeon.jamissue.com`
 - API: `https://api.daejeon.jamissue.com`
-- 운영 반영 브랜치: `main`
+- 운영 반영 브랜치: `codex/production-deploy`
+
+브랜치 운영 원칙:
+- `team/main`은 팀 구현을 누적하는 기준 브랜치입니다.
+- `main`은 백업/보관용 브랜치입니다.
+- `codex/production-deploy`는 운영 배포용 브랜치입니다.
+- 세 브랜치는 역할이 다르며 같은 축으로 취급하지 않습니다.
 
 ## 2. GitHub Actions 워크플로
 
@@ -30,13 +40,24 @@ GitHub main
 
 - Pages 프로젝트명: `daejeon-jamissue-pages`
 - PR에서는 preview 배포
-- `main` push에서는 production 배포
+- 운영 배포 브랜치 push에서는 production 배포
 
 ### `cloudflare-worker.yml`
 
 - Worker 프로젝트명: `daejeon-jamissue-api`
 - PR에서는 `wrangler deploy --dry-run`
-- `main` push에서는 production 배포
+- 운영 배포 브랜치 push에서는 production 배포
+
+### `team/main` 사용 메모
+
+- `team/main`은 팀 구현 기준선입니다.
+- 기능 통합과 구현 누적은 이 브랜치를 중심으로 관리합니다.
+- 운영 배포는 여기서 직접 판단하지 않고 별도 운영 브랜치에서 관리합니다.
+
+### `main` 사용 메모
+
+- `main`은 백업/보관용 브랜치입니다.
+- 현재 기준으로 팀 구현 기준선이나 운영 배포 기준선으로 보지 않습니다.
 
 ### `public-event-sync.yml`
 
@@ -139,7 +160,7 @@ https://api.daejeon.jamissue.com/api/auth/naver/callback
 3. GitHub secrets/variables를 입력합니다.
 4. Pages 프로젝트 `daejeon-jamissue-pages`를 생성하고 custom domain을 연결합니다.
 5. 네이버 개발자센터 서비스 URL / callback URL을 운영 값으로 맞춥니다.
-6. `main` 기준 GitHub Actions 결과를 확인합니다.
+6. 운영 배포 브랜치 기준 GitHub Actions 결과를 확인합니다.
 
 ## 6. 수동 확인 명령
 

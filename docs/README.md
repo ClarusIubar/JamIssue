@@ -11,7 +11,9 @@
 ## 2. 배포 기준 문서
 
 - [growgardens-deploy-runbook.md](/D:/JamIssue/docs/growgardens-deploy-runbook.md)
-  - `main` 배포 기준
+  - `team/main` 팀 구현 기준
+  - `main` 백업 브랜치 원칙
+  - `codex/production-deploy` 운영 배포 기준
   - GitHub Actions 배포 방식
   - GitHub / Cloudflare / Naver에 넣어야 할 키 위치
 - [data-operations-runbook.md](/D:/JamIssue/docs/data-operations-runbook.md)
