@@ -32,7 +32,10 @@ export function useAppCoordinatorEffects({
   services,
 }: CoordinatorEffectsArgs) {
   const { activeTab, goToTab, selectedPlaceId } = routeState;
-  const { myPageTab, sessionUser } = domainState;
+  const {
+    auth: { sessionUser },
+    myPage: { myPageTab },
+  } = domainState;
   const { mapLocationMessage, notice, setNotice } = shellRuntimeState;
   const { myCommentsLoadedOnce } = pageRuntimeState;
   const {

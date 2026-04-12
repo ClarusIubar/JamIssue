@@ -37,18 +37,18 @@ export function useAppCoordinatorActions({
     selectedPlaceId,
   } = routeState;
   const {
-    activeCommentReviewId,
-    highlightedReviewId,
-    returnView,
-    selectedRoutePreview,
-    sessionUser,
-    setActiveCommentReviewId,
-    setFeedPlaceFilterId,
-    setHighlightedCommentId,
-    setHighlightedReviewId,
-    setMyPageTab,
-    setReturnView,
-    setSelectedRoutePreview,
+    auth: { sessionUser },
+    map: { selectedRoutePreview, setSelectedRoutePreview },
+    myPage: { setMyPageTab },
+    returnView: { returnView, setReturnView },
+    review: {
+      activeCommentReviewId,
+      highlightedReviewId,
+      setActiveCommentReviewId,
+      setFeedPlaceFilterId,
+      setHighlightedCommentId,
+      setHighlightedReviewId,
+    },
   } = domainState;
   const { setNotice } = shellRuntimeState;
   const {
